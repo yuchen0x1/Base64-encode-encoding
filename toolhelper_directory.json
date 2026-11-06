@@ -1,0 +1,1044 @@
+[
+  {
+    "category": "JSON",
+    "tools": [
+      {
+        "name": "JSON 格式化",
+        "url": "/JSON/JSONFormat?type=1"
+      },
+      {
+        "name": "JSON 转义",
+        "url": "/JSON/JSONEscape"
+      },
+      {
+        "name": "JSON 与 URL 参数 互转",
+        "url": "/JSON/JSONToUrlParameter"
+      },
+      {
+        "name": "JSON 生成实体类",
+        "url": "/JSON/JSONToModel"
+      }
+    ]
+  },
+  {
+    "category": "格式化",
+    "tools": [
+      {
+        "name": "HTML 格式化",
+        "url": "/Format/HTML?type=1"
+      },
+      {
+        "name": "JavaScript 格式化",
+        "url": "/Format/JavaScript"
+      },
+      {
+        "name": "CSS 格式化",
+        "url": "/Format/CSS"
+      },
+      {
+        "name": "JSON 格式化",
+        "url": "/JSON/JSONFormat?type=2"
+      },
+      {
+        "name": "XML 格式化",
+        "url": "/Format/XML"
+      },
+      {
+        "name": "SQL 格式化",
+        "url": "/Format/SQL"
+      },
+      {
+        "name": "C 格式化",
+        "url": "/Format/C"
+      },
+      {
+        "name": "C&#x2B;&#x2B; 格式化",
+        "url": "/Format/Cpp"
+      },
+      {
+        "name": "C# 格式化",
+        "url": "/Format/CSharp"
+      },
+      {
+        "name": "Java 格式化",
+        "url": "/Format/Java"
+      },
+      {
+        "name": "PHP 格式化",
+        "url": "/Format/PHP"
+      },
+      {
+        "name": "Python 格式化",
+        "url": "/Format/Python"
+      },
+      {
+        "name": "Yaml 格式化",
+        "url": "/Format/Yaml"
+      },
+      {
+        "name": "Nginx 格式化",
+        "url": "/Format/Nginx"
+      }
+    ]
+  },
+  {
+    "category": "URL",
+    "tools": [
+      {
+        "name": "URL 参数格式化",
+        "url": "/Url/UrlParameterFormat"
+      },
+      {
+        "name": "URL 参数与 JSON 互转",
+        "url": "/Url/UrlParameterJson"
+      },
+      {
+        "name": "URL  编码/解码",
+        "url": "/EncodeDecode/Url?type=1"
+      },
+      {
+        "name": "URL  编码/解码(js 方式)",
+        "url": "/Url/JsEncodeDecode"
+      },
+      {
+        "name": "URL 批量生成器",
+        "url": "/Url/UrlGenerate"
+      }
+    ]
+  },
+  {
+    "category": "编码与解码",
+    "tools": [
+      {
+        "name": "字符  编码/解码",
+        "url": "/EncodeDecode/EncodeDecode"
+      },
+      {
+        "name": "ISO-8859-1 乱码解码",
+        "url": "/EncodeDecode/GarbleDecode"
+      },
+      {
+        "name": "URL  编码/解码",
+        "url": "/EncodeDecode/Url?type=2"
+      },
+      {
+        "name": "Base64  编码/解码",
+        "url": "/EncodeDecode/Base64"
+      },
+      {
+        "name": "Base64 与 图片 转换",
+        "url": "/Image/Base64"
+      },
+      {
+        "name": "Base16 Base32 Base58 Base62 Base85 Base91 编码/解码",
+        "url": "/EncodeDecode/Base"
+      },
+      {
+        "name": "Unicode与中文  编码/解码",
+        "url": "/EncodeDecode/UnicodeChinese"
+      },
+      {
+        "name": "Punycode  编码/解码",
+        "url": "/EncodeDecode/Punycode"
+      },
+      {
+        "name": "Quoted-Printable  编码/解码",
+        "url": "/EncodeDecode/QuotedPrintable"
+      },
+      {
+        "name": "进制转换（单字节）",
+        "url": "/EncodeDecode/BaseCommon"
+      },
+      {
+        "name": "字节数组有无符号数互转",
+        "url": "/Digit/ByteArraySignedUnsignedConvert"
+      },
+      {
+        "name": "Zlib Gzip Deflate 压缩/解压缩",
+        "url": "/EncodeDecode/Compress"
+      },
+      {
+        "name": "JWT 加密/解密",
+        "url": "/EncodeDecode/JWT"
+      },
+      {
+        "name": "文件与 Hex 转换",
+        "url": "/EncodeDecode/FileHex"
+      }
+    ]
+  },
+  {
+    "category": "编码查询",
+    "tools": [
+      {
+        "name": "编码列表",
+        "url": "/Encoding/EncodingList"
+      },
+      {
+        "name": "ASCII 编码表",
+        "url": "/Encoding/ASCII"
+      },
+      {
+        "name": "GB2312 编码表",
+        "url": "/Encoding/GB2312"
+      },
+      {
+        "name": "GBK 编码表",
+        "url": "/Encoding/GBK"
+      },
+      {
+        "name": "GB18030 编码规则",
+        "url": "/Encoding/GB18030"
+      },
+      {
+        "name": "Big5 编码表",
+        "url": "/Encoding/Big5"
+      },
+      {
+        "name": "Unicode 编码规则",
+        "url": "/Encoding/Unicode"
+      },
+      {
+        "name": "UTF-16 编码表",
+        "url": "/Encoding/UTF16"
+      },
+      {
+        "name": "Emoji 表情符号",
+        "url": "/Encoding/Emoji"
+      },
+      {
+        "name": "特殊符号大全",
+        "url": "/Encoding/Symbol"
+      }
+    ]
+  },
+  {
+    "category": "数字工具",
+    "tools": [
+      {
+        "name": "进制转换（正整数）",
+        "url": "/Digit/BaseConvert"
+      },
+      {
+        "name": "进制转换（负整数）",
+        "url": "/Digit/BaseConvertNegative"
+      },
+      {
+        "name": "IEEE 754 浮点数转换",
+        "url": "/Digit/FractionConvert"
+      },
+      {
+        "name": "进制转换（BigInt）",
+        "url": "/Digit/BigIntConvert"
+      },
+      {
+        "name": "原码/反码/补码 计算器",
+        "url": "/Digit/Binary"
+      },
+      {
+        "name": "十六进制 计算器",
+        "url": "/Digit/HexCalc"
+      },
+      {
+        "name": "模幂 计算器",
+        "url": "/Digit/ModPow"
+      },
+      {
+        "name": "计算器",
+        "url": "/Digit/Calc"
+      },
+      {
+        "name": "商和余数 计算器",
+        "url": "/Digit/Remainder"
+      },
+      {
+        "name": "chmod 计算器",
+        "url": "/Other/ChmodCalc"
+      },
+      {
+        "name": "屏幕 PPI 计算器",
+        "url": "/Digit/PPICalc"
+      },
+      {
+        "name": "IPv4 转 IPv6",
+        "url": "/Digit/IpConvert"
+      },
+      {
+        "name": "大小端转换",
+        "url": "/Digit/LittleBigEndianConvert"
+      },
+      {
+        "name": "二进制逆序",
+        "url": "/Digit/ReverseBinary?type=1"
+      },
+      {
+        "name": "数组逆序",
+        "url": "/Digit/ReverseArray"
+      },
+      {
+        "name": "数字排序",
+        "url": "/Digit/DigitSort"
+      }
+    ]
+  },
+  {
+    "category": "文本工具",
+    "tools": [
+      {
+        "name": "文本对比",
+        "url": "/Text/Compare"
+      },
+      {
+        "name": "文本处理",
+        "url": "/Text/Handle"
+      },
+      {
+        "name": "文本去重排序",
+        "url": "/Text/DuplicateRemove"
+      },
+      {
+        "name": "文本重复统计",
+        "url": "/Text/DuplicateCount"
+      },
+      {
+        "name": "文本分割",
+        "url": "/Text/Split"
+      },
+      {
+        "name": "文本拼接",
+        "url": "/Text/Join"
+      },
+      {
+        "name": "文本转义/反转义",
+        "url": "/Text/Escape"
+      },
+      {
+        "name": "文本逆序",
+        "url": "/Digit/ReverseBinary?type=2"
+      },
+      {
+        "name": "文本美化",
+        "url": "/Text/Beautify"
+      },
+      {
+        "name": "文本行长度过滤",
+        "url": "/Text/LengthFilter"
+      },
+      {
+        "name": "文本行固定长度",
+        "url": "/Text/LengthSame"
+      },
+      {
+        "name": "字数统计",
+        "url": "/Text/Count"
+      },
+      {
+        "name": "标点符号转换",
+        "url": "/Text/PunctuationConvert"
+      },
+      {
+        "name": "汉字拼音转换",
+        "url": "/Text/PinYin"
+      },
+      {
+        "name": "汉字简体繁体转换",
+        "url": "/Text/JianFan"
+      },
+      {
+        "name": "英文字母大小写转换",
+        "url": "/Text/CaseConvert"
+      },
+      {
+        "name": "正则表达式",
+        "url": "/Text/RegexTest"
+      },
+      {
+        "name": "键值对转代码",
+        "url": "/Text/KeyValue"
+      },
+      {
+        "name": "目录树生成",
+        "url": "/Other/DirTree"
+      }
+    ]
+  },
+  {
+    "category": "日期时间",
+    "tools": [
+      {
+        "name": "Unix 时间戳",
+        "url": "/Date/UnixTimestamp"
+      },
+      {
+        "name": "Cron 表达式",
+        "url": "/Date/CronExpression"
+      },
+      {
+        "name": "在线秒表",
+        "url": "/Date/Stopwatch"
+      },
+      {
+        "name": "在线闹钟",
+        "url": "/Date/AlarmClock"
+      },
+      {
+        "name": "日期计算器",
+        "url": "/Date/Calc"
+      },
+      {
+        "name": "日历 万年历",
+        "url": "/Date/Calendar"
+      },
+      {
+        "name": "世界时间表",
+        "url": "/Date/WorldTime"
+      },
+      {
+        "name": "时辰对照表",
+        "url": "/Date/Shichen"
+      },
+      {
+        "name": "公历农历转换",
+        "url": "/Date/SolarLunarConvert"
+      },
+      {
+        "name": "公历闰年查询",
+        "url": "/Date/LeapYearCalc"
+      },
+      {
+        "name": "农历闰月查询",
+        "url": "/Date/LeapMonthCalc"
+      }
+    ]
+  },
+  {
+    "category": "HTML 工具",
+    "tools": [
+      {
+        "name": "HTML 下载",
+        "url": "/Html/HtmlView?type=1"
+      },
+      {
+        "name": "Meta Tag 提取",
+        "url": "/Html/MetaTagExtract"
+      },
+      {
+        "name": "HTML 标签过滤",
+        "url": "/Html/HtmlFilter"
+      },
+      {
+        "name": "HTML 格式化",
+        "url": "/Format/Html?type=2"
+      },
+      {
+        "name": "文本转 HTML 表格",
+        "url": "/Html/TextToTable"
+      },
+      {
+        "name": "HTML 在线运行",
+        "url": "/Html/Preview"
+      },
+      {
+        "name": "Markdown 在线编辑",
+        "url": "/Code/Markdown"
+      },
+      {
+        "name": "HTML 转义字符",
+        "url": "/Html/EscapeChar"
+      }
+    ]
+  },
+  {
+    "category": "HTTP 工具",
+    "tools": [
+      {
+        "name": "IP 地址查询",
+        "url": "/Http/IP"
+      },
+      {
+        "name": "浏览器指纹查看",
+        "url": "/Http/BrowserFingerprint"
+      },
+      {
+        "name": "HTML 下载",
+        "url": "/Html/HtmlView?type=2"
+      },
+      {
+        "name": "HTTP 模拟请求",
+        "url": "/Http/Test"
+      },
+      {
+        "name": "网页定时刷新",
+        "url": "/Http/Refresh"
+      },
+      {
+        "name": "服务器端口开放检测",
+        "url": "/Http/PortCheck"
+      },
+      {
+        "name": "SSL 证书检测",
+        "url": "/SSL/SSLCheck?type=1"
+      },
+      {
+        "name": "域名 Whois 查询",
+        "url": "/Http/WhoisCheck"
+      },
+      {
+        "name": "域名 DNS 查询",
+        "url": "/Http/DNSCheck"
+      },
+      {
+        "name": "HTTP 状态查询",
+        "url": "/Http/HttpStatusCheck"
+      },
+      {
+        "name": "HTTP 请求方式",
+        "url": "/Http/HttpRequestMethod"
+      },
+      {
+        "name": "HTTP MimeType",
+        "url": "/Http/MimeType"
+      }
+    ]
+  },
+  {
+    "category": "图片工具",
+    "tools": [
+      {
+        "name": "RGB 颜色代码转换",
+        "url": "/Color/RGBToHex"
+      },
+      {
+        "name": "调色板工具",
+        "url": "/Color/Palette"
+      },
+      {
+        "name": "屏幕颜色拾取",
+        "url": "/Color/PickScreenColor"
+      },
+      {
+        "name": "图片颜色拾取",
+        "url": "/Color/PickImageColor"
+      },
+      {
+        "name": "图片转 ico 图标",
+        "url": "/Image/ImageToIco"
+      },
+      {
+        "name": "九宫格图片裁剪",
+        "url": "/Image/CropGrid"
+      },
+      {
+        "name": "图片裁剪",
+        "url": "/Image/Crop"
+      },
+      {
+        "name": "图片缩放",
+        "url": "/Image/Resize"
+      },
+      {
+        "name": "图片压缩",
+        "url": "/Image/Compress"
+      },
+      {
+        "name": "图片格式转换",
+        "url": "/Image/Convert"
+      },
+      {
+        "name": "在线 Photoshop",
+        "url": "/Image/Photoshop"
+      },
+      {
+        "name": "SVG 编辑器",
+        "url": "/Image/SVGeditor"
+      },
+      {
+        "name": "涂鸦画板",
+        "url": "/Image/Doodle"
+      },
+      {
+        "name": "文字生成图片",
+        "url": "/Image/TextToImage"
+      },
+      {
+        "name": "OCR 图片文字识别",
+        "url": "/Image/OCR"
+      }
+    ]
+  },
+  {
+    "category": "GIF 工具",
+    "tools": [
+      {
+        "name": "GIF 制作",
+        "url": "/Gif/Make"
+      },
+      {
+        "name": "GIF 分解",
+        "url": "/Gif/Extract"
+      }
+    ]
+  },
+  {
+    "category": "字体工具",
+    "tools": [
+      {
+        "name": "字体预览",
+        "url": "/Font/Preview"
+      },
+      {
+        "name": "字体裁剪",
+        "url": "/Font/Subset"
+      },
+      {
+        "name": "字型查看",
+        "url": "/Font/Glyph"
+      }
+    ]
+  },
+  {
+    "category": "音视频工具",
+    "tools": [
+      {
+        "name": "音频裁剪",
+        "url": "/Media/CutAudio"
+      },
+      {
+        "name": "音频提取",
+        "url": "/Media/VideoToAudio"
+      },
+      {
+        "name": "音频音量调整",
+        "url": "/Media/AudioVolume"
+      },
+      {
+        "name": "音频格式转换",
+        "url": "/Media/AudioConvert"
+      },
+      {
+        "name": "视频格式转换",
+        "url": "/Media/VideoConvert"
+      },
+      {
+        "name": "在线录屏",
+        "url": "/Media/ScreenRecord"
+      }
+    ]
+  },
+  {
+    "category": "条形码和二维码工具",
+    "tools": [
+      {
+        "name": "条形码生成",
+        "url": "/Barcode/Generate"
+      },
+      {
+        "name": "二维码生成",
+        "url": "/QRCode/Generate"
+      },
+      {
+        "name": "条形码和二维码识别",
+        "url": "/QRCode/Recognize"
+      }
+    ]
+  },
+  {
+    "category": "SSL 证书",
+    "tools": [
+      {
+        "name": "SSL 证书检测",
+        "url": "/SSL/SSLCheck?type=2"
+      },
+      {
+        "name": "SSL 证书解析",
+        "url": "/SSL/SSLDecode"
+      },
+      {
+        "name": "Pfx To PEM",
+        "url": "/SSL/PfxToPem"
+      },
+      {
+        "name": "SSL 证书生成",
+        "url": "/SSL/SSLGenerate"
+      }
+    ]
+  },
+  {
+    "category": "摘要算法",
+    "tools": [
+      {
+        "name": "MD5 加密",
+        "url": "/DigestAlgorithm/MD5"
+      },
+      {
+        "name": "SHA 加密",
+        "url": "/DigestAlgorithm/SHA"
+      },
+      {
+        "name": "HMAC-MD5 加密",
+        "url": "/DigestAlgorithm/HMAC_MD5"
+      },
+      {
+        "name": "HMAC-SHA 加密",
+        "url": "/DigestAlgorithm/HMAC_SHA"
+      },
+      {
+        "name": "SM3 加密",
+        "url": "/DigestAlgorithm/SM3"
+      },
+      {
+        "name": "RIPEMD 加密",
+        "url": "/DigestAlgorithm/RIPEMD"
+      },
+      {
+        "name": "CRC 校验",
+        "url": "/DigestAlgorithm/CRC"
+      },
+      {
+        "name": "BCC LRC 校验",
+        "url": "/DigestAlgorithm/BCCLRC"
+      },
+      {
+        "name": "文件 Hash 计算",
+        "url": "/DigestAlgorithm/FileHash"
+      }
+    ]
+  },
+  {
+    "category": "对称加密/解密",
+    "tools": [
+      {
+        "name": "SM4 加密/解密",
+        "url": "/SymmetricEncryption/SM4"
+      },
+      {
+        "name": "DES 加密/解密",
+        "url": "/SymmetricEncryption/DES"
+      },
+      {
+        "name": "Triple DES 加密/解密",
+        "url": "/SymmetricEncryption/TripleDES"
+      },
+      {
+        "name": "AES 加密/解密",
+        "url": "/SymmetricEncryption/AES"
+      },
+      {
+        "name": "RC2 加密/解密",
+        "url": "/SymmetricEncryption/RC2"
+      },
+      {
+        "name": "RC4 加密/解密",
+        "url": "/SymmetricEncryption/RC4"
+      },
+      {
+        "name": "RC5 加密/解密",
+        "url": "/SymmetricEncryption/RC5"
+      },
+      {
+        "name": "RC6 加密/解密",
+        "url": "/SymmetricEncryption/RC6"
+      },
+      {
+        "name": "Blowfish 加密/解密",
+        "url": "/SymmetricEncryption/Blowfish"
+      },
+      {
+        "name": "Rabbit 加密/解密",
+        "url": "/SymmetricEncryption/Rabbit"
+      },
+      {
+        "name": "XOR 异或 加密/解密",
+        "url": "/SymmetricEncryption/XOR"
+      },
+      {
+        "name": "摩斯密码",
+        "url": "/SymmetricEncryption/MorseCode"
+      },
+      {
+        "name": "凯撒密码 加密/解密",
+        "url": "/SymmetricEncryption/CaesarCipher"
+      }
+    ]
+  },
+  {
+    "category": "非对称加密/解密",
+    "tools": [
+      {
+        "name": "RSA",
+        "url": "/AsymmetricEncryption/RSA"
+      },
+      {
+        "name": "SM2",
+        "url": "/AsymmetricEncryption/SM2"
+      }
+    ]
+  },
+  {
+    "category": "编译工具",
+    "tools": [
+      {
+        "name": "Assembly 在线工具",
+        "url": "/Code/Run?languageId=45"
+      },
+      {
+        "name": "C 在线工具",
+        "url": "/Code/Run?languageId=50"
+      },
+      {
+        "name": "C&#x2B;&#x2B; 在线工具",
+        "url": "/Code/Run?languageId=54"
+      },
+      {
+        "name": "C# 在线工具",
+        "url": "/Code/Run?languageId=51"
+      },
+      {
+        "name": "Go 在线工具",
+        "url": "/Code/Run?languageId=60"
+      },
+      {
+        "name": "Java 在线工具",
+        "url": "/Code/Run?languageId=62"
+      },
+      {
+        "name": "JavaScript 在线工具",
+        "url": "/Code/Run?languageId=63"
+      },
+      {
+        "name": "PHP 在线工具",
+        "url": "/Code/Run?languageId=68"
+      },
+      {
+        "name": "Python3 在线工具",
+        "url": "/Code/Run?languageId=71"
+      },
+      {
+        "name": "Rust 在线工具",
+        "url": "/Code/Run?languageId=73"
+      },
+      {
+        "name": "Swift 在线工具",
+        "url": "/Code/Run?languageId=83"
+      }
+    ]
+  },
+  {
+    "category": "随机数工具",
+    "tools": [
+      {
+        "name": "随机数生成器",
+        "url": "/Random/Number"
+      },
+      {
+        "name": "随机密码生成器",
+        "url": "/Random/Password"
+      },
+      {
+        "name": "GUID 生成器",
+        "url": "/Random/GUID"
+      }
+    ]
+  },
+  {
+    "category": "决策工具",
+    "tools": [
+      {
+        "name": "随机转盘",
+        "url": "/Decision/SpinWheel"
+      },
+      {
+        "name": "随机骰子",
+        "url": "/Decision/Dice"
+      }
+    ]
+  },
+  {
+    "category": "设备辅助测试",
+    "tools": [
+      {
+        "name": "键盘按键测试",
+        "url": "/Keyboard/KeyboardTest"
+      },
+      {
+        "name": "键盘 KeyCode 值",
+        "url": "/Keyboard/KeyCode"
+      },
+      {
+        "name": "鼠标按键测试",
+        "url": "/Device/MouseTest"
+      },
+      {
+        "name": "麦克风测试",
+        "url": "/Device/MicrophoneTest"
+      },
+      {
+        "name": "摄像头测试",
+        "url": "/Device/WebcamTest"
+      },
+      {
+        "name": "屏幕测试",
+        "url": "/Device/ScreenTest"
+      }
+    ]
+  },
+  {
+    "category": "软件下载",
+    "tools": [
+      {
+        "name": "Windows 11 操作系统",
+        "url": "/Software/Windows11"
+      },
+      {
+        "name": "Windows 10 操作系统",
+        "url": "/Software/Windows10"
+      },
+      {
+        "name": "Windows 7 操作系统",
+        "url": "/Software/Windows7"
+      },
+      {
+        "name": "Windows Office",
+        "url": "/Software/WindowsOffice"
+      },
+      {
+        "name": "小龙猫—整站下载助手",
+        "url": "/Software/TotoroHtmlDownload"
+      },
+      {
+        "name": "小龙猫—素材下载助手",
+        "url": "/Software/TotoroMediaDownload"
+      }
+    ]
+  },
+  {
+    "category": "生活",
+    "tools": [
+      {
+        "name": "单位换算",
+        "url": "/Digit/UnitConvert"
+      },
+      {
+        "name": "年龄计算器",
+        "url": "/Date/Age"
+      },
+      {
+        "name": "房贷计算器",
+        "url": "/Digit/HouseLoan"
+      },
+      {
+        "name": "人民币大写转换",
+        "url": "/Digit/RenMinBi"
+      }
+    ]
+  },
+  {
+    "category": "健康",
+    "tools": [
+      {
+        "name": "BMI 计算器",
+        "url": "/Health/BMICalc"
+      }
+    ]
+  },
+  {
+    "category": "其他",
+    "tools": [
+      {
+        "name": "精品教程",
+        "url": "/Tutorial"
+      },
+      {
+        "name": "搜索引擎导航",
+        "url": "/Other/SearchNavigate"
+      },
+      {
+        "name": "剪切板内容查看",
+        "url": "/Other/Clipboard"
+      },
+      {
+        "name": "AI 模型",
+        "url": "/AI/Model"
+      }
+    ]
+  },
+  {
+    "category": "娱乐工具",
+    "tools": [
+      {
+        "name": "π Day 挑战",
+        "url": "/Game/PiDayChallenge"
+      },
+      {
+        "name": "1024",
+        "url": "/Game/Play1024"
+      },
+      {
+        "name": "2048",
+        "url": "/Game/Play2048"
+      },
+      {
+        "name": "三阶魔方",
+        "url": "/Game/MagicCube"
+      },
+      {
+        "name": "五子棋",
+        "url": "/Game/WuZiQi"
+      },
+      {
+        "name": "指尖陀螺",
+        "url": "/Game/FidgetSpinning"
+      },
+      {
+        "name": "弹跳小球",
+        "url": "/Game/BouncyBall"
+      },
+      {
+        "name": "反应时间测试",
+        "url": "/Game/ReactTest"
+      },
+      {
+        "name": "黑客帝国文字雨",
+        "url": "/Game/MatrixDigitalRain"
+      }
+    ]
+  },
+  {
+    "category": "关于我们",
+    "tools": [
+      {
+        "name": "常见问题",
+        "url": "/Home/QuestionAndAnswer"
+      },
+      {
+        "name": "问题反馈",
+        "url": "/Home/Contact"
+      },
+      {
+        "name": "会员权益",
+        "url": "/Home/VIP"
+      },
+      {
+        "name": "捐赠支持",
+        "url": "/Home/Donate"
+      },
+      {
+        "name": "关于我们",
+        "url": "/Home/AboutUs"
+      }
+    ]
+  },
+  {
+    "category": "广告",
+    "tools": [
+      {
+        "name": "支付宝领红包",
+        "url": "/Advertisement/AlipayRedEnvelope"
+      },
+      {
+        "name": "云服务器优惠购买",
+        "url": "/Advertisement/CloudServer"
+      }
+    ]
+  }
+]

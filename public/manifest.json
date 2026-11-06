@@ -1,0 +1,17 @@
+{
+  "name": "极客工具箱",
+  "short_name": "极客工具",
+  "description": "现代化全能跨端工具箱，涵盖编解码、加解密、JSON、时间戳等 187 款小工具",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#1e293b",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}
