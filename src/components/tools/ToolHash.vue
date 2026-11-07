@@ -69,6 +69,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import CryptoJS from 'crypto-js'
+import { globalToast } from '../../composables/useToast.js'
 
 const input = ref('admin123456')
 const selectedAlgorithm = ref('MD5')
@@ -114,7 +115,7 @@ const calculatedHashes = computed(() => {
 function copy(text) {
   if (!text) return
   navigator.clipboard.writeText(text)
-  alert('已复制指纹到剪贴板！')
+  globalToast('已复制指纹到剪贴板')
 }
 </script>
 

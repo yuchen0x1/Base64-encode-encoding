@@ -29,7 +29,7 @@
           <div>
             <div class="brand-title-wrap">
               <h1 class="brand-title gradient-text">极客工具箱</h1>
-              <span class="version-chip">v1.2 PRO</span>
+              <span class="version-chip">v1.1.0</span>
             </div>
             <div class="hud-status-mini">
               <span class="status-indicator-live"></span>
@@ -82,8 +82,8 @@
       <div class="sidebar-footer">
         <div class="hud-stats-card">
           <div class="hud-stat-item">
-            <span class="hud-num gradient-cyan">187+</span>
-            <span class="hud-sub">算法就绪</span>
+            <span class="hud-num gradient-cyan">{{ toolsList.length }}</span>
+            <span class="hud-sub">本地工具</span>
           </div>
           <div class="hud-divider"></div>
           <div class="hud-stat-item">
@@ -98,7 +98,7 @@
         </div>
         <button class="btn btn-secondary btn-sm directory-btn" @click="showCatalogModal = true">
           <Layers :size="14" />
-          <span>187 款全量全景图谱</span>
+          <span>{{ catalogToolCount }} 款全量全景图谱</span>
         </button>
       </div>
     </aside>
@@ -206,6 +206,9 @@
       </div>
     </main>
 
+    <!-- 全局 Toast 通知 -->
+    <ToastContainer />
+
     <!-- 187款工具全量图谱科技感全屏模态框 -->
     <div v-if="showCatalogModal" class="modal-backdrop" @click="showCatalogModal = false">
       <div class="modal-card glass-panel" @click.stop>
@@ -213,7 +216,7 @@
           <div>
             <div class="modal-title-wrap">
               <Layers class="text-cyan" :size="20" />
-              <h3 class="modal-title gradient-text">187+ 全量工具矩阵图谱 (TOOLHELPER.CN)</h3>
+              <h3 class="modal-title gradient-text">{{ catalogToolCount }} 款全量工具矩阵图谱 (TOOLHELPER.CN)</h3>
             </div>
             <p class="modal-sub">全栈架构逆向归集完成，绿色边框高亮为已内置零延迟秒开工具</p>
           </div>
@@ -271,11 +274,15 @@ import {
   KeyRound,
   AlignLeft,
   Star,
-  Layers
+  Layers,
+  Palette,
+  Braces,
+  Database
 } from 'lucide-vue-next'
 
 import { toolCategories, toolsList } from './config/tools.js'
 import catalogJson from '../toolhelper_directory.json'
+import ToastContainer from './components/ToastContainer.vue'
 
 // 动态工具组件导入
 import ToolBase64 from './components/tools/ToolBase64.vue'
@@ -292,6 +299,12 @@ import ToolJwt from './components/tools/ToolJwt.vue'
 import ToolUnicode from './components/tools/ToolUnicode.vue'
 import ToolCipher from './components/tools/ToolCipher.vue'
 import ToolImageBase64 from './components/tools/ToolImageBase64.vue'
+import ToolAes from './components/tools/ToolAes.vue'
+import ToolTextTools from './components/tools/ToolTextTools.vue'
+import ToolJwtGenerator from './components/tools/ToolJwtGenerator.vue'
+import ToolColor from './components/tools/ToolColor.vue'
+import ToolEscape from './components/tools/ToolEscape.vue'
+import ToolSql from './components/tools/ToolSql.vue'
 
 const categoryIconMap = {
   LayoutGrid,
@@ -302,7 +315,10 @@ const categoryIconMap = {
   FileText,
   Calculator,
   Clock,
-  Image
+  Image,
+  Palette,
+  Braces,
+  Database
 }
 
 const toolComponentsMap = {
@@ -320,28 +336,69 @@ const toolComponentsMap = {
   'text-diff': ToolDiff,
   'regex-tester': ToolRegex,
   'random-password': ToolPassword,
-  'aes-crypto': ToolHash,
-  'text-toolbox': ToolDiff
+  'aes-crypto': ToolAes,
+  'text-toolbox': ToolTextTools,
+  'jwt-generator': ToolJwtGenerator,
+  'color-converter': ToolColor,
+  'escape-toolbox': ToolEscape,
+  'sql-formatter': ToolSql
 }
 
+// localStorage 持久化辅助
+const STORAGE_KEY = 'geek-toolbox-state'
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      isDark: isDark.value,
+      favorites: favorites.value,
+      openTabs: openTabs.value.map(t => t.id),
+      currentToolId: currentToolId.value
+    }))
+  } catch {
+    /* 忽略存储失败 */
+  }
+}
+
+const savedState = loadState()
+
 // 状态管理
-const isDark = ref(true)
+const isDark = ref(savedState ? savedState.isDark : true)
 const mobileMenuOpen = ref(false)
 const showCatalogModal = ref(false)
 const searchQuery = ref('')
 const activeCategory = ref('all')
-const currentToolId = ref('base64')
-const favorites = ref(['base64', 'json-format', 'timestamp', 'url-codec', 'radix-convert'])
+const currentToolId = ref(savedState && savedState.currentToolId ? savedState.currentToolId : 'base64')
+const favorites = ref(savedState && Array.isArray(savedState.favorites) && savedState.favorites.length
+  ? savedState.favorites
+  : ['base64', 'json-format', 'timestamp', 'url-codec', 'radix-convert'])
 
 // 多标签管理
-const openTabs = ref([
-  toolsList.find(t => t.id === 'base64'),
-  toolsList.find(t => t.id === 'json-format'),
-  toolsList.find(t => t.id === 'timestamp'),
-  toolsList.find(t => t.id === 'radix-convert')
-].filter(Boolean))
+function resolveTabs() {
+  if (savedState && Array.isArray(savedState.openTabs) && savedState.openTabs.length) {
+    const tabs = savedState.openTabs
+      .map(id => toolsList.find(t => t.id === id))
+      .filter(Boolean)
+    if (tabs.length) return tabs
+  }
+  return [
+    toolsList.find(t => t.id === 'base64'),
+    toolsList.find(t => t.id === 'json-format'),
+    toolsList.find(t => t.id === 'timestamp'),
+    toolsList.find(t => t.id === 'radix-convert')
+  ].filter(Boolean)
+}
+const openTabs = ref(resolveTabs())
 
 const allCatalog = ref(catalogJson)
+const catalogToolCount = computed(() => allCatalog.value.reduce((total, category) => total + category.tools.length, 0))
 
 // 主题切换
 function toggleTheme() {
@@ -351,6 +408,7 @@ function toggleTheme() {
   } else {
     document.documentElement.classList.remove('dark')
   }
+  saveState()
 }
 
 // 计算当前工具
@@ -409,10 +467,12 @@ function openTool(tool) {
     openTabs.value.push(tool)
   }
   mobileMenuOpen.value = false
+  saveState()
 }
 
 function switchTool(toolId) {
   currentToolId.value = toolId
+  saveState()
 }
 
 function closeTab(toolId) {
@@ -423,6 +483,7 @@ function closeTab(toolId) {
     if (currentToolId.value === toolId) {
       currentToolId.value = openTabs.value[Math.max(0, idx - 1)].id
     }
+    saveState()
   }
 }
 
@@ -433,6 +494,7 @@ function toggleFavorite(id) {
   } else {
     favorites.value.push(id)
   }
+  saveState()
 }
 
 function isFavorite(id) {
@@ -453,7 +515,11 @@ function handleKeydown(e) {
 }
 
 onMounted(() => {
-  document.documentElement.classList.add('dark')
+  if (isDark.value) {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
   window.addEventListener('keydown', handleKeydown)
 })
 

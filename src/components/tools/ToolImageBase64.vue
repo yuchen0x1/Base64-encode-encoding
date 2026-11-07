@@ -98,6 +98,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { globalToast } from '../../composables/useToast.js'
 
 const activeMode = ref('img2base64')
 const fileInput = ref(null)
@@ -114,7 +115,7 @@ function triggerFileInput() {
 
 function processFile(file) {
   if (!file || !file.type.startsWith('image/')) {
-    alert('请选择有效的图片格式文件！')
+    globalToast('请选择有效的图片格式文件！', 'error')
     return
   }
   fileInfo.value = {
@@ -151,7 +152,7 @@ function copyHtmlTag() {
   if (!outputBase64.value) return
   const tag = `<img src="${outputBase64.value}" alt="image" />`
   navigator.clipboard.writeText(tag)
-  alert('已成功复制 <img> HTML 标签代码！')
+  globalToast('已复制 <img> HTML 标签代码')
 }
 
 const renderSrc = computed(() => {

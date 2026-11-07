@@ -154,5 +154,41 @@ export const toolsList = [
     tags: ['text', 'count', 'unique', '文本统计', '去重'],
     icon: 'AlignLeft',
     isCommon: false
+  },
+  {
+    id: 'jwt-generator',
+    name: 'JWT 令牌生成器 (HS256)',
+    category: 'encode',
+    description: '自定义 Header/Payload，自动注入 iat/exp 时效声明，HS256 签名生成',
+    tags: ['jwt', 'token', 'generate', 'hs256', '签名', '生成'],
+    icon: 'KeyRound',
+    isCommon: true
+  },
+  {
+    id: 'color-converter',
+    name: '颜色格式转换器',
+    category: 'media',
+    description: 'HEX / RGB / RGBA / HSL 全格式互转，带实时取色器与调色板',
+    tags: ['color', 'hex', 'rgb', 'hsl', '颜色', '取色'],
+    icon: 'Palette',
+    isCommon: true
+  },
+  {
+    id: 'escape-toolbox',
+    name: '转义字符工具',
+    category: 'encode',
+    description: 'C 风格、Unicode (\\uXXXX)、Hex (\\x41) 转义与还原互转',
+    tags: ['escape', 'unescape', '转义', '字符串', 'special char'],
+    icon: 'Braces',
+    isCommon: true
+  },
+  {
+    id: 'sql-formatter',
+    name: 'SQL 格式化工具',
+    category: 'json',
+    description: '离线美化、压缩常用 SQL 查询，仅处理文本，不执行任何数据库操作',
+    tags: ['sql', 'format', 'minify', 'query', '数据库', '格式化'],
+    icon: 'Database',
+    isCommon: true
   }
 ]

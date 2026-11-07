@@ -112,6 +112,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { globalToast } from '../../composables/useToast.js'
 
 const binVal = ref('11010110')
 const octVal = ref('326')
@@ -205,7 +206,7 @@ function resetValues() {
 function copy(text) {
   if (!text) return
   navigator.clipboard.writeText(text)
-  alert('已复制：' + text)
+  globalToast('已复制：' + text)
 }
 </script>
 

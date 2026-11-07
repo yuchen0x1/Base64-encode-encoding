@@ -75,6 +75,7 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
+import { globalToast } from '../../composables/useToast.js'
 
 const passwordLength = ref(20)
 const includeUpper = ref(true)
@@ -126,7 +127,7 @@ watch([passwordLength, includeUpper, includeLower, includeNumbers, includeSymbol
 
 function copy(text) {
   navigator.clipboard.writeText(text)
-  alert('已复制到剪贴板！')
+  globalToast('已复制到剪贴板')
 }
 
 onMounted(() => {

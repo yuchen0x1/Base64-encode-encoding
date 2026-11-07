@@ -93,6 +93,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { globalToast } from '../../composables/useToast.js'
 
 const mode = ref('encode')
 const input = ref('你好，极客工具箱！Hello, World! 🚀')
@@ -162,7 +163,7 @@ async function pasteInput() {
     const text = await navigator.clipboard.readText()
     input.value = text
   } catch {
-    alert('无法读取剪贴板，请手动使用 Ctrl+V 粘贴')
+    globalToast('无法读取剪贴板，请手动使用 Ctrl+V 粘贴', 'error')
   }
 }
 

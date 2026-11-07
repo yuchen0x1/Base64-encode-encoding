@@ -6,6 +6,9 @@
         <button class="btn btn-secondary btn-sm" @click="minifyJson">📦 压缩紧凑 (MINIFY)</button>
         <button class="btn btn-secondary btn-sm" @click="escapeJson">🔤 转义斜杠</button>
         <button class="btn btn-secondary btn-sm" @click="unescapeJson">↩️ 去除转义</button>
+        <button class="btn btn-secondary btn-sm" @click="sortJsonKeys">↕️ 键名排序</button>
+        <button class="btn btn-secondary btn-sm" @click="removeEmptyValues">🧹 清理空值</button>
+        <button class="btn btn-secondary btn-sm" @click="generateTypeScript">TS 类型</button>
         <button class="btn btn-secondary btn-sm" @click="loadSample">📝 加载科技示例</button>
       </div>
       <div class="actions">
@@ -53,11 +56,35 @@
         spellcheck="false"
       ></textarea>
     </div>
+
+    <div v-if="generatedTypeScript" class="glass-panel editor-container generated-editor">
+      <div class="editor-header">
+        <div class="mac-dots">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+        </div>
+        <span class="editor-filename code-font">generated_types.ts</span>
+        <div class="generated-actions">
+          <span class="editor-mode code-font">TypeScript · Interfaces</span>
+          <button class="btn btn-primary btn-sm" @click="copyTypeScript">
+            {{ typeCopied ? '已复制 ✔' : '📋 复制类型' }}
+          </button>
+        </div>
+      </div>
+      <textarea
+        v-model="generatedTypeScript"
+        readonly
+        class="textarea-control code-font main-editor generated-output"
+        spellcheck="false"
+      ></textarea>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
+import { globalToast } from '../../composables/useToast.js'
 
 const input = ref(`{
   "system": "极客工具箱 (ToolBox Pro)",
@@ -80,6 +107,8 @@ const input = ref(`{
   }
 }`)
 const copied = ref(false)
+const typeCopied = ref(false)
+const generatedTypeScript = ref('')
 const error = ref('')
 
 const isValid = computed(() => {
@@ -113,36 +142,124 @@ const jsonStats = computed(() => {
   }
 })
 
-function formatJson() {
-  error.value = ''
+function parseInput() {
   try {
-    const parsed = JSON.parse(input.value)
-    input.value = JSON.stringify(parsed, null, 2)
+    return JSON.parse(input.value)
   } catch (e) {
     error.value = e.message
+    return null
   }
+}
+
+function formatJson() {
+  error.value = ''
+  const parsed = parseInput()
+  if (parsed === null) return
+  input.value = JSON.stringify(parsed, null, 2)
+  generatedTypeScript.value = ''
+  globalToast('JSON 已格式化')
 }
 
 function minifyJson() {
   error.value = ''
-  try {
-    const parsed = JSON.parse(input.value)
-    input.value = JSON.stringify(parsed)
-  } catch (e) {
-    error.value = e.message
-  }
+  const parsed = parseInput()
+  if (parsed === null) return
+  input.value = JSON.stringify(parsed)
+  generatedTypeScript.value = ''
+  globalToast('JSON 已压缩')
 }
 
 function escapeJson() {
   input.value = JSON.stringify(input.value)
+  generatedTypeScript.value = ''
 }
 
 function unescapeJson() {
+  error.value = ''
   try {
     input.value = JSON.parse(input.value)
+    generatedTypeScript.value = ''
   } catch (e) {
     error.value = '无法反转义：' + e.message
   }
+}
+
+function sortObjectKeys(value) {
+  if (Array.isArray(value)) return value.map(sortObjectKeys)
+  if (value && typeof value === 'object') {
+    return Object.keys(value).sort((a, b) => a.localeCompare(b)).reduce((result, key) => {
+      result[key] = sortObjectKeys(value[key])
+      return result
+    }, {})
+  }
+  return value
+}
+
+function sortJsonKeys() {
+  error.value = ''
+  const parsed = parseInput()
+  if (parsed === null) return
+  input.value = JSON.stringify(sortObjectKeys(parsed), null, 2)
+  globalToast('JSON 键名已排序')
+}
+
+function removeEmptyValuesFrom(value) {
+  if (Array.isArray(value)) {
+    return value.map(removeEmptyValuesFrom).filter(item => item !== null && item !== undefined && item !== '')
+  }
+  if (value && typeof value === 'object') {
+    return Object.keys(value).reduce((result, key) => {
+      const next = removeEmptyValuesFrom(value[key])
+      if (next !== null && next !== undefined && next !== '') result[key] = next
+      return result
+    }, {})
+  }
+  return value
+}
+
+function removeEmptyValues() {
+  error.value = ''
+  const parsed = parseInput()
+  if (parsed === null) return
+  input.value = JSON.stringify(removeEmptyValuesFrom(parsed), null, 2)
+  globalToast('空值已清理')
+}
+
+function toTypeName(key) {
+  const cleaned = key.replace(/[^a-zA-Z0-9_$]/g, '_')
+  return /^[0-9]/.test(cleaned) ? `_${cleaned}` : cleaned || 'Root'
+}
+
+function inferType(value, name, interfaces) {
+  if (value === null) return 'unknown'
+  if (Array.isArray(value)) {
+    if (!value.length) return 'unknown[]'
+    const types = [...new Set(value.map(item => inferType(item, `${name}Item`, interfaces)))]
+    return types.length === 1 ? `${types[0]}[]` : `(${types.join(' | ')})[]`
+  }
+  if (typeof value === 'object') {
+    const interfaceName = toTypeName(name)
+    const fields = Object.entries(value).map(([key, item]) => {
+      const type = inferType(item, `${interfaceName}${toTypeName(key)}`, interfaces)
+      const optional = item === null ? '?' : ''
+      return `  ${toTypeName(key)}${optional}: ${type};`
+    })
+    interfaces.push(`export interface ${interfaceName} {\n${fields.join('\n')}\n}`)
+    return interfaceName
+  }
+  if (typeof value === 'number') return Number.isInteger(value) ? 'number' : 'number'
+  if (typeof value === 'boolean') return 'boolean'
+  return 'string'
+}
+
+function generateTypeScript() {
+  error.value = ''
+  const parsed = parseInput()
+  if (parsed === null) return
+  const interfaces = []
+  const rootType = inferType(parsed, 'Root', interfaces)
+  generatedTypeScript.value = `${interfaces.reverse().join('\n\n')}\n\nexport type RootData = ${rootType}`
+  globalToast('TypeScript 类型已生成')
 }
 
 function loadSample() {
@@ -158,6 +275,7 @@ function loadSample() {
     protocols: ["TLS_1.3", "LOCAL_SANDBOX"]
   }, null, 2)
   error.value = ''
+  generatedTypeScript.value = ''
 }
 
 function copyCode() {
@@ -165,6 +283,15 @@ function copyCode() {
   navigator.clipboard.writeText(input.value)
   copied.value = true
   setTimeout(() => (copied.value = false), 2000)
+  globalToast('JSON 已复制到剪贴板')
+}
+
+function copyTypeScript() {
+  if (!generatedTypeScript.value) return
+  navigator.clipboard.writeText(generatedTypeScript.value)
+  typeCopied.value = true
+  setTimeout(() => (typeCopied.value = false), 2000)
+  globalToast('TypeScript 类型已复制')
 }
 </script>
 
@@ -272,6 +399,14 @@ function copyCode() {
   background: rgba(56, 189, 248, 0.1);
   padding: 0.1rem 0.4rem;
   border-radius: 3px;
+}
+.generated-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.generated-editor {
+  min-height: 280px;
 }
 .main-editor {
   flex: 1;

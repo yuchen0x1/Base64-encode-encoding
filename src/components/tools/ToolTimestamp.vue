@@ -103,6 +103,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { globalToast } from '../../composables/useToast.js'
 
 const currentDateTimeStr = ref('')
 const nowSeconds = ref(0)
@@ -176,7 +177,7 @@ function convertDateToStamp() {
 
 function copy(text) {
   navigator.clipboard.writeText(text)
-  alert('已复制：' + text)
+  globalToast('已复制：' + text)
 }
 
 onMounted(() => {
