@@ -63,7 +63,9 @@ async function waitForExit(pid, timeoutMs = 60000) {
  * 一旦被 Node 加上引号，路径里就会多出两个字面引号。因此只有路径不含空格时才传 /D，
  * 其余情况交给安装器自己按卸载注册表 / 默认目录决定（升级场景通常已经是同一目录）。
  */
-function runInstaller(installer, target) {
+function runInstaller(installer, targetPath) {
+  // NSIS 只认反斜杠路径：正斜杠会被当成命令行开关吃掉，导致装到 "C:Userslenmo..." 这种畸形路径。
+  const target = targetPath ? targetPath.replace(/\//g, '\\') : ''
   const args = ['/S']
   const useDir = target && !/[\s"]/.test(target)
   const spawnOptions = { stdio: 'ignore', windowsHide: true }
@@ -118,7 +120,19 @@ async function main() {
   }
 
   log(`拉起新版本：${installed}`)
-  spawn(installed, [], { detached: true, stdio: 'ignore' }).unref()
+  // 关键：安装助手自身是带 ELECTRON_RUN_AS_NODE=1 启动的，
+  // 若把该变量透传给新进程，应用会被当成 Node 解释器运行并立刻退出（报 bad option）。
+  const launchEnv = { ...process.env }
+  delete launchEnv.ELECTRON_RUN_AS_NODE
+  spawn(installed, [], { detached: true, stdio: 'ignore', env: launchEnv }).unref()
+
+  // 安装包已生效，删掉下载缓存，避免每升一次版本就在 userData 里留一份 100+ MB 的 exe
+  try {
+    fs.unlinkSync(installer)
+    log('已清理下载缓存中的安装包')
+  } catch {
+    /* 文件被占用时忽略，下次更新会覆盖 */
+  }
 }
 
 main()
