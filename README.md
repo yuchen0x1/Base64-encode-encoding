@@ -29,6 +29,19 @@ npm run dev
 
 开发服务器默认地址：`http://127.0.0.1:5173/`
 
+## 测试与代码质量
+
+本项目已接入 Vitest 单元测试与 ESLint 静态检查：
+
+```bash
+npm test          # 运行单元测试（纯 Node 环境，覆盖版本比较、ZIP、注册表、HTML 实体）
+npm run test:watch # 监听模式
+npm run lint      # ESLint 检查（src / electron / server / shared / tests）
+npm run lint:fix  # 自动修复可修复项
+```
+
+单元测试同时充当「工具注册表一致性自检」的护栏：新增工具时若只改了 `tools.js` 而遗漏 `src/config/registry.js`，测试与开发期运行都会立即报错。
+
 构建生产文件：
 
 ```bash

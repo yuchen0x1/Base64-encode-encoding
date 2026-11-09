@@ -72,7 +72,7 @@ import { globalToast } from '../../composables/useToast.js'
 
 const mode = ref('escape')
 const style = ref('c')
-const input = ref('你好，极客工具箱！\n第二行 \t "引号" \ 反斜杠')
+const input = ref('你好，极客工具箱！\n第二行 \t "引号" \\ 反斜杠')
 const copied = ref(false)
 
 function escapeC(str) {
@@ -92,10 +92,10 @@ function unescapeC(str) {
     .replace(/\\b/g, '\b')
     .replace(/\\f/g, '\f')
     .replace(/\\v/g, '\v')
-    .replace(/\\\\/g, '\u0000')
+    .replace(/\\\\/g, '\uE000')
     .replace(/\\"/g, '"')
     .replace(/\\'/g, "'")
-    .replace(/\u0000/g, '\\')
+    .replace(/\uE000/g, '\\')
 }
 
 function escapeUnicode(str) {

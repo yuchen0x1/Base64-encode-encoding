@@ -181,7 +181,7 @@ export async function checkForUpdates() {
     manifest = result.manifest
     base = result.base
   } catch (error) {
-    throw new Error(`${error.message}（更新源：${feed}）`)
+    throw new Error(`${error.message}（更新源：${feed}）`, { cause: error })
   }
 
   if (!manifest || !manifest.version) throw new Error('更新清单缺少 version 字段')

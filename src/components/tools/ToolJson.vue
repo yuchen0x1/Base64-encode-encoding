@@ -96,12 +96,12 @@ const input = ref(`{
     "web": "Vite + Vue 3 Ultra UI"
   },
   "modules": {
-    "totalTools": 187,
-    "activeEngine": "100% Offline",
+    "totalTools": 21,
+    "activeEngine": "Local-First",
     "cyberMode": true
   },
   "security": {
-    "csp": "STRICT",
+    "csp": "SELF + INLINE + HTTPS CONNECT",
     "xssDefense": true,
     "cloudTelemetry": "DISABLED"
   }

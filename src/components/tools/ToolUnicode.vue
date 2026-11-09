@@ -12,7 +12,7 @@
           :class="['tab-pill', targetType === 'html-entity' ? 'active' : '']"
           @click="targetType = 'html-entity'"
         >
-          HTML 实体 (&amp; / &lt; / &#x)
+          HTML 实体 (&amp; / &lt; / &amp;#x)
         </button>
       </div>
 
@@ -74,6 +74,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { decodeHtmlEntities } from '../../utils/htmlEntities.js'
 
 const targetType = ref('unicode')
 const mode = ref('encode')
@@ -103,9 +104,8 @@ function strToHtmlEntities(str) {
 }
 
 function htmlEntitiesToStr(str) {
-  const txt = document.createElement('textarea')
-  txt.innerHTML = str
-  return txt.value
+  // 纯字符串解析，不再使用 textarea.innerHTML，避免将用户输入写入 DOM
+  return decodeHtmlEntities(str)
 }
 
 const output = computed(() => {

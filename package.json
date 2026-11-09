@@ -15,7 +15,13 @@
     "release:desktop": "node scripts/release.mjs --desktop",
     "electron:dev": "vite build && electron .",
     "build:win": "vite build && electron-builder --win --x64 --dir",
-    "package:win": "vite build && electron-builder --win portable"
+    "package:win": "vite build && electron-builder --win --x64",
+    "package:win:portable": "vite build && electron-builder -w portable",
+    "package:win:all": "vite build && electron-builder --win --x64",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "build": {
     "appId": "cn.toolhelper.toolbox",
@@ -31,9 +37,22 @@
     ],
     "win": {
       "target": [
-        "dir",
+        "nsis",
         "portable"
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "极客工具箱",
+      "language": "2052",
+      "installerLanguages": [
+        "zh_CN"
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "mac": {
       "target": [
@@ -48,11 +67,16 @@
   "license": "MIT",
   "devDependencies": {
     "@electron/asar": "^3.4.1",
+    "@eslint/js": "^10.0.1",
     "@vitejs/plugin-vue": "^6.0.10",
     "electron": "^45.2.3",
     "electron-builder": "^26.18.0",
+    "eslint": "^10.14.0",
+    "eslint-plugin-vue": "^10.12.0",
+    "globals": "^17.14.0",
     "lucide-vue-next": "^0.577.0",
     "vite": "^8.3.6",
+    "vitest": "^5.1.0",
     "vue": "^3.5.44"
   },
   "dependencies": {

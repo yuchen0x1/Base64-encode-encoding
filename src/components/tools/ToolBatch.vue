@@ -499,9 +499,9 @@ function csvEscape(value) {
 function exportAs(format) {
   if (!results.value.length) return
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-  let content = ''
+  let content
   let mime = 'text/plain;charset=utf-8'
-  let ext = 'txt'
+  let ext
 
   if (format === 'json') {
     content = JSON.stringify({

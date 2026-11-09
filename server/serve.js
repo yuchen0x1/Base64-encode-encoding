@@ -288,7 +288,7 @@ async function replaceInPlace(staging, root) {
   } catch (error) {
     await fs.writeFile(path.join(root, 'index.html'), oldIndex).catch(() => {})
     if (oldVersion) await fs.writeFile(path.join(root, 'version.json'), oldVersion).catch(() => {})
-    throw new Error(`逐文件覆盖失败，已回滚入口文件：${error.message}`)
+    throw new Error(`逐文件覆盖失败，已回滚入口文件：${error.message}`, { cause: error })
   }
 }
 
@@ -355,7 +355,7 @@ async function applyUpdate(jobId) {
       await renameWithRetry(staging, ROOT)
     } catch (error) {
       await renameWithRetry(backup, ROOT).catch(() => {})
-      throw new Error(`替换文件失败，已回滚：${error.message}`)
+      throw new Error(`替换文件失败，已回滚：${error.message}`, { cause: error })
     }
     removeDir(backup).catch(() => {})
   }

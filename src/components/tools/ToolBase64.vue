@@ -139,7 +139,7 @@ function base64ToUtf8(str) {
     }
     return new TextDecoder().decode(bytes)
   } catch (e) {
-    throw new Error('无效的 Base64 格式或编码损坏')
+    throw new Error('无效的 Base64 格式或编码损坏', { cause: e })
   }
 }
 

@@ -179,7 +179,9 @@
 
         <!-- 嵌入工具组件 -->
         <div class="tool-component-wrapper">
-          <component :is="currentToolComponent" v-if="currentToolComponent" />
+          <KeepAlive v-if="currentToolComponent" :max="toolsList.length">
+            <component :is="currentToolComponent" :key="currentToolId" />
+          </KeepAlive>
           <div v-else class="tool-not-found glass-panel">
             <p>该功能正在接入中，已规划在全量离线工具库内。</p>
           </div>
@@ -219,7 +221,7 @@
     <!-- 版本更新弹窗（网页版 / 桌面版共用） -->
     <UpdateModal />
 
-    <!-- 187款工具全量图谱科技感全屏模态框 -->
+    <!-- 外部工具目录图谱 -->
     <div v-if="showCatalogModal" class="modal-backdrop" @click="showCatalogModal = false">
       <div class="modal-card glass-panel" @click.stop>
         <div class="modal-header">
@@ -228,7 +230,7 @@
               <Layers class="text-cyan" :size="20" />
               <h3 class="modal-title gradient-text">{{ catalogToolCount }} 款全量工具矩阵图谱 (TOOLHELPER.CN)</h3>
             </div>
-            <p class="modal-sub">全栈架构逆向归集完成，绿色边框高亮为已内置零延迟秒开工具</p>
+            <p class="modal-sub">目录收录 {{ catalogToolCount }} 项；本项目实际内置 {{ toolsList.length }} 款可用工具，其余为目录索引</p>
           </div>
           <button class="cyber-close-btn" @click="showCatalogModal = false">
             <X :size="20" />
@@ -247,7 +249,7 @@
                 :class="['catalog-item-badge', isNativeTool(t.name) ? 'native' : '']"
               >
                 <span>{{ t.name }}</span>
-                <span v-if="isNativeTool(t.name)" class="native-tag">● 本地秒开</span>
+                <span v-if="isNativeTool(t.name)" class="native-tag">● 项目内置</span>
               </div>
             </div>
           </div>
@@ -297,28 +299,8 @@ import UpdateModal from './components/UpdateModal.vue'
 import { useTheme } from './composables/useTheme.js'
 import { useUpdater, openUpdatePanel, scheduleStartupCheck } from './composables/useUpdater.js'
 
-// 动态工具组件导入
-import ToolBase64 from './components/tools/ToolBase64.vue'
-import ToolJson from './components/tools/ToolJson.vue'
-import ToolHash from './components/tools/ToolHash.vue'
-import ToolTimestamp from './components/tools/ToolTimestamp.vue'
-import ToolQrcode from './components/tools/ToolQrcode.vue'
-import ToolUrl from './components/tools/ToolUrl.vue'
-import ToolRadix from './components/tools/ToolRadix.vue'
-import ToolDiff from './components/tools/ToolDiff.vue'
-import ToolRegex from './components/tools/ToolRegex.vue'
-import ToolPassword from './components/tools/ToolPassword.vue'
-import ToolJwt from './components/tools/ToolJwt.vue'
-import ToolUnicode from './components/tools/ToolUnicode.vue'
-import ToolCipher from './components/tools/ToolCipher.vue'
-import ToolImageBase64 from './components/tools/ToolImageBase64.vue'
-import ToolAes from './components/tools/ToolAes.vue'
-import ToolTextTools from './components/tools/ToolTextTools.vue'
-import ToolJwtGenerator from './components/tools/ToolJwtGenerator.vue'
-import ToolColor from './components/tools/ToolColor.vue'
-import ToolEscape from './components/tools/ToolEscape.vue'
-import ToolSql from './components/tools/ToolSql.vue'
-import ToolBatch from './components/tools/ToolBatch.vue'
+// 工具组件注册表：组件与元数据的单一映射，新增工具只需在 registry.js 登记
+import { toolComponents, assertToolRegistry } from './config/registry.js'
 
 const categoryIconMap = {
   LayoutGrid,
@@ -333,30 +315,6 @@ const categoryIconMap = {
   Palette,
   Braces,
   Database
-}
-
-const toolComponentsMap = {
-  'batch-processor': ToolBatch,
-  'base64': ToolBase64,
-  'jwt-decoder': ToolJwt,
-  'unicode-codec': ToolUnicode,
-  'cipher-toolbox': ToolCipher,
-  'image-base64': ToolImageBase64,
-  'json-format': ToolJson,
-  'hash-crypto': ToolHash,
-  'timestamp': ToolTimestamp,
-  'qrcode-generator': ToolQrcode,
-  'url-codec': ToolUrl,
-  'radix-convert': ToolRadix,
-  'text-diff': ToolDiff,
-  'regex-tester': ToolRegex,
-  'random-password': ToolPassword,
-  'aes-crypto': ToolAes,
-  'text-toolbox': ToolTextTools,
-  'jwt-generator': ToolJwtGenerator,
-  'color-converter': ToolColor,
-  'escape-toolbox': ToolEscape,
-  'sql-formatter': ToolSql
 }
 
 // localStorage 持久化辅助
@@ -432,8 +390,17 @@ const currentTool = computed(() => {
 })
 
 const currentToolComponent = computed(() => {
-  return toolComponentsMap[currentToolId.value]
+  return toolComponents[currentToolId.value]
 })
+
+// 开发期注册表一致性自检：工具元数据与组件接线一旦错位立即报错，而不是运行时打不开
+if (import.meta.env.DEV) {
+  try {
+    assertToolRegistry()
+  } catch (e) {
+    console.error('[toolbox] 工具注册表自检失败：', e)
+  }
+}
 
 const activeCategoryName = computed(() => {
   const c = toolCategories.find(item => item.id === activeCategory.value)
@@ -517,8 +484,7 @@ function isFavorite(id) {
 }
 
 function isNativeTool(name) {
-  const keywords = ['Base64', 'JSON', 'URL', 'MD5', 'SHA', '时间戳', '二维码', '进制', '对比', '正则', '密码']
-  return keywords.some(k => name.includes(k))
+  return toolsList.some(tool => tool.name === name)
 }
 
 function handleKeydown(e) {

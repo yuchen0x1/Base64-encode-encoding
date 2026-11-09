@@ -102,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onActivated, onDeactivated, onUnmounted } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
 
 const currentDateTimeStr = ref('')
@@ -119,6 +119,16 @@ const outputStampSeconds = ref('')
 const outputStampMillis = ref('')
 
 let timer = null
+const beijingFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23'
+})
 
 function updateClock() {
   if (isPaused.value) return
@@ -129,14 +139,9 @@ function updateClock() {
 }
 
 function formatDate(date) {
-  const pad = (n) => String(n).padStart(2, '0')
-  const y = date.getFullYear()
-  const m = pad(date.getMonth() + 1)
-  const d = pad(date.getDate())
-  const hh = pad(date.getHours())
-  const mm = pad(date.getMinutes())
-  const ss = pad(date.getSeconds())
-  return `${y}-${m}-${d} ${hh}:${mm}:${ss}`
+  if (!Number.isFinite(date.getTime())) return '无效的时间'
+  const parts = Object.fromEntries(beijingFormatter.formatToParts(date).map(({ type, value }) => [type, value]))
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`
 }
 
 function fillCurrentStamp() {
@@ -146,15 +151,17 @@ function fillCurrentStamp() {
 
 function convertStampToDate() {
   if (!inputTimestamp.value.trim()) return
-  let val = parseInt(inputTimestamp.value.trim(), 10)
-  if (isNaN(val)) {
+  const raw = inputTimestamp.value.trim()
+  if (!/^[+-]?\d+$/.test(raw)) {
     outputDateResult.value = '无效的时间戳格式'
     return
   }
-  if (stampUnit.value === 's' || String(val).length <= 10) {
-    val = val * 1000
+  const value = Number(raw)
+  const d = new Date(stampUnit.value === 's' ? value * 1000 : value)
+  if (!Number.isFinite(value) || !Number.isFinite(d.getTime())) {
+    outputDateResult.value = '时间戳超出有效范围'
+    return
   }
-  const d = new Date(val)
   outputDateResult.value = formatDate(d)
 }
 
@@ -165,8 +172,16 @@ function fillCurrentDatetime() {
 
 function convertDateToStamp() {
   if (!inputDatetime.value.trim()) return
-  const parsed = Date.parse(inputDatetime.value.trim().replace(/-/g, '/'))
-  if (isNaN(parsed)) {
+  const raw = inputDatetime.value.trim()
+  const match = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/.exec(raw)
+  if (!match) {
+    outputStampSeconds.value = '格式解析错误'
+    outputStampMillis.value = '格式解析错误'
+    return
+  }
+  const parsed = Date.parse(`${raw.replace(' ', 'T')}+08:00`)
+  const formatted = Number.isFinite(parsed) ? formatDate(new Date(parsed)) : ''
+  if (!formatted || formatted !== `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}:${match[6]}`) {
     outputStampSeconds.value = '格式解析错误'
     outputStampMillis.value = '格式解析错误'
     return
@@ -175,19 +190,38 @@ function convertDateToStamp() {
   outputStampMillis.value = String(parsed)
 }
 
-function copy(text) {
-  navigator.clipboard.writeText(text)
-  globalToast('已复制：' + text)
+async function copy(text) {
+  try {
+    await navigator.clipboard.writeText(text)
+    globalToast('已复制：' + text)
+  } catch {
+    globalToast('无法访问剪贴板，请手动复制', 'error')
+  }
 }
 
-onMounted(() => {
+function startClock() {
   updateClock()
-  inputTimestamp.value = String(nowSeconds.value)
-  convertStampToDate()
-  inputDatetime.value = currentDateTimeStr.value
-  convertDateToStamp()
-  timer = setInterval(updateClock, 1000)
-})
+  if (!inputTimestamp.value) {
+    inputTimestamp.value = String(nowSeconds.value)
+    convertStampToDate()
+  }
+  if (!inputDatetime.value) {
+    inputDatetime.value = currentDateTimeStr.value
+    convertDateToStamp()
+  }
+  if (!timer) timer = setInterval(updateClock, 1000)
+}
+
+function stopClock() {
+  if (timer) {
+    clearInterval(timer)
+    timer = null
+  }
+}
+
+onActivated(startClock)
+onDeactivated(stopClock)
+onUnmounted(stopClock)
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
