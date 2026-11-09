@@ -52,7 +52,7 @@
         "url": "/Format/C"
       },
       {
-        "name": "C&#x2B;&#x2B; 格式化",
+        "name": "C++ 格式化",
         "url": "/Format/Cpp"
       },
       {
@@ -786,7 +786,7 @@
         "url": "/Code/Run?languageId=50"
       },
       {
-        "name": "C&#x2B;&#x2B; 在线工具",
+        "name": "C++ 在线工具",
         "url": "/Code/Run?languageId=54"
       },
       {

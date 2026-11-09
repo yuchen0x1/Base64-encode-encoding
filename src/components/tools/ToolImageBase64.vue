@@ -220,7 +220,7 @@ function resetAll() {
 .tab-pill.active {
   background: var(--bg-card);
   color: var(--accent-cyan);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+  box-shadow: 0 0 12px rgba(var(--rgb-primary), 0.2);
 }
 .workbench-grid {
   display: grid;
@@ -243,7 +243,7 @@ function resetAll() {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  background: rgba(3, 7, 18, 0.4);
+  background: var(--surface-inset);
   border-bottom: 1px solid var(--border-color);
 }
 .panel-title {
@@ -264,7 +264,7 @@ function resetAll() {
   transition: all 0.2s ease;
 }
 .drop-zone:hover {
-  background: rgba(56, 189, 248, 0.05);
+  background: rgba(var(--rgb-primary), 0.05);
 }
 .drop-hint {
   display: flex;

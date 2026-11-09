@@ -228,7 +228,7 @@ function swapInputOutput() {
 .tab-pill.active {
   background: var(--bg-card);
   color: var(--accent-cyan);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+  box-shadow: 0 0 12px rgba(var(--rgb-primary), 0.2);
 }
 .tab-pill.active .pill-dot {
   background: var(--accent-cyan);
@@ -273,7 +273,7 @@ function swapInputOutput() {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  background: rgba(3, 7, 18, 0.4);
+  background: var(--surface-inset);
   border-bottom: 1px solid var(--border-color);
 }
 .panel-title-wrap {
@@ -287,14 +287,14 @@ function swapInputOutput() {
   font-weight: 800;
   padding: 0.1rem 0.35rem;
   border-radius: 3px;
-  background: rgba(56, 189, 248, 0.15);
+  background: rgba(var(--rgb-primary), 0.15);
   color: var(--accent-cyan);
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  border: 1px solid rgba(var(--rgb-primary), 0.3);
 }
 .hud-marker.out {
-  background: rgba(192, 132, 252, 0.15);
+  background: rgba(var(--rgb-purple), 0.15);
   color: var(--accent-purple);
-  border-color: rgba(192, 132, 252, 0.3);
+  border-color: rgba(var(--rgb-purple), 0.3);
 }
 .panel-title {
   font-size: 0.85rem;
@@ -335,7 +335,7 @@ function swapInputOutput() {
   font-family: var(--font-mono);
   font-weight: 700;
   color: var(--accent-cyan);
-  background: rgba(56, 189, 248, 0.15);
+  background: rgba(var(--rgb-primary), 0.15);
   padding: 0.15rem 0.45rem;
   border-radius: 3px;
 }

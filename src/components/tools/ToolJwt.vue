@@ -210,9 +210,9 @@ function loadSample() {
   font-weight: 800;
   padding: 0.15rem 0.45rem;
   border-radius: 3px;
-  background: rgba(56, 189, 248, 0.15);
+  background: rgba(var(--rgb-primary), 0.15);
   color: var(--accent-cyan);
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  border: 1px solid rgba(var(--rgb-primary), 0.3);
 }
 .status-chip {
   font-size: 0.75rem;
@@ -221,10 +221,10 @@ function loadSample() {
   border-radius: 9999px;
 }
 .status-chip.active {
-  background: rgba(52, 211, 153, 0.15);
+  background: rgba(var(--rgb-green), 0.15);
   color: var(--accent-green);
-  border: 1px solid rgba(52, 211, 153, 0.35);
-  box-shadow: 0 0 10px rgba(52, 211, 153, 0.2);
+  border: 1px solid rgba(var(--rgb-green), 0.35);
+  box-shadow: 0 0 10px rgba(var(--rgb-green), 0.2);
 }
 .status-chip.expired {
   background: rgba(239, 68, 68, 0.15);
@@ -248,7 +248,7 @@ function loadSample() {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  background: rgba(3, 7, 18, 0.4);
+  background: var(--surface-inset);
   border-bottom: 1px solid var(--border-color);
 }
 .panel-title {
@@ -280,14 +280,14 @@ function loadSample() {
   border-radius: 4px;
 }
 .badge-red {
-  background: rgba(251, 113, 133, 0.15);
+  background: rgba(var(--rgb-red), 0.15);
   color: var(--accent-pink);
-  border: 1px solid rgba(251, 113, 133, 0.3);
+  border: 1px solid rgba(var(--rgb-red), 0.3);
 }
 .badge-purple {
-  background: rgba(192, 132, 252, 0.15);
+  background: rgba(var(--rgb-purple), 0.15);
   color: var(--accent-purple);
-  border: 1px solid rgba(192, 132, 252, 0.3);
+  border: 1px solid rgba(var(--rgb-purple), 0.3);
 }
 .output-part {
   min-height: 220px;
@@ -331,8 +331,8 @@ function loadSample() {
   align-items: center;
   justify-content: space-between;
   padding: 0.55rem 0.85rem;
-  background: rgba(3, 7, 18, 0.4);
-  border: 1px solid rgba(56, 189, 248, 0.15);
+  background: var(--surface-inset);
+  border: 1px solid rgba(var(--rgb-primary), 0.15);
   border-radius: 0.4rem;
   font-size: 0.85rem;
 }
@@ -345,7 +345,7 @@ function loadSample() {
   border-radius: 3px;
 }
 .claim-status.future {
-  background: rgba(52, 211, 153, 0.15);
+  background: rgba(var(--rgb-green), 0.15);
   color: var(--accent-green);
 }
 .claim-status.past {

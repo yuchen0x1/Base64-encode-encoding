@@ -1,6 +1,7 @@
-import { app, BrowserWindow, Menu, shell } from 'electron'
+import { app, BrowserWindow, Menu, shell, ipcMain } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { registerUpdaterIpc, scheduleStartupCheck } from './updater.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -16,6 +17,7 @@ function createWindow() {
     title: '极客工具箱 - ToolBox Pro',
     backgroundColor: '#090d16',
     webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -60,7 +62,10 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  registerUpdaterIpc(ipcMain)
   createWindow()
+  // 启动后自动检查更新，发现新版本会直接推送事件到界面弹窗
+  scheduleStartupCheck(4000)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

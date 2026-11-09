@@ -165,7 +165,7 @@ function copySql() {
   align-items: center;
   justify-content: space-between;
   padding: 0.65rem 1.25rem;
-  background: rgba(3, 7, 18, 0.5);
+  background: var(--surface-inset-2);
   border-bottom: 1px solid var(--border-color);
 }
 .mac-dots {
@@ -178,7 +178,7 @@ function copySql() {
   border-radius: 50%;
 }
 .dot.red { background: #ef4444; }
-.dot.yellow { background: #f59e0b; }
+.dot.yellow { background: var(--accent-amber); }
 .dot.green { background: #10b981; }
 .editor-filename {
   font-size: 0.75rem;
@@ -187,7 +187,7 @@ function copySql() {
 .editor-mode {
   font-size: 0.65rem;
   color: var(--accent-cyan);
-  background: rgba(56, 189, 248, 0.1);
+  background: rgba(var(--rgb-primary), 0.1);
   padding: 0.1rem 0.4rem;
   border-radius: 3px;
 }

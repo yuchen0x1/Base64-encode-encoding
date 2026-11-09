@@ -183,7 +183,7 @@ function copy(text) {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  background: rgba(3, 7, 18, 0.4);
+  background: var(--surface-inset);
   border-bottom: 1px solid var(--border-color);
 }
 .panel-title {
@@ -215,14 +215,14 @@ function copy(text) {
   flex-direction: column;
   gap: 0.4rem;
   padding: 0.65rem 0.85rem;
-  background: rgba(3, 7, 18, 0.5);
+  background: var(--surface-inset-2);
   border-radius: 0.45rem;
-  border: 1px solid rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(var(--rgb-primary), 0.15);
   transition: all 0.2s ease;
 }
 .hash-row:hover {
-  border-color: rgba(56, 189, 248, 0.4);
-  box-shadow: 0 0 15px rgba(56, 189, 248, 0.1);
+  border-color: rgba(var(--rgb-primary), 0.4);
+  box-shadow: 0 0 15px rgba(var(--rgb-primary), 0.1);
 }
 .hash-meta {
   display: flex;
@@ -239,7 +239,7 @@ function copy(text) {
   word-break: break-all;
   user-select: all;
   color: var(--text-main);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--surface-well);
   padding: 0.35rem 0.55rem;
   border-radius: 4px;
 }

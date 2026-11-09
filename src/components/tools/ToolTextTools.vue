@@ -158,8 +158,8 @@ function copyOutput() {
 .tab-pill.active {
   background: var(--bg-card);
   color: var(--accent-cyan);
-  border-color: rgba(56, 189, 248, 0.35);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+  border-color: rgba(var(--rgb-primary), 0.35);
+  box-shadow: 0 0 12px rgba(var(--rgb-primary), 0.2);
 }
 .tab-pill.active .pill-dot {
   background: var(--accent-cyan);
@@ -187,7 +187,7 @@ function copyOutput() {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  background: rgba(3, 7, 18, 0.4);
+  background: var(--surface-inset);
   border-bottom: 1px solid var(--border-color);
 }
 .panel-title {
@@ -227,8 +227,8 @@ function copyOutput() {
   align-items: center;
   gap: 0.25rem;
   padding: 0.75rem;
-  background: rgba(3, 7, 18, 0.4);
-  border: 1px solid rgba(56, 189, 248, 0.15);
+  background: var(--surface-inset);
+  border: 1px solid rgba(var(--rgb-primary), 0.15);
   border-radius: 0.45rem;
 }
 .stat-num {

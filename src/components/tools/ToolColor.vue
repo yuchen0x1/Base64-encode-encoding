@@ -195,7 +195,7 @@ function copy(text) {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  background: rgba(3, 7, 18, 0.4);
+  background: var(--surface-inset);
   border-bottom: 1px solid var(--border-color);
 }
 .panel-title {
@@ -247,8 +247,8 @@ function copy(text) {
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0.85rem;
-  background: rgba(3, 7, 18, 0.4);
-  border: 1px solid rgba(56, 189, 248, 0.15);
+  background: var(--surface-inset);
+  border: 1px solid rgba(var(--rgb-primary), 0.15);
   border-radius: 0.45rem;
 }
 .format-label {

@@ -232,8 +232,8 @@ function copy(text) {
   font-size: 0.65rem;
   font-family: var(--font-mono);
   color: var(--accent-cyan);
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(var(--rgb-primary), 0.15);
+  border: 1px solid rgba(var(--rgb-primary), 0.3);
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
 }
@@ -272,8 +272,8 @@ function copy(text) {
   border-radius: 0.65rem;
 }
 .highlight-dec {
-  border-color: rgba(56, 189, 248, 0.4);
-  box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
+  border-color: rgba(var(--rgb-primary), 0.4);
+  box-shadow: 0 0 20px rgba(var(--rgb-primary), 0.15);
 }
 .radix-header {
   display: flex;
@@ -293,24 +293,24 @@ function copy(text) {
   border-radius: 4px;
 }
 .chip-cyan {
-  background: rgba(34, 211, 238, 0.15);
+  background: rgba(var(--rgb-cyan), 0.15);
   color: var(--accent-cyan);
-  border: 1px solid rgba(34, 211, 238, 0.3);
+  border: 1px solid rgba(var(--rgb-cyan), 0.3);
 }
 .chip-green {
-  background: rgba(52, 211, 153, 0.15);
+  background: rgba(var(--rgb-green), 0.15);
   color: var(--accent-green);
-  border: 1px solid rgba(52, 211, 153, 0.3);
+  border: 1px solid rgba(var(--rgb-green), 0.3);
 }
 .chip-dec {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: rgba(var(--rgb-amber), 0.15);
+  color: var(--accent-amber);
+  border: 1px solid rgba(var(--rgb-amber), 0.3);
 }
 .chip-purple {
-  background: rgba(192, 132, 252, 0.15);
+  background: rgba(var(--rgb-purple), 0.15);
   color: var(--accent-purple);
-  border: 1px solid rgba(192, 132, 252, 0.3);
+  border: 1px solid rgba(var(--rgb-purple), 0.3);
 }
 .radix-name {
   font-size: 0.9rem;
@@ -323,19 +323,19 @@ function copy(text) {
 }
 .text-cyan {
   color: var(--accent-cyan);
-  text-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
+  text-shadow: 0 0 10px rgba(var(--rgb-cyan), 0.3);
 }
 .text-green {
   color: var(--accent-green);
-  text-shadow: 0 0 10px rgba(52, 211, 153, 0.3);
+  text-shadow: 0 0 10px rgba(var(--rgb-green), 0.3);
 }
 .text-amber {
-  color: #fbbf24;
-  text-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+  color: var(--accent-amber);
+  text-shadow: 0 0 10px rgba(var(--rgb-amber), 0.3);
 }
 .text-purple {
   color: var(--accent-purple);
-  text-shadow: 0 0 10px rgba(192, 132, 252, 0.3);
+  text-shadow: 0 0 10px rgba(var(--rgb-purple), 0.3);
 }
 .radix-footer {
   font-size: 0.725rem;

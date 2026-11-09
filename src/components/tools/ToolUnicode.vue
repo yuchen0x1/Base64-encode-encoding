@@ -171,7 +171,7 @@ function swapInputOutput() {
 .tab-pill.active {
   background: var(--bg-card);
   color: var(--accent-cyan);
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+  box-shadow: 0 0 10px rgba(var(--rgb-primary), 0.2);
 }
 .actions {
   display: flex;
@@ -198,7 +198,7 @@ function swapInputOutput() {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  background: rgba(3, 7, 18, 0.4);
+  background: var(--surface-inset);
   border-bottom: 1px solid var(--border-color);
 }
 .panel-title {

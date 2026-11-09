@@ -209,9 +209,9 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(3, 7, 18, 0.9) 100%);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  box-shadow: 0 0 25px rgba(56, 189, 248, 0.1);
+  background: var(--surface-display);
+  border: 1px solid rgba(var(--rgb-primary), 0.25);
+  box-shadow: 0 0 25px rgba(var(--rgb-primary), 0.1);
 }
 .clock-ambient-light {
   position: absolute;
@@ -219,7 +219,7 @@ onUnmounted(() => {
   right: -50px;
   width: 150px;
   height: 150px;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.25) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(var(--rgb-primary), 0.25) 0%, transparent 70%);
   pointer-events: none;
 }
 .time-header-tag {
@@ -244,11 +244,11 @@ onUnmounted(() => {
 .big-digital-time {
   font-size: 2.1rem;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--text-display);
   letter-spacing: 0.02em;
 }
 .time-glow {
-  text-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+  text-shadow: 0 0 15px rgba(var(--rgb-primary), 0.5);
 }
 .clock-right {
   display: flex;
@@ -265,8 +265,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   padding: 0.4rem 0.85rem;
-  background: rgba(3, 7, 18, 0.6);
-  border: 1px solid rgba(56, 189, 248, 0.2);
+  background: var(--surface-inset-3);
+  border: 1px solid rgba(var(--rgb-primary), 0.2);
   border-radius: 0.45rem;
 }
 .chip-label {
@@ -280,15 +280,15 @@ onUnmounted(() => {
 }
 .text-cyan {
   color: var(--accent-cyan);
-  text-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
+  text-shadow: 0 0 10px rgba(var(--rgb-cyan), 0.3);
 }
 .text-purple {
   color: var(--accent-purple);
-  text-shadow: 0 0 10px rgba(192, 132, 252, 0.3);
+  text-shadow: 0 0 10px rgba(var(--rgb-purple), 0.3);
 }
 .text-green {
   color: var(--accent-green);
-  text-shadow: 0 0 10px rgba(52, 211, 153, 0.3);
+  text-shadow: 0 0 10px rgba(var(--rgb-green), 0.3);
 }
 
 .convert-terminal {
@@ -296,7 +296,7 @@ onUnmounted(() => {
 }
 .terminal-bar {
   padding: 0.65rem 1.25rem;
-  background: rgba(3, 7, 18, 0.4);
+  background: var(--surface-inset);
   border-bottom: 1px solid var(--border-color);
   font-size: 0.825rem;
   font-weight: 700;
@@ -337,18 +337,18 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.85rem 1.15rem;
-  background: rgba(3, 7, 18, 0.5);
-  border: 1px solid rgba(52, 211, 153, 0.3);
+  background: var(--surface-inset-2);
+  border: 1px solid rgba(var(--rgb-green), 0.3);
   border-radius: 0.5rem;
-  box-shadow: 0 0 15px rgba(52, 211, 153, 0.1);
+  box-shadow: 0 0 15px rgba(var(--rgb-green), 0.1);
 }
 .cyber-result-dual {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.85rem 1.15rem;
-  background: rgba(3, 7, 18, 0.5);
-  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: var(--surface-inset-2);
+  border: 1px solid rgba(var(--rgb-primary), 0.25);
   border-radius: 0.5rem;
 }
 .dual-row {

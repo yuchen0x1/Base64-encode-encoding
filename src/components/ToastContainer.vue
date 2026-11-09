@@ -49,7 +49,7 @@ const { toasts } = useToast()
   flex-shrink: 0;
 }
 .toast-item.success {
-  border-color: rgba(52, 211, 153, 0.4);
+  border-color: rgba(var(--rgb-green), 0.4);
 }
 .toast-item.success .toast-dot {
   background: var(--accent-green);

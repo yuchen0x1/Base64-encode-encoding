@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
@@ -34,10 +35,31 @@
   --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
   --shadow-lg: 0 12px 24px -4px rgba(0,0,0,0.12);
   --glass-blur: blur(12px);
+
+  /* 主题感知表面（面板头 / 内嵌代码块 / 数字显示面板） */
+  --surface-inset: rgba(15, 23, 42, 0.05);
+  --surface-inset-2: rgba(15, 23, 42, 0.08);
+  --surface-inset-3: rgba(15, 23, 42, 0.10);
+  --surface-well: #f8fafc;
+  --surface-display: linear-gradient(135deg, rgba(15, 23, 42, 0.06) 0%, rgba(15, 23, 42, 0.12) 100%);
+  --bg-input-focus: #ffffff;
+  --text-display: #0f172a;
+  --accent-amber: #d97706;
+  --on-accent: #ffffff;
+
+  /* 强调色 RGB 分量，供 rgba(var(--rgb-xxx), alpha) 按主题着色 */
+  --rgb-primary: 2, 132, 199;
+  --rgb-cyan: 6, 182, 212;
+  --rgb-green: 16, 185, 129;
+  --rgb-purple: 139, 92, 246;
+  --rgb-pink: 236, 72, 153;
+  --rgb-red: 244, 63, 94;
+  --rgb-amber: 217, 119, 6;
 }
 
 .dark {
   /* 深色模式 - 赛博朋克 / 未来空间站控制台 / 全息霓虹 HUD */
+  color-scheme: dark;
   --bg-app: #030712;
   --bg-subtle: #0b1329;
   --bg-sidebar: rgba(11, 19, 43, 0.75);
@@ -70,6 +92,25 @@
   --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.6);
   --shadow-lg: 0 20px 35px -5px rgba(0, 0, 0, 0.8);
   --glass-blur: blur(16px);
+
+  /* 主题感知表面（深色值与原硬编码样式保持一致） */
+  --surface-inset: rgba(3, 7, 18, 0.4);
+  --surface-inset-2: rgba(3, 7, 18, 0.5);
+  --surface-inset-3: rgba(3, 7, 18, 0.6);
+  --surface-well: rgba(0, 0, 0, 0.2);
+  --surface-display: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(3, 7, 18, 0.9) 100%);
+  --bg-input-focus: rgba(3, 7, 18, 0.85);
+  --text-display: #ffffff;
+  --accent-amber: #fbbf24;
+  --on-accent: #030712;
+
+  --rgb-primary: 56, 189, 248;
+  --rgb-cyan: 34, 211, 238;
+  --rgb-green: 52, 211, 153;
+  --rgb-purple: 192, 132, 252;
+  --rgb-pink: 244, 114, 182;
+  --rgb-red: 251, 113, 133;
+  --rgb-amber: 251, 191, 36;
 }
 
 * {
@@ -133,7 +174,7 @@ body {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .glass-panel:hover {
-  border-color: rgba(56, 189, 248, 0.35);
+  border-color: rgba(var(--rgb-primary), 0.35);
 }
 
 /* 科技感按键 Cyber Button */
@@ -166,7 +207,7 @@ body {
 }
 .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 20px rgba(var(--rgb-primary), 0.6);
   filter: brightness(1.15);
 }
 .btn-primary:active {
@@ -205,8 +246,8 @@ body {
 }
 .input-control:focus, .textarea-control:focus {
   border-color: var(--border-focus);
-  box-shadow: 0 0 15px rgba(56, 189, 248, 0.25);
-  background-color: rgba(3, 7, 18, 0.85);
+  box-shadow: 0 0 15px rgba(var(--rgb-primary), 0.25);
+  background-color: var(--bg-input-focus);
 }
 
 .code-font {
@@ -223,19 +264,19 @@ body {
   border-radius: 9999px;
   font-size: 0.725rem;
   font-weight: 600;
-  background: rgba(56, 189, 248, 0.12);
+  background: rgba(var(--rgb-primary), 0.12);
   color: var(--accent-cyan);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(var(--rgb-primary), 0.3);
+  box-shadow: 0 0 10px rgba(var(--rgb-primary), 0.15);
 }
 .badge-green {
-  background: rgba(52, 211, 153, 0.12);
+  background: rgba(var(--rgb-green), 0.12);
   color: var(--accent-green);
-  border: 1px solid rgba(52, 211, 153, 0.3);
-  box-shadow: 0 0 10px rgba(52, 211, 153, 0.15);
+  border: 1px solid rgba(var(--rgb-green), 0.3);
+  box-shadow: 0 0 10px rgba(var(--rgb-green), 0.15);
 }
 .badge-purple {
-  background: rgba(192, 132, 252, 0.12);
+  background: rgba(var(--rgb-purple), 0.12);
   color: var(--accent-purple);
-  border: 1px solid rgba(192, 132, 252, 0.3);
+  border: 1px solid rgba(var(--rgb-purple), 0.3);
 }

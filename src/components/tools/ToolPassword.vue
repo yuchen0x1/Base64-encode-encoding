@@ -166,14 +166,14 @@ onMounted(() => {
   font-weight: 800;
   padding: 0.15rem 0.4rem;
   border-radius: 3px;
-  background: rgba(56, 189, 248, 0.15);
+  background: rgba(var(--rgb-primary), 0.15);
   color: var(--accent-cyan);
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  border: 1px solid rgba(var(--rgb-primary), 0.3);
 }
 .hud-marker.purple {
-  background: rgba(192, 132, 252, 0.15);
+  background: rgba(var(--rgb-purple), 0.15);
   color: var(--accent-purple);
-  border-color: rgba(192, 132, 252, 0.3);
+  border-color: rgba(var(--rgb-purple), 0.3);
 }
 .card-title {
   font-size: 1rem;
@@ -224,12 +224,12 @@ onMounted(() => {
   font-size: 1.15rem;
   font-weight: 700;
   color: var(--accent-cyan);
-  text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  text-shadow: 0 0 10px rgba(var(--rgb-primary), 0.3);
   padding: 0.75rem 1rem;
-  background: rgba(3, 7, 18, 0.6);
+  background: var(--surface-inset-3);
 }
 .uuid-terminal {
-  background: rgba(3, 7, 18, 0.5);
+  background: var(--surface-inset-2);
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
   padding: 0.85rem 1.25rem;

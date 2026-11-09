@@ -7,3 +7,11 @@ out/
 Thumbs.db
 .env
 .env.local
+
+# 发布产物与本地更新源（按需分发，不入库）
+updates/
+
+# 本地临时验证 / 工作区记忆
+.tmp-verify/
+.tmp-release/
+.workbuddy/

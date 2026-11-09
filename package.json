@@ -1,7 +1,7 @@
 {
   "name": "geek-toolbox",
   "productName": "极客工具箱",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "极客工具箱 - 跨端响应式现代化工具箱",
   "main": "electron/main.js",
   "type": "module",
@@ -9,6 +9,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "serve": "node server/serve.js",
+    "serve:build": "vite build && node server/serve.js",
+    "release": "node scripts/release.mjs",
+    "release:desktop": "node scripts/release.mjs --desktop",
     "electron:dev": "vite build && electron .",
     "build:win": "vite build && electron-builder --win --x64 --dir",
     "package:win": "vite build && electron-builder --win portable"
@@ -22,6 +26,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "shared/**/*",
       "package.json"
     ],
     "win": {
@@ -42,6 +47,7 @@
   "author": "GeekToolBox",
   "license": "MIT",
   "devDependencies": {
+    "@electron/asar": "^3.4.1",
     "@vitejs/plugin-vue": "^6.0.10",
     "electron": "^45.2.3",
     "electron-builder": "^26.18.0",

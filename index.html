@@ -12,6 +12,19 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="./manifest.json" />
+    <script>
+      // 主题预应用：在首帧渲染前同步 <html> 主题类名，避免深浅色闪烁
+      (function () {
+        try {
+          var s = JSON.parse(localStorage.getItem('geek-toolbox-state') || '{}')
+          var dark = typeof s.isDark === 'boolean' ? s.isDark : true
+          var root = document.documentElement
+          root.classList.toggle('dark', dark)
+          root.classList.toggle('light', !dark)
+          root.style.colorScheme = dark ? 'dark' : 'light'
+        } catch (e) { /* 忽略存储异常，使用默认浅色变量 */ }
+      })()
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">

@@ -228,7 +228,7 @@ const matches = computed(() => {
 }
 .warn-badge {
   font-size: 0.75rem;
-  color: #f59e0b;
+  color: var(--accent-amber);
   background: rgba(245, 158, 11, 0.12);
   padding: 0.1rem 0.4rem;
   border-radius: 4px;

@@ -29,7 +29,14 @@
           <div>
             <div class="brand-title-wrap">
               <h1 class="brand-title gradient-text">极客工具箱</h1>
-              <span class="version-chip">v1.1.0</span>
+              <button
+                :class="['version-chip', hasUpdate ? 'has-update' : '']"
+                :title="hasUpdate ? `发现新版本 v${updaterState.latest?.version}，点击立即更新` : '点击检查更新'"
+                @click="openUpdatePanel"
+              >
+                <span>v{{ updaterState.currentVersion }}</span>
+                <span v-if="hasUpdate" class="update-ping"></span>
+              </button>
             </div>
             <div class="hud-status-mini">
               <span class="status-indicator-live"></span>
@@ -209,6 +216,9 @@
     <!-- 全局 Toast 通知 -->
     <ToastContainer />
 
+    <!-- 版本更新弹窗（网页版 / 桌面版共用） -->
+    <UpdateModal />
+
     <!-- 187款工具全量图谱科技感全屏模态框 -->
     <div v-if="showCatalogModal" class="modal-backdrop" @click="showCatalogModal = false">
       <div class="modal-card glass-panel" @click.stop>
@@ -283,6 +293,9 @@ import {
 import { toolCategories, toolsList } from './config/tools.js'
 import catalogJson from '../toolhelper_directory.json'
 import ToastContainer from './components/ToastContainer.vue'
+import UpdateModal from './components/UpdateModal.vue'
+import { useTheme } from './composables/useTheme.js'
+import { useUpdater, openUpdatePanel, scheduleStartupCheck } from './composables/useUpdater.js'
 
 // 动态工具组件导入
 import ToolBase64 from './components/tools/ToolBase64.vue'
@@ -305,6 +318,7 @@ import ToolJwtGenerator from './components/tools/ToolJwtGenerator.vue'
 import ToolColor from './components/tools/ToolColor.vue'
 import ToolEscape from './components/tools/ToolEscape.vue'
 import ToolSql from './components/tools/ToolSql.vue'
+import ToolBatch from './components/tools/ToolBatch.vue'
 
 const categoryIconMap = {
   LayoutGrid,
@@ -322,6 +336,7 @@ const categoryIconMap = {
 }
 
 const toolComponentsMap = {
+  'batch-processor': ToolBatch,
   'base64': ToolBase64,
   'jwt-decoder': ToolJwt,
   'unicode-codec': ToolUnicode,
@@ -369,8 +384,13 @@ function saveState() {
 
 const savedState = loadState()
 
+// 版本更新（网页版 / 桌面版统一状态机）
+const { state: updaterState, hasUpdate } = useUpdater()
+
 // 状态管理
-const isDark = ref(savedState ? savedState.isDark : true)
+const { isDark, applyTheme, toggleTheme: switchTheme } = useTheme()
+// setup 阶段即同步主题（早于首帧渲染，避免深浅色闪烁）
+applyTheme(savedState && typeof savedState.isDark === 'boolean' ? savedState.isDark : true)
 const mobileMenuOpen = ref(false)
 const showCatalogModal = ref(false)
 const searchQuery = ref('')
@@ -400,14 +420,9 @@ const openTabs = ref(resolveTabs())
 const allCatalog = ref(catalogJson)
 const catalogToolCount = computed(() => allCatalog.value.reduce((total, category) => total + category.tools.length, 0))
 
-// 主题切换
+// 主题切换（统一走 useTheme，切换后持久化）
 function toggleTheme() {
-  isDark.value = !isDark.value
-  if (isDark.value) {
-    document.documentElement.classList.add('dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-  }
+  switchTheme()
   saveState()
 }
 
@@ -515,12 +530,9 @@ function handleKeydown(e) {
 }
 
 onMounted(() => {
-  if (isDark.value) {
-    document.documentElement.classList.add('dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-  }
   window.addEventListener('keydown', handleKeydown)
+  // 启动后静默检查更新，发现新版本时自动弹窗（桌面版主进程也会主动推送）
+  scheduleStartupCheck(3500)
 })
 
 onUnmounted(() => {
@@ -542,7 +554,7 @@ onUnmounted(() => {
 
 /* 渐变流光文字 */
 .gradient-text {
-  background: linear-gradient(135deg, #38bdf8 0%, #22d3ee 50%, #c084fc 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent-cyan) 50%, var(--accent-purple) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -560,7 +572,7 @@ onUnmounted(() => {
   color: var(--accent-cyan);
 }
 .text-amber {
-  color: #fbbf24;
+  color: var(--accent-amber);
 }
 
 /* 移动端顶部标题栏 */
@@ -614,7 +626,7 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 1.25rem 1.15rem;
   border-bottom: 1px solid var(--border-color);
-  background: linear-gradient(180deg, rgba(56, 189, 248, 0.05) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(var(--rgb-primary), 0.05) 0%, transparent 100%);
 }
 .brand-left {
   display: flex;
@@ -625,8 +637,8 @@ onUnmounted(() => {
   width: 40px;
   height: 40px;
   border-radius: 0.5rem;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(var(--rgb-primary), 0.12);
+  border: 1px solid rgba(var(--rgb-primary), 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -663,13 +675,46 @@ onUnmounted(() => {
   letter-spacing: -0.01em;
 }
 .version-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   font-size: 0.65rem;
   font-weight: 700;
+  font-family: var(--font-mono);
   padding: 0.1rem 0.35rem;
-  background: rgba(192, 132, 252, 0.15);
-  border: 1px solid rgba(192, 132, 252, 0.3);
+  background: rgba(var(--rgb-purple), 0.15);
+  border: 1px solid rgba(var(--rgb-purple), 0.3);
   color: var(--accent-purple);
   border-radius: 4px;
+  cursor: pointer;
+  line-height: 1.5;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.version-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(var(--rgb-purple), 0.6);
+  box-shadow: 0 0 10px rgba(var(--rgb-purple), 0.28);
+}
+.version-chip:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+.version-chip.has-update {
+  color: var(--accent-green);
+  border-color: rgba(var(--rgb-green), 0.5);
+  background: rgba(var(--rgb-green), 0.12);
+}
+.update-ping {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 6px var(--accent-green);
+  animation: update-blink 1.4s ease-in-out infinite;
+}
+@keyframes update-blink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.75); }
 }
 .hud-status-mini {
   display: flex;
@@ -738,15 +783,15 @@ onUnmounted(() => {
 }
 .search-input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+  box-shadow: 0 0 12px rgba(var(--rgb-primary), 0.25);
 }
 .cyber-kbd {
   position: absolute;
   right: 0.6rem;
   font-size: 0.65rem;
   font-family: var(--font-mono);
-  background: rgba(56, 189, 248, 0.1);
-  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: rgba(var(--rgb-primary), 0.1);
+  border: 1px solid rgba(var(--rgb-primary), 0.25);
   border-radius: 4px;
   padding: 0.15rem 0.35rem;
   color: var(--accent-cyan);
@@ -804,17 +849,17 @@ onUnmounted(() => {
 .cat-item:hover {
   background-color: var(--bg-card-hover);
   color: var(--text-main);
-  border-color: rgba(56, 189, 248, 0.15);
+  border-color: rgba(var(--rgb-primary), 0.15);
 }
 .cat-item:hover .cat-icon {
   color: var(--primary);
 }
 .cat-item.active {
-  background: linear-gradient(90deg, rgba(56, 189, 248, 0.15) 0%, rgba(34, 211, 238, 0.05) 100%);
+  background: linear-gradient(90deg, rgba(var(--rgb-primary), 0.15) 0%, rgba(var(--rgb-cyan), 0.05) 100%);
   color: var(--accent-cyan);
-  border-color: rgba(56, 189, 248, 0.3);
+  border-color: rgba(var(--rgb-primary), 0.3);
   font-weight: 600;
-  box-shadow: 0 0 15px rgba(56, 189, 248, 0.1);
+  box-shadow: 0 0 15px rgba(var(--rgb-primary), 0.1);
 }
 .cat-item.active .cat-icon {
   color: var(--accent-cyan);
@@ -828,7 +873,7 @@ onUnmounted(() => {
   color: var(--text-sub);
 }
 .cat-item.active .cat-count-badge {
-  background: rgba(56, 189, 248, 0.2);
+  background: rgba(var(--rgb-primary), 0.2);
   color: var(--accent-cyan);
 }
 
@@ -839,7 +884,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  background: linear-gradient(0deg, rgba(56, 189, 248, 0.05) 0%, transparent 100%);
+  background: linear-gradient(0deg, rgba(var(--rgb-primary), 0.05) 0%, transparent 100%);
 }
 .hud-stats-card {
   display: flex;
@@ -920,9 +965,9 @@ onUnmounted(() => {
 .tab-item.active {
   background: var(--bg-card);
   color: var(--accent-cyan);
-  border-color: rgba(56, 189, 248, 0.35);
+  border-color: rgba(var(--rgb-primary), 0.35);
   font-weight: 600;
-  box-shadow: 0 0 15px rgba(56, 189, 248, 0.15);
+  box-shadow: 0 0 15px rgba(var(--rgb-primary), 0.15);
 }
 .tab-glow-indicator {
   display: none;
@@ -960,8 +1005,8 @@ onUnmounted(() => {
   font-size: 0.675rem;
   font-family: var(--font-mono);
   color: var(--accent-green);
-  background: rgba(52, 211, 153, 0.1);
-  border: 1px solid rgba(52, 211, 153, 0.25);
+  background: rgba(var(--rgb-green), 0.1);
+  border: 1px solid rgba(var(--rgb-green), 0.25);
   padding: 0.2rem 0.55rem;
   border-radius: 4px;
 }
@@ -1055,11 +1100,11 @@ onUnmounted(() => {
 .mini-tool-card:hover {
   transform: translateY(-2px);
   border-color: var(--accent-cyan);
-  box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+  box-shadow: 0 0 20px rgba(var(--rgb-primary), 0.2);
 }
 .mini-tool-card.current {
   border-color: var(--accent-cyan);
-  background: rgba(56, 189, 248, 0.08);
+  background: rgba(var(--rgb-primary), 0.08);
 }
 .card-top {
   display: flex;
@@ -1074,8 +1119,8 @@ onUnmounted(() => {
   font-size: 0.65rem;
   font-family: var(--font-mono);
   color: var(--accent-red);
-  background: rgba(251, 113, 133, 0.12);
-  border: 1px solid rgba(251, 113, 133, 0.3);
+  background: rgba(var(--rgb-red), 0.12);
+  border: 1px solid rgba(var(--rgb-red), 0.3);
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
 }
@@ -1108,7 +1153,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg);
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  border: 1px solid rgba(var(--rgb-primary), 0.3);
 }
 .modal-header {
   padding: 1.25rem 1.75rem;
@@ -1182,10 +1227,10 @@ onUnmounted(() => {
   transition: all 0.15s ease;
 }
 .catalog-item-badge.native {
-  border-color: rgba(52, 211, 153, 0.4);
-  background: rgba(52, 211, 153, 0.08);
+  border-color: rgba(var(--rgb-green), 0.4);
+  background: rgba(var(--rgb-green), 0.08);
   color: var(--accent-green);
-  box-shadow: 0 0 10px rgba(52, 211, 153, 0.1);
+  box-shadow: 0 0 10px rgba(var(--rgb-green), 0.1);
 }
 .native-tag {
   font-size: 0.65rem;
@@ -1252,9 +1297,9 @@ onUnmounted(() => {
   }
   .capsule-pill.active {
     background: linear-gradient(135deg, var(--accent-cyan) 0%, var(--primary) 100%);
-    color: #030712;
+    color: var(--on-accent);
     border-color: var(--accent-cyan);
-    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+    box-shadow: 0 0 10px rgba(var(--rgb-primary), 0.3);
   }
 }
 @media (min-width: 769px) {

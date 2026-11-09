@@ -1,6 +1,7 @@
 export const toolCategories = [
   { id: 'all', name: '全部工具', icon: 'LayoutGrid' },
   { id: 'common', name: '常用高频', icon: 'Sparkles' },
+  { id: 'batch', name: '批量处理', icon: 'Layers' },
   { id: 'encode', name: '编码与解码', icon: 'Binary' },
   { id: 'crypto', name: '哈希与加密', icon: 'ShieldCheck' },
   { id: 'json', name: 'JSON & 代码', icon: 'FileCode2' },
@@ -11,6 +12,15 @@ export const toolCategories = [
 ]
 
 export const toolsList = [
+  {
+    id: 'batch-processor',
+    name: '批量处理模式',
+    category: 'batch',
+    description: '多行文本 / 多文件批量 Base64、URL、哈希与 JSON 处理，支持导出 TXT / CSV / JSON',
+    tags: ['batch', 'bulk', '批量', '批量编码', '批量哈希', '批量转换', '导出'],
+    icon: 'Layers',
+    isCommon: true
+  },
   {
     id: 'base64',
     name: 'Base64 编解码',

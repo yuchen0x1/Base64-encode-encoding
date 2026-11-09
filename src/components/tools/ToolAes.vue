@@ -209,7 +209,7 @@ function copyOutput() {
 .tab-pill.active {
   background: var(--bg-card);
   color: var(--accent-cyan);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+  box-shadow: 0 0 12px rgba(var(--rgb-primary), 0.2);
 }
 .tab-pill.active .pill-dot {
   background: var(--accent-cyan);
@@ -272,7 +272,7 @@ function copyOutput() {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  background: rgba(3, 7, 18, 0.4);
+  background: var(--surface-inset);
   border-bottom: 1px solid var(--border-color);
 }
 .panel-title {
@@ -319,7 +319,7 @@ function copyOutput() {
   font-family: var(--font-mono);
   font-weight: 700;
   color: var(--accent-cyan);
-  background: rgba(56, 189, 248, 0.15);
+  background: rgba(var(--rgb-primary), 0.15);
   padding: 0.15rem 0.45rem;
   border-radius: 3px;
 }

@@ -3,6 +3,8 @@ name: Build Multiplatform Release (Windows, Android, iOS, macOS)
 on:
   push:
     branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -14,7 +16,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
+      - run: npm ci
       - run: npm run build
       - name: Build macOS app & DMG
         run: npx electron-builder --mac
@@ -32,7 +34,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
+      - run: npm ci
       - run: npm run build
       - run: npx cap sync ios
       - name: Build iOS App with Xcode
@@ -57,7 +59,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-      - run: npm install
+      - run: npm ci
       - run: npm run build
       - run: npx cap sync android
       - name: Build Android Release APK
@@ -79,7 +81,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
+      - run: npm ci
       - run: npm run build
       - name: Package Windows
         run: npx electron-builder --win portable
