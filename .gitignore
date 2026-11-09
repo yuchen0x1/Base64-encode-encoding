@@ -19,3 +19,4 @@ updates/
 # 本地 electron-builder 打包临时输出（非发布产物，不入仓）
 dist-win/
 release-build/
+release-build-v121*/
