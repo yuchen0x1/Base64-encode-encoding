@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, shell, ipcMain } from 'electron'
+import { existsSync } from 'node:fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { registerUpdaterIpc, scheduleStartupCheck } from './updater.js'
@@ -9,7 +10,12 @@ const __dirname = path.dirname(__filename)
 let mainWindow = null
 
 function createWindow() {
+  // 窗口图标取自构建产物 dist/（由 public/icon-512.png 复制而来）。
+  // 打包后安装程序图标由 electron-builder 的 build/icon.ico 设置；
+  // 这里仅在文件确实存在时设置窗口图标，避免开发/打包路径差异导致启动失败。
+  const iconPath = path.join(__dirname, '../dist/icon-512.png')
   mainWindow = new BrowserWindow({
+    ...(existsSync(iconPath) ? { icon: iconPath } : {}),
     width: 1280,
     height: 820,
     minWidth: 800,

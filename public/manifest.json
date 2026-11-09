@@ -1,17 +1,47 @@
 {
   "name": "极客工具箱",
   "short_name": "极客工具",
-  "description": "现代化全能跨端工具箱，涵盖编解码、加解密、JSON、时间戳等 187 款小工具",
-  "start_url": "/",
+  "description": "现代化跨端开发者工具箱，内置 21 款编解码、加解密、JSON、时间戳等本地工具",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#090d16",
-  "theme_color": "#1e293b",
+  "theme_color": "#090d16",
   "orientation": "any",
   "icons": [
     {
-      "src": "/favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
+      "src": "./favicon.ico",
+      "sizes": "16x16 24x24 32x32 48x48 64x64 128x128 256x256",
       "type": "image/x-icon"
+    },
+    {
+      "src": "./favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

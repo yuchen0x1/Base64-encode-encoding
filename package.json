@@ -26,6 +26,7 @@
   "build": {
     "appId": "cn.toolhelper.toolbox",
     "productName": "极客工具箱",
+    "icon": "build/icon.png",
     "directories": {
       "output": "release"
     },
@@ -36,6 +37,7 @@
       "package.json"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "nsis",
         "portable"
