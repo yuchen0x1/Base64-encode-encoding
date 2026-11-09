@@ -30,7 +30,6 @@
 - [13. 开发指南](#13-开发指南)
 - [14. 安全说明](#14-安全说明)
 - [15. 许可证与致谢](#15-许可证与致谢)
-- [附录：验证范围与待确认事项](#附录验证范围与待确认事项)
 
 ---
 
@@ -127,7 +126,7 @@
 | 二维码解析、JWT 验签 | 未实现 |
 | 账号体系、数据库、缓存、消息队列、云同步 | 未使用，项目亦不依赖 |
 | 组件 / DOM 交互自动化测试 | 未实现（Vitest 运行于纯 Node 环境） |
-| iOS / macOS / Android 真机验证 | 未在本次审查中验证（见附录） |
+| iOS / macOS / Android 真机验证 | 未在本次审查中验证（见 [PROJECT_AUDIT_REPORT.md](PROJECT_AUDIT_REPORT.md) 第 8 节） |
 
 ---
 
@@ -791,45 +790,10 @@ Vitest 运行于纯 Node 环境，**没有组件 / DOM 交互测试**；`vue` �
 
 本项目采用 [MIT License](LICENSE)，版权归 `Copyright (c) 2026 yuchen0x1` 所有。
 
-`package.json` 的 `author` 字段为 `GeekToolBox`，与 LICENSE 中的版权人写法不同，属于待统一的元数据（见附录）。
+`package.json` 的 `author` 字段为 `GeekToolBox`，与 LICENSE 中的版权人写法不同，属于待统一的元数据，统一方案见审计报告的「待维护者确认事项」。
 
 **第三方开源项目**：[Vue 3](https://vuejs.org/)、[Vite](https://vite.dev/)、[Electron](https://www.electronjs.org/)、[Capacitor](https://capacitorjs.com/)、[crypto-js](https://github.com/brix/crypto-js)、[qrcode](https://github.com/soldair/node-qrcode)、[diff](https://github.com/kpdecker/jsdiff)、[lucide](https://lucide.dev/)、[Vitest](https://vitest.dev/)、[ESLint](https://eslint.org/)、[Pillow](https://python-pillow.github.io/)（仅图标生成）。各依赖遵循其自身许可证。
 
 贡献流程与约定见 [CONTRIBUTING.md](CONTRIBUTING.md)，历史审计结论见 [PROJECT_AUDIT_REPORT.md](PROJECT_AUDIT_REPORT.md)。应用图标源图由项目维护者提供。
 
-
-
-
-- 工具数量（21）、分类、组件映射与 223 项静态目录数据，来自 `src/config/` 与 `toolhelper_directory.json`。
-- 全部 npm scripts、CLI 参数、环境变量、HTTP 接口、IPC channel、版本清单字段，逐条对照源码。
-- 目录结构、`.gitignore` 排除项、CI job 配置、LICENSE 类型与版权人。
-- 图标文件的实际尺寸、色彩模式与 alpha 通道（Web / Electron / Android / iOS 全部重新生成并逐项校验）。
-- README 内全部相对链接、`npm run` 命令、CLI 参数、环境变量、目录锚点与 Mermaid 图表语法。
-- 仓库地址（`git remote -v`）、默认分支 `main`、工作流 `build-all.yml` 状态，以及 v1.2.1 Release 的新版安装资产（GitHub API 实测）。
-
-### 实际执行的验证
-
-| 验证项 | 结果 |
-|---|---|
-| `npm test` | 4 个测试文件、**27 / 27 用例通过** |
-| `npm run lint` | **0 error**，32 个既有 warning（`computed` 副作用与未使用变量，详见审计报告） |
-| `npm run build` | 成功；`dist/` 正确包含 8 个图标资源、`manifest.json`、`version.json` |
-| `python scripts/generate-icons.py` | 重复执行两次输出稳定；Web 7 个、Electron 3 个、Android 26 个、iOS 4 个文件全部生成 |
-| 本地服务器实测（端口 4188） | `/api/version`、`/api/update/check`、`/api/update/progress`、`/version.json`、`favicon.ico`、`icon-512.png`、`manifest.json` 均返回 200 且字段 / MIME 正确；GET `/api/update/apply` 返回 405；未知 `/api/*` 返回 404 |
-| GitHub 侧核对 | 仓库 `yuchen0x1/Base64-encode-encoding` 为 public、默认分支 `main`；`build-all.yml` 状态 active；v1.2.1 Release 含带图标的 NSIS 安装包、blockmap、便携版与桌面更新 ZIP |
-| 未执行 | POST `/api/update/apply` 的真实下载—替换—重启流程（会改写 `dist/`，本次审查未触发）；桌面端安装替换流程；移动端 / macOS 真机构建 |
-
-### 待项目维护者确认 / 补充
-
-| 事项 | 说明 |
-|---|---|
-| `repository` 元数据 | `package.json` 尚未声明 `repository` / `homepage` 字段；仓库地址以 `git remote origin` 为准，建议补齐字段以便包管理器与第三方工具识别 |
-| 在线演示站点 | 本项目是纯本地工具，当前无托管演示地址；如需提供，可将 `dist/` 静态托管到任意静态文件服务器 |
-| Node.js 最低版本 | 无 `engines` / `.nvmrc`；当前 CI 已统一 Node 22，Capacitor 8 CLI 要求 Node 22+ |
-| 版本号徽章 | 静态徽章依赖 shields.io，离线环境不显示；版本值取自 `package.json` 的 `1.2.1` |
-| `author` 与版权人 | `GeekToolBox` vs `yuchen0x1`，建议统一 |
-| 工具矩阵 223 项 URL | 第三方站点相对路径，未验证可达性，也未确认授权，不建议作为「本项目功能」宣传 |
-| `categoryIconMap` | `src/App.vue` 的图标映射未包含 `Layers`（批量处理分类图标），建议补齐 |
-| 平台真机验证 | iOS / macOS / Android 打包与桌面端「下载 → 替换 → 重启」全流程未在本次审查中实机执行 |
-| CI Windows job | 已补充 `--publish never`，本机 Windows 安装包已实际构建验证；GitHub Actions 尚待下一次运行确认 |
-| 组件级自动化测试 | 目前无 DOM / 组件交互测试，新增工具的行为回归依赖人工验证 |
+审查范围、实测验证结果与待维护者确认事项统一记录在 [PROJECT_AUDIT_REPORT.md](PROJECT_AUDIT_REPORT.md) 中，本文档不再重复。

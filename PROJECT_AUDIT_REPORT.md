@@ -196,10 +196,14 @@
 | 检查 | 结果 |
 |---|---|
 | `npm test`（Vitest） | 27/27 通过 |
-| `npm run lint`（ESLint --quiet） | 0 error（33 warning） |
+| `npm run lint`（ESLint --quiet） | 0 error（32 warning） |
 | `npm run build`（Vite 8.3.6） | 通过；`index.js` gzip 117.34 kB，与首轮 117.26 kB 基本一致，无体积回归 |
 | 注册表自检 | `assertToolRegistry()` 通过，21 款工具全部接线 |
 | 多项目安全 | 仅使用回环地址 / 临时目录；未占用或关闭其他项目端口与进程 |
+| 图标生成脚本 | `python scripts/generate-icons.py` 重复执行两次输出稳定；Web 7 / Electron 3 / Android 26 / iOS 4，共 40 个文件全部生成 |
+| 本地服务器实测（端口 4188） | `/api/version`、`/api/update/check`、`/api/update/progress`、`/version.json`、`favicon.ico`、`icon-512.png`、`manifest.json` 均返回 200 且字段 / MIME 正确；GET `/api/update/apply` 返回 405；未知 `/api/*` 返回 404 |
+| GitHub 侧核对 | 仓库 `yuchen0x1/Base64-encode-encoding` 为 public、默认分支 `main`；`build-all.yml` 状态 active；v1.2.1 Release 含 NSIS 安装包、blockmap、便携版与桌面更新 ZIP |
+| 未执行 | POST `/api/update/apply` 的真实下载—替换—重启（会改写 `dist/`）；桌面端安装替换流程；移动端 / macOS 真机构建 |
 
 ## 5. 本轮文件变更
 
@@ -227,6 +231,23 @@
 4. 在隔离 feed / 安装目录上完成 Web 更新下载、哈希失败不替换、zip-slip 拒绝、回滚与重启验收（首轮遗留）。
 5. Android 签名发行构建与 iOS（macOS/Xcode）真机构建验证（首轮遗留）。
 
-## 8. Git 与远程状态
+## 8. 待维护者确认 / 补充事项
+
+| 事项 | 说明 |
+|---|---|
+| `repository` 元数据 | `package.json` 尚未声明 `repository` / `homepage`，仓库地址以 `git remote origin` 为准；建议补齐以便包管理器与第三方工具识别 |
+| 在线演示站点 | 纯本地工具，当前无托管演示地址；如需提供，可将 `dist/` 静态托管到任意静态文件服务器 |
+| Node.js 最低版本 | 无 `engines` / `.nvmrc`；CI 已统一 Node 22，Capacitor 8 CLI 要求 Node 22+ |
+| 版本号徽章 | 静态徽章依赖 shields.io，离线环境不显示；版本值取自 `package.json` 的 `1.2.1` |
+| `author` 与版权人 | `GeekToolBox` vs `yuchen0x1`，建议统一 |
+| 工具矩阵 223 项 URL | 第三方站点相对路径，未验证可达性，也未确认授权，不建议作为「本项目功能」宣传 |
+| `categoryIconMap` | `src/App.vue` 的图标映射未包含 `Layers`（批量处理分类图标），建议补齐 |
+| 平台真机验证 | iOS / macOS / Android 打包与桌面端「下载 → 替换 → 重启」全流程未实机执行 |
+| CI Windows job | 已补 `--publish never` 并在本机构建验证；GitHub Actions 待下一次运行确认 |
+| 组件级自动化测试 | 无 DOM / 组件交互测试，新增工具的行为回归依赖人工验证 |
+
+**审查依据**：工具数量（21）、分类、组件映射与 223 项静态目录数据来自 `src/config/` 与 `toolhelper_directory.json`；npm scripts、CLI 参数、环境变量、HTTP 接口、IPC channel、版本清单字段逐条对照源码；目录结构、`.gitignore`、CI job、LICENSE 类型与版权人逐一核对；图标文件的实际尺寸、色彩模式与 alpha 通道全部重新生成并校验；README 内相对链接、命令、锚点与 Mermaid 语法全量检查；仓库地址、默认分支、工作流状态与 v1.2.1 Release 资产经 GitHub API 实测。
+
+## 9. Git 与远程状态
 
 本轮所有变更仅停留在本地工作区与新增未跟踪文件；未执行 `git add/commit/push`，未创建远程分支/Tag/Release，未发布安装包。当前工作区仍包含首轮（2026-11-09）的 6 个未提交修改文件，二者共存、无冲突。待验收合格后由用户决定是否提交。
