@@ -502,6 +502,7 @@ curl http://127.0.0.1:4173/api/update/progress
 | `npm test` | `vitest run`（27 个用例） |
 | `npm run test:watch` | `vitest` 监听模式 |
 | `npm run lint` / `npm run lint:fix` | ESLint 检查 / 自动修复 |
+| `npm run clean` | 清理构建产物与临时目录（`--dry` 预览，`--all` 连依赖一起清） |
 
 ---
 
