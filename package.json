@@ -1,7 +1,7 @@
 {
   "name": "geek-toolbox",
   "productName": "极客工具箱",
-  "version": "1.2.1",
+  "version": "0.0.1",
   "description": "极客工具箱 - 跨端响应式现代化工具箱",
   "main": "electron/main.js",
   "type": "module",
@@ -15,9 +15,7 @@
     "release:desktop": "node scripts/release.mjs --desktop",
     "electron:dev": "vite build && electron .",
     "build:win": "vite build && electron-builder --win --x64 --dir --publish never",
-    "package:win": "vite build && electron-builder --win --x64 --publish never",
-    "package:win:portable": "vite build && electron-builder -w portable --publish never",
-    "package:win:all": "vite build && electron-builder --win --x64 --publish never",
+    "package:win": "vite build && electron-builder --win nsis --x64 --publish never",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
@@ -39,8 +37,7 @@
     "win": {
       "icon": "build/icon.ico",
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ]
     },
     "nsis": {
@@ -52,12 +49,11 @@
       "installerLanguages": [
         "zh_CN"
       ],
-      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "artifactName": "GeekToolbox-Setup-${version}.${ext}",
       "createDesktopShortcut": "always",
-      "createStartMenuShortcut": true
-    },
-    "portable": {
-      "artifactName": "${productName}-${version}-portable.${ext}"
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "differentialPackage": false
     },
     "mac": {
       "target": [

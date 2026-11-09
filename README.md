@@ -4,9 +4,9 @@
   <img src="public/icon-512.png" width="132" alt="极客工具箱应用图标" />
 </p>
 
-[![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-1.2.1-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-22-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
+[![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-0.0.1-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-22-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
 
-**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v1.2.1 Windows 安装包与便携版](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v1.2.1)
+**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v0.0.1 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.1)
 
 > 一个**本地优先、零后端依赖**的跨端开发者工具箱：内置 21 款开箱即用的编解码 / 哈希 / 格式化工具，可运行于浏览器、Electron 桌面端与 Capacitor 移动容器，并自带网页版与桌面版的一键更新链路。
 
@@ -181,7 +181,7 @@ flowchart TB
 
     subgraph UPDATE["更新子系统"]
         J["server/serve.js<br/>零依赖 HTTP 服务"]
-        K["electron/updater.js<br/>+ apply-update.js"]
+        K["electron/updater.js<br/>+ apply-installer.js"]
         L["shared/version.js · shared/zip.js"]
         M["scripts/release.mjs"]
         N["updates/web · updates/desktop"]
@@ -197,17 +197,17 @@ flowchart TB
     K --> L
     M --> N
     N -->|"version.json + ZIP"| J
-    N -->|"version.json + ZIP"| K
+    N -->|"version.json + 安装包"| K
 ```
 
 ### 3.3 运行机制与数据流
 
-1. **构建期**：`vite.config.js` 读取 `package.json` 与 `release-notes.json`，注入编译期常量 `__APP_VERSION__` / `__BUILD_TIME__`，并由 `versionManifestPlugin` 产出 `dist/version.json`（字段：`version`、`buildTime`、`channel`、`notes`）。开发服务器通过中间件提供同一份 `/version.json`，保证各模式口径一致。
+1. **构建期**：`vite.config.js` 读取 `package.json` 与 `release-notes.json`，注入编译期常量 `__APP_VERSION__` / `__BUILD_TIME__` / `__RELEASE_NOTES__` / `__RELEASE_DATE__`，并由 `versionManifestPlugin` 产出 `dist/version.json`（字段：`version`、`buildTime`、`channel`、`releaseDate`、`notes`）。开发服务器通过中间件提供同一份 `/version.json`，保证各模式口径一致。
 2. **首屏**：`index.html` 的内联脚本从 `geek-toolbox-state` 读取 `isDark`，在 Vue 挂载前设置 `<html>` 的 `dark` / `light` 类与 `colorScheme`；`useTheme.js` 随后接管响应式主题。
 3. **工具调用**：`App.vue` 依据 `tools.js` 的元数据渲染分类与搜索，通过 `registry.js` 的 `toolComponents` 动态挂载对应组件。`assertToolRegistry()` 在开发期校验元数据与组件一一对应。所有计算在组件内完成，输入不经过网络。
 4. **状态持久化**：仅 `localStorage`，无 Pinia / Vuex，无 `vue-router`（页面切换由 `currentToolId` 等 ref 驱动）。
-5. **配置加载**：项目不使用 `.env`。网页服务器配置来自 CLI 参数与环境变量（优先级：`PORT` / `HOST` / `TOOLBOX_WEB_ROOT` / `TOOLBOX_WEB_FEED` 覆盖 CLI）；桌面更新源优先级为 `TOOLBOX_UPDATE_FEED` → `update-config.json` 的 `feed` → 打包版默认 GitHub Releases `latest/download/version.json`；开发环境默认读取项目根 `updates/desktop/`。便携版只能检查更新，不能安全地自动替换自身文件，建议使用 NSIS 安装包。
-6. **异常处理**：静态服务做路径穿越校验；更新失败时网页版回滚 `index.html` / `version.json`，桌面版在替换进程内处理；ZIP 解压拒绝 `..` 条目与目标目录外写入。
+5. **配置加载**：项目不使用 `.env`。网页服务器配置来自 CLI 参数与环境变量（优先级：`PORT` / `HOST` / `TOOLBOX_WEB_ROOT` / `TOOLBOX_WEB_FEED` 覆盖 CLI）；桌面更新源优先级为 `TOOLBOX_UPDATE_FEED` → `update-config.json` 的 `feed` → 打包版默认 GitHub Releases `latest/download/version.json`；开发环境默认读取项目根 `updates/desktop/`。桌面端的更新载体就是 NSIS 安装包本身：下载 → 校验 → 静默覆盖安装 → 自动重启。
+6. **异常处理**：静态服务做路径穿越校验；更新失败时网页版回滚 `index.html` / `version.json`，桌面版交给独立的安装助手进程处理；ZIP 解压拒绝 `..` 条目与目标目录外写入。
 
 ### 3.4 更新流程
 
@@ -215,16 +215,15 @@ flowchart TB
 flowchart TD
     A["读取更新源 version.json"] --> B{"最新版本 > 当前版本?"}
     B -->|"否"| C["提示已是最新"]
-    B -->|"是"| D["下载 ZIP 并上报进度"]
+    B -->|"是"| D["下载更新包并上报进度"]
     D --> E{"清单含 sha256?"}
     E -->|"是"| F["SHA-256 校验"]
     E -->|"否"| G["跳过校验并写警告日志"]
     F -->|"失败"| H["中止更新，旧文件保持不变"]
-    F -->|"通过"| I["解压到暂存目录（路径穿越防护）"]
-    G --> I
-    I --> J{"运行宿主"}
-    J -->|"网页版"| K["目录换位或逐文件覆盖 → 服务器自重启"]
-    J -->|"桌面版"| L["独立替换进程覆盖 app.asar → 重启应用"]
+    F -->|"通过"| J{"运行宿主"}
+    G --> J
+    J -->|"网页版"| K["解压到暂存目录 → 目录换位 → 服务器自重启"]
+    J -->|"桌面版"| L["退出应用 → 安装助手静默运行安装包 → 拉起新版本"]
 ```
 
 > 注意：清单缺少 `sha256` 时**不会**校验失败，而是跳过校验并在服务端日志记录警告；发布脚本 `scripts/release.mjs` 始终会写入 `sha256`。
@@ -281,7 +280,7 @@ flowchart TD
 │   ├── main.js                 主进程、窗口、安全策略
 │   ├── preload.cjs             contextBridge 暴露 window.toolboxUpdater
 │   ├── updater.js              桌面端检查 / 下载 / 校验 / 安装
-│   └── apply-update.js         独立替换进程
+│   └── apply-installer.js      安装助手（退出后静默安装并拉起）
 ├── shared/
 │   ├── version.js              语义化版本解析与比较
 │   └── zip.js                  零依赖 ZIP 读写与解压防护
@@ -332,7 +331,7 @@ cd Base64-encode-encoding
 npm install          # 或按 CI 使用 npm ci（需要 package-lock.json）
 ```
 
-仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可直接在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v1.2.1) 下载已构建的 Windows NSIS 安装包与便携版，无需安装 Node.js。
+仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可直接在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.1) 下载已构建的 Windows 安装包（`GeekToolbox-Setup-<版本>.exe`，每个版本仅此一个文件），无需安装 Node.js。
 
 项目**不需要 `.env` 文件**，也不需要数据库初始化或密钥配置。
 
@@ -367,7 +366,7 @@ npm run serve
 ```bash
 npm run electron:dev         # vite build && electron .
 npm run build:win            # vite build && electron-builder --win --x64 --dir
-npm run package:win          # 生成 NSIS 安装包与便携版到 release/
+npm run package:win          # 生成唯一的 Windows 安装包到 release/
 ```
 
 `运行PC桌面版.bat` 直接启动 `release/win-unpacked/极客工具箱.exe`，**需先执行 `npm run build:win` 或 `npm run package:win`**。
@@ -386,7 +385,7 @@ npx cap sync android         # 或 npx cap sync ios
 ```bash
 # 网页版服务器
 curl http://127.0.0.1:4173/api/version
-# 期望：{"version":"1.2.0","buildTime":"...","mode":"server"}
+# 期望：{"version":"0.0.1","buildTime":"...","mode":"server"}
 
 # 开发服务器（version.json 由 Vite 中间件提供）
 curl http://127.0.0.1:5173/version.json
@@ -396,7 +395,7 @@ npm test
 npm run lint
 ```
 
-另可在浏览器打开页面，检查顶部版本号是否显示 `v1.2.1`、深浅色切换是否正常、任意工具能否完成一次计算。
+另可在浏览器打开页面，检查顶部版本号是否显示 `v0.0.1`、深浅色切换是否正常、任意工具能否完成一次计算。
 
 ---
 
@@ -429,9 +428,8 @@ npm run lint
 | `update-config.json` 的 `feed` | 更新源（打包版位于 exe 同目录，开发版位于项目根） | 否 | 不存在则跳过 |
 | GitHub Releases `latest/download/version.json` | 打包版默认更新清单 | 否 | 未配置自定义源时使用 |
 | 项目根 `updates/desktop/` | 开发模式兜底更新源 | 否 | 仅未打包开发环境使用 |
-| 便携版 | 可检查更新，但不自动替换自身文件 | — | 请使用 NSIS 安装包完成更新 |
 | `TOOLBOX_APP_DIR` | 指定待替换的应用目录，用于开发模式测试安装流程 | 否 | 打包时取 exe 所在目录 |
-| `ELECTRON_RUN_AS_NODE` | 内部使用，`apply-update.js` 以纯 Node 方式运行 | 否 | 由替换流程设置 |
+| `ELECTRON_RUN_AS_NODE` | 内部使用，`apply-installer.js` 以纯 Node 方式运行 | 否 | 由替换流程设置 |
 
 ### 7.3 发布脚本（`scripts/release.mjs`）
 
@@ -440,7 +438,7 @@ npm run lint
 | `--version <x.y.z>` | 指定发布版本号 | `package.json` 当前版本 |
 | `--bump <patch\|minor\|major>` | 自动递增版本号 | — |
 | `--desktop` | 额外生成桌面完整包（`electron-builder --dir`） | 关闭 |
-| `--delta` | 生成桌面增量包（仅替换 `resources/app.asar`） | 关闭 |
+| `--desktop` | 额外构建 Windows 安装包并写入 `updates/desktop/` | 关闭 |
 | `--skip-build` | 复用已有 `dist/`，跳过 `vite build` | 关闭 |
 | `--notes "a\|b\|c"` | 覆盖 `release-notes.json` 中的更新说明 | 读取 `release-notes.json` |
 | `--out <dir>` | 指定 electron-builder 输出目录 | `release` |
@@ -500,8 +498,7 @@ curl http://127.0.0.1:4173/api/update/progress
 | `npm run release:desktop` | `node scripts/release.mjs --desktop` |
 | `npm run electron:dev` | `vite build && electron .` |
 | `npm run build:win` | Windows 目录版打包（`--dir`） |
-| `npm run package:win` / `package:win:all` | Windows NSIS + portable 安装包 |
-| `npm run package:win:portable` | 仅便携版 |
+| `npm run package:win` | Windows NSIS 安装包（唯一发布产物） |
 | `npm test` | `vitest run`（27 个用例） |
 | `npm run test:watch` | `vitest` 监听模式 |
 | `npm run lint` / `npm run lint:fix` | ESLint 检查 / 自动修复 |
@@ -543,10 +540,10 @@ curl http://127.0.0.1:4173/api/update/progress
 
 ```bash
 curl http://127.0.0.1:4173/api/version
-# {"version":"1.2.0","buildTime":"2026-11-09T...","mode":"server"}
+# {"version":"0.0.1","buildTime":"2026-11-09T...","mode":"server"}
 
 curl http://127.0.0.1:4173/api/update/check
-# {"mode":"server","supported":true,"hasUpdate":false,"currentVersion":"1.2.0","latest":null}
+# {"mode":"server","supported":true,"hasUpdate":false,"currentVersion":"0.0.1","latest":null}
 
 curl -X POST http://127.0.0.1:4173/api/update/apply
 # {"jobId":"1731...","status":"preparing"}
@@ -563,8 +560,8 @@ curl http://127.0.0.1:4173/api/update/progress
 |---|---|---|
 | `update:info` | `getInfo()` | `{ mode, currentVersion, packaged, feed, appDir, platform }` |
 | `update:check` | `check()` | `{ supported, hasUpdate, currentVersion, latest, mode, packaged, appDir }` |
-| `update:download` | `download()` | `{ ok, size, staging }`；失败时抛出错误 |
-| `update:install` | `install()` | `{ ok, restarting }`；开发模式抛出「不执行自动替换」 |
+| `update:download` | `download()` | `{ ok, size, installer }`；下载安装包并校验 SHA-256 |
+| `update:install` | `install()` | `{ ok, restarting }`；退出应用后由安装助手静默安装 |
 | `update:event` | `onEvent(listener)` | 事件：`{ type: "progress", percent, message }`、`{ type: "available", currentVersion, latest }` |
 
 `onEvent()` 返回取消订阅函数。`preload.cjs` 只暴露上述最小 API，渲染进程始终运行在 `contextIsolation + sandbox` 下。
@@ -575,10 +572,9 @@ curl http://127.0.0.1:4173/api/update/progress
 
 | 位置 | 生成者 | 主要字段 |
 |---|---|---|
-| `dist/version.json` | `vite.config.js` | `version, buildTime, channel, notes[]` |
-| `updates/web/version.json` | `scripts/release.mjs` | 上述字段 + `package: { url, sha256, size }` |
-| `updates/desktop/version.json` | `scripts/release.mjs` | 同上 + `kind: "delta" \| "full"` |
-| 增量 ZIP 内的 `version.json` | `scripts/release.mjs` | `version, channel, buildTime, kind: "delta"` |
+| `dist/version.json` | `vite.config.js` | `version, buildTime, channel, releaseDate, notes[]` |
+| `updates/web/version.json` | `scripts/release.mjs` | 上述字段 + `package: { url, sha256, size }`，`url` 指向网页 ZIP |
+| `updates/desktop/version.json` | `scripts/release.mjs` | 上述字段 + `package.url` 指向 `GeekToolbox-Setup-<version>.exe`，`kind: "nsis"` |
 
 ---
 
@@ -587,18 +583,18 @@ curl http://127.0.0.1:4173/api/update/progress
 ### 10.1 生成更新包
 
 ```bash
-npm run release                                  # 网页版更新包
-node scripts/release.mjs --delta                # 桌面端增量包（仅替换 app.asar）
-node scripts/release.mjs --version 1.3.0 --delta
+npm run release                                      # 网页版更新包
+node scripts/release.mjs --desktop                   # Windows 安装包 + updates/desktop 更新源
+node scripts/release.mjs --version 0.0.2 --desktop
 node scripts/release.mjs --bump patch --notes "修复 A|新增 B"
 ```
 
 产物：
 
 - `updates/web/version.json` + `geek-toolbox-web-<version>.zip`
-- `updates/desktop/version.json` + `geek-toolbox-desktop-<version>.zip`
+- `updates/desktop/version.json` + `GeekToolbox-Setup-<version>.exe`
 
-`updates/` 已被 `.gitignore` 排除，需自行上传到 GitHub Release、静态文件服务器或内网共享目录。更新源只需包含 `version.json` 与对应 ZIP，`sha256` 由发布脚本自动写入。
+`updates/` 已被 `.gitignore` 排除，需自行上传到 GitHub Release、静态文件服务器或内网共享目录。桌面更新源只需两个文件（`version.json` + 同名安装包），`sha256` 由发布脚本自动写入。
 
 ### 10.2 指向更新源
 
@@ -616,18 +612,18 @@ node server/serve.js --feed https://example.com/updates/web
 
 ### 10.3 CI
 
-[`.github/workflows/build-all.yml`](.github/workflows/build-all.yml)（工作流名 `Build Multiplatform Release`，状态 active）在 `push` / `pull_request`（`main`、`master`）与手动触发时运行 4 个 job：`build-macos`（DMG）、`build-ios`（未签名 Xcode build）、`build-android`（debug APK）、`build-windows`（NSIS + portable）。所有 job 使用 Node 22；Capacitor 8 的 Android / iOS 同步要求 Node.js 22+。所有 job 均使用 `npm ci`。
+[`.github/workflows/build-all.yml`](.github/workflows/build-all.yml)（工作流名 `Build Multiplatform Release`，状态 active）在 `push` / `pull_request`（`main`、`master`）与手动触发时运行 4 个 job：`build-macos`（DMG）、`build-ios`（未签名 Xcode build）、`build-android`（debug APK）、`build-windows`（仅 NSIS 安装包）。所有 job 使用 Node 22；Capacitor 8 的 Android / iOS 同步要求 Node.js 22+。所有 job 均使用 `npm ci`。
 
-> electron-builder 命令已显式使用 `--publish never`，避免在没有 `GH_TOKEN` 时触发隐式发布。Windows 安装包使用 NSIS，便携版不会创建桌面快捷方式。
+> electron-builder 命令已显式使用 `--publish never`，避免在没有 `GH_TOKEN` 时触发隐式发布。Windows 只产出一个 NSIS 安装包，不再产出便携版与独立更新 ZIP。
 
-### 10.4 当前版本（v1.2.1）更新说明
+### 10.4 当前版本（v0.0.1）更新说明
 
 来源：`release-notes.json`，构建期由 `vite.config.js` 注入 `dist/version.json` 的 `notes` 字段。
 
-- 修复桌面版更新检测错误读取 `AppData\\Local\\Temp` 临时解压目录的问题，打包版默认从 GitHub Releases 获取 `version.json`。
-- 便携版可以检查和下载更新，但不再尝试替换正在运行的临时目录；安装版更新继续支持下载、校验、自动替换与重启。
-- 修复 Windows 安装器应用图标，NSIS 安装完成后强制创建桌面快捷方式和开始菜单快捷方式。
-- 发布独立命名的 Windows 安装包、便携版与桌面更新 ZIP，避免用户误把便携版当成安装版。
+- 版本号重置为 `0.0.1`：旧版本不具备自动更新能力，历史版本与安装包已全部下线。
+- 桌面端自动更新改为基于 NSIS 安装包：下载 → SHA-256 校验 → 静默覆盖安装 → 自动重启，不再需要额外的 ZIP 更新包。
+- Windows 只发布一个安装包（`GeekToolbox-Setup-0.0.1.exe`），移除便携版、完整 ZIP、增量 ZIP 与 blockmap。
+- 更新弹窗新增「更新日志」：无论是否已是最新，都能看到当前版本与本版本的更新说明。
 
 ---
 

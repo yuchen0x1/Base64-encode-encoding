@@ -27,7 +27,9 @@ export default [
         ...globals.node,
         // 由 Vite 构建期注入（vite.config.js 的 define），lint 阶段按只读全局处理
         __APP_VERSION__: 'readonly',
-        __BUILD_TIME__: 'readonly'
+        __BUILD_TIME__: 'readonly',
+        __RELEASE_NOTES__: 'readonly',
+        __RELEASE_DATE__: 'readonly'
       }
     }
   },

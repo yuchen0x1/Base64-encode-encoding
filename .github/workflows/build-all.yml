@@ -84,9 +84,9 @@ jobs:
       - run: npm ci
       - run: npm run build
       - name: Package Windows
-        run: npx electron-builder --win nsis portable --publish never
-      - name: Upload Windows Portable Exe
+        run: npx electron-builder --win nsis --publish never
+      - name: Upload Windows Installer
         uses: actions/upload-artifact@v4
         with:
-          name: Windows-Portable-Exe
+          name: Windows-Installer
           path: release/*.exe

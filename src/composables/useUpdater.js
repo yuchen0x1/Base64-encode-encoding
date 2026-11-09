@@ -12,6 +12,10 @@ import { isNewerVersion, normalizeVersion } from '../../shared/version.js'
 
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'
 const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : ''
+// Electron 用 file:// 加载页面，无法 fetch 同目录的 version.json，
+// 因此当前版本的更新日志在构建期由 vite.config.js 注入，三种运行模式共用。
+const RELEASE_NOTES = Array.isArray(__RELEASE_NOTES__) ? __RELEASE_NOTES__ : []
+const RELEASE_DATE = typeof __RELEASE_DATE__ === 'string' ? __RELEASE_DATE__ : ''
 
 const state = reactive({
   open: false,
@@ -19,6 +23,8 @@ const state = reactive({
   status: 'idle', // idle | checking | uptodate | available | downloading | ready | restarting | error
   currentVersion: APP_VERSION,
   buildTime: BUILD_TIME,
+  currentNotes: RELEASE_NOTES,
+  currentReleaseDate: RELEASE_DATE,
   portable: false,
   latest: null,
   progress: 0,
@@ -113,7 +119,7 @@ async function checkStatic() {
   return {
     hasUpdate: isNewerVersion(latest, current),
     currentVersion: current,
-    latest: { version: latest, notes: data.notes || [], buildTime: data.buildTime || null }
+    latest: { version: latest, notes: data.notes || [], releaseDate: data.releaseDate || '', buildTime: data.buildTime || null }
   }
 }
 
@@ -273,12 +279,12 @@ async function applyInStaticMode() {
 async function applyInElectronMode() {
   state.status = 'downloading'
   state.progress = 0
-  state.message = '正在下载更新包…'
+  state.message = '正在下载安装包…'
   const result = await window.toolboxUpdater.download()
   if (!result || result.ok === false) throw new Error(result?.error || '下载失败')
   state.status = 'ready'
   state.progress = 100
-  state.message = '更新包已就绪，点击「立即重启」完成安装'
+  state.message = '安装包已就绪，点击「立即安装」后会自动安装并重启'
   return result
 }
 
@@ -334,7 +340,7 @@ export function useUpdater() {
   })
   const primaryLabel = computed(() => {
     if (state.status === 'available') return '立即更新'
-    if (state.status === 'ready') return '立即重启'
+    if (state.status === 'ready') return '立即安装并重启'
     if (state.status === 'restarting') return '正在重启…'
     if (state.status === 'checking') return '检查中…'
     return '立即检查'

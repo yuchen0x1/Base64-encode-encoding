@@ -45,17 +45,19 @@
               </div>
             </div>
 
-            <div v-if="state.latest?.notes?.length" class="upd-notes-block">
+            <div class="upd-notes-block">
               <div class="notes-title">
                 <Sparkles :size="14" class="text-cyan" />
-                <span>本次更新内容</span>
+                <span>{{ notesTitle }}</span>
+                <span v-if="notesDate" class="notes-date">{{ notesDate }}</span>
               </div>
-              <ul class="upd-notes">
-                <li v-for="(note, index) in state.latest.notes" :key="index">
+              <ul v-if="notesList.length" class="upd-notes">
+                <li v-for="(note, index) in notesList" :key="index">
                   <CheckCircle2 :size="13" class="note-dot" />
                   <span>{{ note }}</span>
                 </li>
               </ul>
+              <p v-else class="notes-empty">本版本暂无更新说明。</p>
             </div>
 
             <p v-if="state.status === 'error'" class="upd-error">
@@ -117,6 +119,18 @@ const { state, modeLabel, primaryLabel } = useUpdater()
 
 const isBusy = computed(() => ['checking', 'downloading', 'restarting'].includes(state.status))
 
+const hasLatestNotes = computed(() => Boolean(state.latest?.notes?.length))
+
+const notesList = computed(() => (hasLatestNotes.value ? state.latest.notes : state.currentNotes || []))
+
+const notesTitle = computed(() =>
+  hasLatestNotes.value ? `v${state.latest.version} 更新内容` : `v${state.currentVersion} 更新日志`
+)
+
+const notesDate = computed(() =>
+  hasLatestNotes.value ? state.latest.releaseDate || '' : state.currentReleaseDate || ''
+)
+
 const statusIcon = computed(() => {
   if (state.status === 'checking' || state.status === 'downloading' || state.status === 'restarting') return Loader2
   if (state.status === 'available') return Download
@@ -134,7 +148,7 @@ const statusText = computed(() => {
     case 'uptodate': return `已是最新版本 v${state.currentVersion}`
     case 'available': return `发现新版本 v${state.latest?.version || ''}，可立即更新`
     case 'downloading': return state.message || '正在下载更新包…'
-    case 'ready': return state.message || '更新包已就绪'
+    case 'ready': return state.message || '安装包已就绪'
     case 'restarting': return state.message || '正在重启…'
     case 'error': return state.error || '更新失败'
     default: return ''
@@ -142,8 +156,8 @@ const statusText = computed(() => {
 })
 
 const modeHint = computed(() => {
-  if (state.mode === 'electron' && state.portable) return '当前是便携版：可以检查和下载更新，但无法安全替换正在运行的临时目录。请安装新版 NSIS 安装包，安装后会创建桌面和开始菜单快捷方式。'
-  if (state.mode === 'electron') return '桌面安装版：下载完成后将自动替换程序文件并重启，新版本窗口会自动打开。'
+  if (state.mode === 'electron' && state.portable) return '当前以解压目录方式运行：可以检查更新，但无法自动覆盖安装。请运行 GeekToolbox-Setup-<版本>.exe 完成安装。'
+  if (state.mode === 'electron') return '桌面安装版：下载完成后会自动安装并重启，安装期间窗口会关闭 10–30 秒，请勿手动重新打开。'
   if (state.mode === 'server') return '网页版（本地更新服务）：将自动下载更新包、校验 SHA-256、替换文件并重启服务器，页面随后自动刷新。'
   if (state.mode === 'static') return '网页版（静态部署）：新版本文件已发布在服务器上，点击更新将清理缓存并刷新加载。'
   return '正在检测运行环境…'
@@ -405,6 +419,20 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   font-weight: 700;
   color: var(--text-main);
   margin-bottom: 0.5rem;
+}
+
+.notes-date {
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-sub);
+  font-family: var(--font-mono);
+}
+
+.notes-empty {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-sub);
 }
 
 .upd-notes {

@@ -8,18 +8,20 @@ const notesPath = fileURLToPath(new URL('./release-notes.json', import.meta.url)
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
 const buildTime = new Date().toISOString()
 
-function loadNotes(version) {
-  if (!existsSync(notesPath)) return []
+function loadEntry(version) {
+  if (!existsSync(notesPath)) return { notes: [], date: '' }
   try {
     const all = JSON.parse(readFileSync(notesPath, 'utf8'))
     const entry = all[version]
-    if (Array.isArray(entry)) return entry
-    if (entry && Array.isArray(entry.notes)) return entry.notes
-    return []
+    if (Array.isArray(entry)) return { notes: entry, date: '' }
+    if (entry && Array.isArray(entry.notes)) return { notes: entry.notes, date: entry.date || '' }
+    return { notes: [], date: '' }
   } catch {
-    return []
+    return { notes: [], date: '' }
   }
 }
+
+const currentEntry = loadEntry(pkg.version)
 
 /**
  * 构建期注入版本元数据，并产出 dist/version.json。
@@ -32,7 +34,8 @@ function versionManifestPlugin() {
     version: pkg.version,
     buildTime,
     channel: 'stable',
-    notes: loadNotes(pkg.version)
+    releaseDate: currentEntry.date,
+    notes: currentEntry.notes
   })
 
   return {
@@ -59,7 +62,10 @@ export default defineConfig({
   plugins: [vue(), versionManifestPlugin()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
-    __BUILD_TIME__: JSON.stringify(buildTime)
+    __BUILD_TIME__: JSON.stringify(buildTime),
+    // 更新日志随包注入：Electron 以 file:// 加载页面，无法 fetch version.json
+    __RELEASE_NOTES__: JSON.stringify(currentEntry.notes),
+    __RELEASE_DATE__: JSON.stringify(currentEntry.date)
   },
   server: {
     host: '127.0.0.1',

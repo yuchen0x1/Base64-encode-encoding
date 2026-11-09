@@ -410,6 +410,7 @@ async function handleApi(req, res, url) {
               version: latestVersion,
               buildTime: manifest.buildTime || null,
               notes: Array.isArray(manifest.notes) ? manifest.notes : [],
+              releaseDate: manifest.releaseDate || null,
               size: pkgInfo.size || null,
               force: Boolean(manifest.force)
             }

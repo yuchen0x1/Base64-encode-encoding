@@ -1,17 +1,18 @@
 /**
  * 桌面端更新器（Electron 主进程）
  *
- * 流程：读取更新源 version.json → 版本比较 → 下载 zip（带进度）→ SHA-256 校验
- *      → 解压到暂存目录 → 启动独立替换进程 → 主进程退出 → 覆盖文件 → 拉起新版本
+ * 流程：读取更新源 version.json → 版本比较 → 下载 NSIS 安装包（带进度）
+ *      → SHA-256 校验 → 启动独立安装助手 → 主进程退出 → 静默覆盖安装 → 拉起新版本
+ *
+ * 设计取舍：只发布一个 Windows 安装包（GeekToolbox-Setup-<version>.exe），
+ * 不再产出便携版与 ZIP 更新包。安装包本身就是更新载体，安装器会读取卸载注册表
+ * 中的 InstallLocation 原位覆盖，用户自定义的安装目录也不会被重置。
  *
  * 更新源优先级：
  *   1. 环境变量 TOOLBOX_UPDATE_FEED（目录或 version.json 的 http(s) 地址）
  *   2. 程序目录下的 update-config.json 的 feed 字段
  *   3. 打包版默认使用 GitHub Releases latest/download/version.json
  *      开发环境使用项目根 updates/desktop 目录
- *
- * 便携版由 electron-builder 解压到临时目录运行，不能把自身文件当作安装目录；
- * 它可以检查更新，但安装请使用 NSIS 安装包。
  */
 import { app, net, BrowserWindow } from 'electron'
 import fs from 'node:fs/promises'
@@ -20,7 +21,6 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { extractZip } from '../shared/zip.js'
 import { isNewerVersion, normalizeVersion } from '../shared/version.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -31,8 +31,7 @@ const state = {
   latest: null,
   manifestBase: '',
   packageInfo: null,
-  downloadedFile: '',
-  stagingDir: '',
+  installerFile: '',
   downloading: false
 }
 
@@ -107,7 +106,7 @@ async function readManifest(feed) {
 
 function resolvePackage(manifest, base) {
   const info = manifest.package || {}
-  const url = info.url || `geek-toolbox-desktop-${manifest.version}.zip`
+  const url = info.url || `GeekToolbox-Setup-${manifest.version}.exe`
   if (/^https?:\/\//i.test(url)) return { ...info, url, kind: 'http' }
 
   // version.json 可能来自 HTTP 更新源。不能用 path.join 拼接 URL，
@@ -213,6 +212,7 @@ export async function checkForUpdates() {
       version: latestVersion,
       buildTime: manifest.buildTime || null,
       notes: Array.isArray(manifest.notes) ? manifest.notes : [],
+      releaseDate: manifest.releaseDate || null,
       size: pkg.size || null,
       force: Boolean(manifest.force)
     }
@@ -232,6 +232,17 @@ export async function checkForUpdates() {
   }
 }
 
+function installerFileName(pkg, version) {
+  try {
+    const raw = /^https?:/i.test(pkg.url) ? new URL(pkg.url).pathname : pkg.url
+    const base = path.basename(decodeURIComponent(raw))
+    if (/\.exe$/i.test(base)) return base
+  } catch {
+    /* 名称不可解析时使用默认命名 */
+  }
+  return `GeekToolbox-Setup-${version}.exe`
+}
+
 export async function downloadUpdate() {
   if (!state.latest) throw new Error('没有可用的更新')
   if (state.downloading) throw new Error('更新包正在下载中')
@@ -242,79 +253,67 @@ export async function downloadUpdate() {
   state.downloading = true
   try {
     const baseDir = path.join(app.getPath('userData'), 'updates')
-    const dest = path.join(baseDir, `geek-toolbox-${state.latest.version}.zip`)
-    sendProgress(1, '正在下载更新包…')
+    const dest = path.join(baseDir, installerFileName(pkg, state.latest.version))
+    await fs.mkdir(baseDir, { recursive: true })
+    await fs.rm(dest, { force: true })
 
+    sendProgress(1, '正在下载安装包…')
     const received = await downloadTo(pkg.url, dest, pkg.size, (ratio) => {
-      sendProgress(2 + ratio * 78, `正在下载更新包… ${Math.round(ratio * 100)}%`)
+      sendProgress(2 + ratio * 86, `正在下载安装包… ${Math.round(ratio * 100)}%`)
     })
 
-    sendProgress(82, '正在校验更新包…')
+    sendProgress(90, '正在校验安装包…')
     if (pkg.sha256) {
       const actual = await hashFile(dest)
       if (actual.toLowerCase() !== String(pkg.sha256).toLowerCase()) {
         await fs.rm(dest, { force: true })
-        throw new Error(`更新包校验失败（期望 ${String(pkg.sha256).slice(0, 12)}…，实际 ${actual.slice(0, 12)}…）`)
+        throw new Error(`安装包校验失败（期望 ${String(pkg.sha256).slice(0, 12)}…，实际 ${actual.slice(0, 12)}…）`)
       }
+    } else {
+      // 服务端记录警告：缺失哈希意味着无法防篡改，只能依赖 HTTPS 传输安全
+      console.warn('[updater] 更新清单缺少 package.sha256，已跳过完整性校验')
     }
 
-    sendProgress(88, '正在解压更新包…')
-    const staging = path.join(baseDir, `staging-${state.latest.version}`)
-    await fs.rm(staging, { recursive: true, force: true })
-    await extractZip(await fs.readFile(dest), staging)
-
-    const entries = await fs.readdir(staging)
-    const hasExecutable = entries.some((name) => name.toLowerCase().endsWith('.exe'))
-    // 支持两种更新包：完整程序包（根目录含 exe）与增量包（仅替换 resources/app.asar）
-    const hasAsar = existsSync(path.join(staging, 'resources', 'app.asar'))
-    if (!hasExecutable && !hasAsar) {
-      await fs.rm(staging, { recursive: true, force: true })
-      throw new Error('更新包结构异常：未找到可执行文件或 resources/app.asar')
-    }
-
-    state.downloadedFile = dest
-    state.stagingDir = staging
-    sendProgress(95, '更新包已就绪')
-    return { ok: true, size: received, staging }
+    state.installerFile = dest
+    sendProgress(96, '安装包已就绪')
+    return { ok: true, size: received, installer: dest }
   } finally {
     state.downloading = false
   }
 }
 
 export async function installUpdate() {
-  if (!state.stagingDir) throw new Error('更新包尚未下载完成')
+  if (!state.installerFile || !existsSync(state.installerFile)) {
+    throw new Error('安装包尚未下载完成，请重新检查更新')
+  }
   const target = appDir()
   if (!target) {
-    if (isPortableRuntime()) {
-      throw new Error('当前运行的是便携版，无法安全自动替换自身文件。请下载并安装新版 NSIS 安装包，安装器会创建桌面和开始菜单快捷方式。')
-    }
-    throw new Error('开发模式下不执行自动替换，请使用打包后的安装版测试（或设置 TOOLBOX_APP_DIR 指向可替换的安装目录）')
+    throw new Error('开发模式下不执行自动安装，请使用打包后的安装版测试（或设置 TOOLBOX_APP_DIR 指向安装目录）')
   }
   if (!existsSync(target)) throw new Error(`应用目录不存在：${target}`)
 
   const exePath = app.getPath('exe')
-  const exeName = path.basename(exePath)
-  const applyScript = path.join(__dirname, 'apply-update.js')
+  const helperSource = path.join(__dirname, 'apply-installer.js')
   const workDir = path.join(app.getPath('userData'), 'updates')
-  const logFile = path.join(workDir, 'apply.log')
+  const logFile = path.join(workDir, 'install.log')
 
-  // 关键：替换脚本必须位于应用目录之外。
-  // 打包后脚本在 app.asar 内，而 app.asar 会被本次更新覆盖，
-  // 直接执行会导致文件占用甚至脚本被替换后无法继续运行。
+  // 安装助手必须落在应用目录之外：安装过程会重建应用目录下的全部文件，
+  // 若助手位于 app.asar 内，安装到一半就会把自己覆盖掉。
   await fs.mkdir(workDir, { recursive: true })
-  const tempScript = path.join(workDir, `apply-update-${Date.now()}.mjs`)
-  await fs.copyFile(applyScript, tempScript)
+  const tempScript = path.join(workDir, `apply-installer-${Date.now()}.mjs`)
+  await fs.copyFile(helperSource, tempScript)
 
-  sendProgress(98, '正在准备重启安装…')
+  sendProgress(98, '正在退出并安装更新…')
 
   const child = spawn(
     process.execPath,
     [
       tempScript,
       '--pid', String(process.pid),
-      '--staging', state.stagingDir,
+      '--installer', state.installerFile,
       '--target', target,
-      '--exe', path.join(target, exeName),
+      '--exe', exePath,
+      '--product', app.getName(),
       '--log', logFile,
       '--cleanup', tempScript
     ],
