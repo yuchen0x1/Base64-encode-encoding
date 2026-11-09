@@ -797,11 +797,8 @@ Vitest 运行于纯 Node 环境，**没有组件 / DOM 交互测试**；`vue` �
 
 贡献流程与约定见 [CONTRIBUTING.md](CONTRIBUTING.md)，历史审计结论见 [PROJECT_AUDIT_REPORT.md](PROJECT_AUDIT_REPORT.md)。应用图标源图由项目维护者提供。
 
----
 
-## 附录：验证范围与待确认事项
 
-### 本次文档审查已核实
 
 - 工具数量（21）、分类、组件映射与 223 项静态目录数据，来自 `src/config/` 与 `toolhelper_directory.json`。
 - 全部 npm scripts、CLI 参数、环境变量、HTTP 接口、IPC channel、版本清单字段，逐条对照源码。
@@ -828,11 +825,11 @@ Vitest 运行于纯 Node 环境，**没有组件 / DOM 交互测试**；`vue` �
 |---|---|
 | `repository` 元数据 | `package.json` 尚未声明 `repository` / `homepage` 字段；仓库地址以 `git remote origin` 为准，建议补齐字段以便包管理器与第三方工具识别 |
 | 在线演示站点 | 本项目是纯本地工具，当前无托管演示地址；如需提供，可将 `dist/` 静态托管到任意静态文件服务器 |
-| Node.js 最低版本 | 无 `engines` / `.nvmrc`；README 说 20、bat 提示 18、CI 用 20，口径需统一并实测 |
-| 版本号徽章 | 静态徽章依赖 shields.io，离线环境不显示；版本值取自 `package.json` 的 `1.2.0` |
+| Node.js 最低版本 | 无 `engines` / `.nvmrc`；当前 CI 已统一 Node 22，Capacitor 8 CLI 要求 Node 22+ |
+| 版本号徽章 | 静态徽章依赖 shields.io，离线环境不显示；版本值取自 `package.json` 的 `1.2.1` |
 | `author` 与版权人 | `GeekToolBox` vs `yuchen0x1`，建议统一 |
 | 工具矩阵 223 项 URL | 第三方站点相对路径，未验证可达性，也未确认授权，不建议作为「本项目功能」宣传 |
 | `categoryIconMap` | `src/App.vue` 的图标映射未包含 `Layers`（批量处理分类图标），建议补齐 |
 | 平台真机验证 | iOS / macOS / Android 打包与桌面端「下载 → 替换 → 重启」全流程未在本次审查中实机执行 |
-| CI Windows job | `npx electron-builder --win nsis portable` 命令形态未在实际 CI 环境验证 |
+| CI Windows job | 已补充 `--publish never`，本机 Windows 安装包已实际构建验证；GitHub Actions 尚待下一次运行确认 |
 | 组件级自动化测试 | 目前无 DOM / 组件交互测试，新增工具的行为回归依赖人工验证 |
