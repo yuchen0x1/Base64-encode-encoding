@@ -19,6 +19,7 @@ const state = reactive({
   status: 'idle', // idle | checking | uptodate | available | downloading | ready | restarting | error
   currentVersion: APP_VERSION,
   buildTime: BUILD_TIME,
+  portable: false,
   latest: null,
   progress: 0,
   message: '',
@@ -48,6 +49,9 @@ function bindElectron() {
   if (electronBound || typeof window === 'undefined' || !window.toolboxUpdater) return
   electronBound = true
   state.mode = 'electron'
+  Promise.resolve(window.toolboxUpdater.getInfo?.()).then((info) => {
+    state.portable = Boolean(info?.portable)
+  }).catch(() => {})
   window.toolboxUpdater.onEvent((event) => {
     if (!event || !event.type) return
     if (event.type === 'progress') {
@@ -148,6 +152,7 @@ export function checkForUpdates(options = {}) {
       }
 
       state.currentVersion = normalizeVersion(result.currentVersion || state.currentVersion)
+      state.portable = Boolean(result.portable)
       state.lastCheckedAt = Date.now()
 
       if (result.hasUpdate && result.latest) {
@@ -322,7 +327,7 @@ export function useUpdater() {
   bindElectron()
   const hasUpdate = computed(() => state.status === 'available' || state.status === 'downloading' || state.status === 'ready')
   const modeLabel = computed(() => {
-    if (state.mode === 'electron') return '桌面版'
+    if (state.mode === 'electron') return state.portable ? '桌面版 · 便携运行' : '桌面版 · 已安装'
     if (state.mode === 'server') return '网页版 · 本地更新服务'
     if (state.mode === 'static') return '网页版 · 静态部署'
     return '检测中'

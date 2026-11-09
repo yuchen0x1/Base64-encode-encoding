@@ -15,11 +15,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - run: npm ci
       - run: npm run build
       - name: Build macOS app & DMG
-        run: npx electron-builder --mac
+        run: npx electron-builder --mac --publish never
       - name: Upload macOS Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - run: npm ci
       - run: npm run build
       - run: npx cap sync ios
@@ -54,7 +54,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -80,11 +80,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - run: npm ci
       - run: npm run build
       - name: Package Windows
-        run: npx electron-builder --win nsis portable
+        run: npx electron-builder --win nsis portable --publish never
       - name: Upload Windows Portable Exe
         uses: actions/upload-artifact@v4
         with:

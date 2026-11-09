@@ -7,7 +7,11 @@
  * 更新源优先级：
  *   1. 环境变量 TOOLBOX_UPDATE_FEED（目录或 version.json 的 http(s) 地址）
  *   2. 程序目录下的 update-config.json 的 feed 字段
- *   3. 程序目录下的 updates/ 目录（开发环境为项目根 updates/desktop）
+ *   3. 打包版默认使用 GitHub Releases latest/download/version.json
+ *      开发环境使用项目根 updates/desktop 目录
+ *
+ * 便携版由 electron-builder 解压到临时目录运行，不能把自身文件当作安装目录；
+ * 它可以检查更新，但安装请使用 NSIS 安装包。
  */
 import { app, net, BrowserWindow } from 'electron'
 import fs from 'node:fs/promises'
@@ -21,6 +25,7 @@ import { isNewerVersion, normalizeVersion } from '../shared/version.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+const DEFAULT_UPDATE_FEED = 'https://github.com/yuchen0x1/Base64-encode-encoding/releases/latest/download/version.json'
 
 const state = {
   latest: null,
@@ -51,8 +56,12 @@ function sendProgress(percent, message) {
   sendEvent({ type: 'progress', percent: Math.max(0, Math.min(100, Math.round(percent))), message })
 }
 
+function isPortableRuntime() {
+  return Boolean(process.env.PORTABLE_EXECUTABLE_FILE || process.env.PORTABLE_EXECUTABLE_DIR)
+}
+
 function appDir() {
-  return process.env.TOOLBOX_APP_DIR || (app.isPackaged ? path.dirname(app.getPath('exe')) : '')
+  return process.env.TOOLBOX_APP_DIR || (app.isPackaged && !isPortableRuntime() ? path.dirname(app.getPath('exe')) : '')
 }
 
 export function resolveFeed() {
@@ -71,9 +80,8 @@ export function resolveFeed() {
     }
   }
 
-  return app.isPackaged
-    ? path.join(path.dirname(app.getPath('exe')), 'updates')
-    : path.join(__dirname, '..', 'updates', 'desktop')
+  if (app.isPackaged) return DEFAULT_UPDATE_FEED
+  return path.join(__dirname, '..', 'updates', 'desktop')
 }
 
 async function httpFetch(url, options) {
@@ -101,6 +109,14 @@ function resolvePackage(manifest, base) {
   const info = manifest.package || {}
   const url = info.url || `geek-toolbox-desktop-${manifest.version}.zip`
   if (/^https?:\/\//i.test(url)) return { ...info, url, kind: 'http' }
+
+  // version.json 可能来自 HTTP 更新源。不能用 path.join 拼接 URL，
+  // Windows 会把 https:// 错误转换成文件路径，导致下载阶段找不到更新包。
+  if (/^https?:\/\//i.test(base)) {
+    const feedBase = `${base.replace(/\/$/, '')}/`
+    return { ...info, url: new URL(url, feedBase).toString(), kind: 'http' }
+  }
+
   return { ...info, url: path.isAbsolute(url) ? url : path.join(base, url), kind: 'file' }
 }
 
@@ -211,7 +227,8 @@ export async function checkForUpdates() {
     latest: state.latest,
     mode: 'electron',
     packaged: app.isPackaged,
-    appDir: appDir() || null
+    appDir: appDir() || null,
+    portable: isPortableRuntime()
   }
 }
 
@@ -268,7 +285,10 @@ export async function installUpdate() {
   if (!state.stagingDir) throw new Error('更新包尚未下载完成')
   const target = appDir()
   if (!target) {
-    throw new Error('开发模式下不执行自动替换，请使用打包后的程序测试（或设置 TOOLBOX_APP_DIR 指向可替换的安装目录）')
+    if (isPortableRuntime()) {
+      throw new Error('当前运行的是便携版，无法安全自动替换自身文件。请下载并安装新版 NSIS 安装包，安装器会创建桌面和开始菜单快捷方式。')
+    }
+    throw new Error('开发模式下不执行自动替换，请使用打包后的安装版测试（或设置 TOOLBOX_APP_DIR 指向可替换的安装目录）')
   }
   if (!existsSync(target)) throw new Error(`应用目录不存在：${target}`)
 

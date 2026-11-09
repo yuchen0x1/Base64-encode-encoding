@@ -297,7 +297,7 @@ async function buildDesktopDelta(version) {
 async function buildDesktop(version) {
   console.log('[release] 构建桌面端（electron-builder --dir）…')
   const outDir = args.out || 'release'
-  await run('npx', ['electron-builder', '--win', '--x64', '--dir', ...(args.out ? [`--config.directories.output=${args.out}`] : [])])
+  await run('npx', ['electron-builder', '--win', '--x64', '--dir', '--publish', 'never', ...(args.out ? [`--config.directories.output=${args.out}`] : [])])
 
   const appDir = path.join(ROOT, outDir, 'win-unpacked')
   if (!existsSync(appDir)) throw new Error(`未找到 ${outDir}/win-unpacked，桌面端构建失败`)

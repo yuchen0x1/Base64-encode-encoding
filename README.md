@@ -4,9 +4,9 @@
   <img src="public/icon-512.png" width="132" alt="极客工具箱应用图标" />
 </p>
 
-[![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-1.2.0-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-20-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
+[![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-1.2.1-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-22-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
 
-**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v1.2.0 Windows 安装包与便携版](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v1.2.0)
+**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v1.2.1 Windows 安装包与便携版](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v1.2.1)
 
 > 一个**本地优先、零后端依赖**的跨端开发者工具箱：内置 21 款开箱即用的编解码 / 哈希 / 格式化工具，可运行于浏览器、Electron 桌面端与 Capacitor 移动容器，并自带网页版与桌面版的一键更新链路。
 
@@ -207,7 +207,7 @@ flowchart TB
 2. **首屏**：`index.html` 的内联脚本从 `geek-toolbox-state` 读取 `isDark`，在 Vue 挂载前设置 `<html>` 的 `dark` / `light` 类与 `colorScheme`；`useTheme.js` 随后接管响应式主题。
 3. **工具调用**：`App.vue` 依据 `tools.js` 的元数据渲染分类与搜索，通过 `registry.js` 的 `toolComponents` 动态挂载对应组件。`assertToolRegistry()` 在开发期校验元数据与组件一一对应。所有计算在组件内完成，输入不经过网络。
 4. **状态持久化**：仅 `localStorage`，无 Pinia / Vuex，无 `vue-router`（页面切换由 `currentToolId` 等 ref 驱动）。
-5. **配置加载**：项目不使用 `.env`。网页服务器配置来自 CLI 参数与环境变量（优先级：`PORT` / `HOST` / `TOOLBOX_WEB_ROOT` / `TOOLBOX_WEB_FEED` 覆盖 CLI）；桌面更新源优先级为 `TOOLBOX_UPDATE_FEED` → `update-config.json` 的 `feed` → 程序目录 `updates/`。
+5. **配置加载**：项目不使用 `.env`。网页服务器配置来自 CLI 参数与环境变量（优先级：`PORT` / `HOST` / `TOOLBOX_WEB_ROOT` / `TOOLBOX_WEB_FEED` 覆盖 CLI）；桌面更新源优先级为 `TOOLBOX_UPDATE_FEED` → `update-config.json` 的 `feed` → 打包版默认 GitHub Releases `latest/download/version.json`；开发环境默认读取项目根 `updates/desktop/`。便携版只能检查更新，不能安全地自动替换自身文件，建议使用 NSIS 安装包。
 6. **异常处理**：静态服务做路径穿越校验；更新失败时网页版回滚 `index.html` / `version.json`，桌面版在替换进程内处理；ZIP 解压拒绝 `..` 条目与目标目录外写入。
 
 ### 3.4 更新流程
@@ -317,7 +317,7 @@ flowchart TD
 | Android 打包 | JDK 21 + Android SDK | CI 使用 `temurin` 21 与 `gradlew assembleDebug` |
 | 浏览器 | 支持 ES Module 与现代 CSS 的现代浏览器 | 使用了 `crypto-js`、`fetch`、CSS 变量 |
 
-> **版本口径说明**：`package.json` 未声明 `engines`，仓库无 `.nvmrc`，因此 Node.js 的**最低可用版本未经实测**。代码使用了全局 `fetch`（Node 18+ 提供），但项目统一按 Node 20 开发与构建。
+> **版本口径说明**：`package.json` 未声明 `engines`，仓库无 `.nvmrc`，因此 Node.js 的**最低可用版本未经 package.json engines 约束**。代码使用了全局 `fetch`（Node 18+ 提供），Capacitor 8 CLI 要求 Node.js 22+，项目统一按 Node 22 开发与构建。
 
 ---
 
@@ -333,7 +333,7 @@ cd Base64-encode-encoding
 npm install          # 或按 CI 使用 npm ci（需要 package-lock.json）
 ```
 
-仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可直接在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v1.2.0) 下载已构建的 Windows NSIS 安装包与便携版，无需安装 Node.js。
+仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可直接在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v1.2.1) 下载已构建的 Windows NSIS 安装包与便携版，无需安装 Node.js。
 
 项目**不需要 `.env` 文件**，也不需要数据库初始化或密钥配置。
 
@@ -397,7 +397,7 @@ npm test
 npm run lint
 ```
 
-另可在浏览器打开页面，检查顶部版本号是否显示 `v1.2.0`、深浅色切换是否正常、任意工具能否完成一次计算。
+另可在浏览器打开页面，检查顶部版本号是否显示 `v1.2.1`、深浅色切换是否正常、任意工具能否完成一次计算。
 
 ---
 
@@ -428,7 +428,9 @@ npm run lint
 |---|---|---|---|
 | `TOOLBOX_UPDATE_FEED` | 更新源目录或 `version.json` URL（最高优先级） | 否 | 未设置 |
 | `update-config.json` 的 `feed` | 更新源（打包版位于 exe 同目录，开发版位于项目根） | 否 | 不存在则跳过 |
-| 程序目录 `updates/` | 兜底更新源 | 否 | 开发模式为 `<项目根>/updates/desktop` |
+| GitHub Releases `latest/download/version.json` | 打包版默认更新清单 | 否 | 未配置自定义源时使用 |
+| 项目根 `updates/desktop/` | 开发模式兜底更新源 | 否 | 仅未打包开发环境使用 |
+| 便携版 | 可检查更新，但不自动替换自身文件 | — | 请使用 NSIS 安装包完成更新 |
 | `TOOLBOX_APP_DIR` | 指定待替换的应用目录，用于开发模式测试安装流程 | 否 | 打包时取 exe 所在目录 |
 | `ELECTRON_RUN_AS_NODE` | 内部使用，`apply-update.js` 以纯 Node 方式运行 | 否 | 由替换流程设置 |
 
@@ -615,18 +617,18 @@ node server/serve.js --feed https://example.com/updates/web
 
 ### 10.3 CI
 
-[`.github/workflows/build-all.yml`](.github/workflows/build-all.yml)（工作流名 `Build Multiplatform Release`，状态 active）在 `push` / `pull_request`（`main`、`master`）与手动触发时运行 4 个 job：`build-macos`（DMG）、`build-ios`（未签名 Xcode build）、`build-android`（debug APK）、`build-windows`（NSIS + portable）。所有 job 均使用 Node 20 与 `npm ci`。
+[`.github/workflows/build-all.yml`](.github/workflows/build-all.yml)（工作流名 `Build Multiplatform Release`，状态 active）在 `push` / `pull_request`（`main`、`master`）与手动触发时运行 4 个 job：`build-macos`（DMG）、`build-ios`（未签名 Xcode build）、`build-android`（debug APK）、`build-windows`（NSIS + portable）。所有 job 使用 Node 22；Capacitor 8 的 Android / iOS 同步要求 Node.js 22+。所有 job 均使用 `npm ci`。
 
-> Windows 命令 `npx electron-builder --win nsis portable` 未使用 `--config` 指定 target 列表，实际 target 由 `package.json` 的 `build.win.target` 决定；本次未在 CI 环境实测该 job。
+> electron-builder 命令已显式使用 `--publish never`，避免在没有 `GH_TOKEN` 时触发隐式发布。Windows 安装包使用 NSIS，便携版不会创建桌面快捷方式。
 
-### 10.4 当前版本（v1.2.0）更新说明
+### 10.4 当前版本（v1.2.1）更新说明
 
 来源：`release-notes.json`，构建期由 `vite.config.js` 注入 `dist/version.json` 的 `notes` 字段。
 
-- 修复浅色模式下输入框、面板头、哈希卡片等区域残留深色样式，统一主题变量与首屏防闪烁。
-- 新增网页版 / 桌面版一键更新：检查新版本、展示更新说明、下载与 SHA-256 校验、自动替换并重启。
-- 新增「批量处理」工具：支持多行文本与多文件拖拽，批量 Base64 / URL 编解码、MD5 / SHA 哈希、JSON 格式化与压缩，可导出 TXT / CSV / JSON。
-- 修复工具矩阵图谱中 `C++` 条目显示为转义字符的问题。
+- 修复桌面版更新检测错误读取 `AppData\\Local\\Temp` 临时解压目录的问题，打包版默认从 GitHub Releases 获取 `version.json`。
+- 便携版可以检查和下载更新，但不再尝试替换正在运行的临时目录；安装版更新继续支持下载、校验、自动替换与重启。
+- 修复 Windows 安装器应用图标，NSIS 安装完成后强制创建桌面快捷方式和开始菜单快捷方式。
+- 发布独立命名的 Windows 安装包、便携版与桌面更新 ZIP，避免用户误把便携版当成安装版。
 
 ---
 
@@ -806,7 +808,7 @@ Vitest 运行于纯 Node 环境，**没有组件 / DOM 交互测试**；`vue` �
 - 目录结构、`.gitignore` 排除项、CI job 配置、LICENSE 类型与版权人。
 - 图标文件的实际尺寸、色彩模式与 alpha 通道（Web / Electron / Android / iOS 全部重新生成并逐项校验）。
 - README 内全部相对链接、`npm run` 命令、CLI 参数、环境变量、目录锚点与 Mermaid 图表语法。
-- 仓库地址（`git remote -v`）、默认分支 `main`、工作流 `build-all.yml` 状态，以及 v1.2.0 Release 的 3 个资产（GitHub API 实测）。
+- 仓库地址（`git remote -v`）、默认分支 `main`、工作流 `build-all.yml` 状态，以及 v1.2.1 Release 的新版安装资产（GitHub API 实测）。
 
 ### 实际执行的验证
 
@@ -817,7 +819,7 @@ Vitest 运行于纯 Node 环境，**没有组件 / DOM 交互测试**；`vue` �
 | `npm run build` | 成功；`dist/` 正确包含 8 个图标资源、`manifest.json`、`version.json` |
 | `python scripts/generate-icons.py` | 重复执行两次输出稳定；Web 7 个、Electron 3 个、Android 26 个、iOS 4 个文件全部生成 |
 | 本地服务器实测（端口 4188） | `/api/version`、`/api/update/check`、`/api/update/progress`、`/version.json`、`favicon.ico`、`icon-512.png`、`manifest.json` 均返回 200 且字段 / MIME 正确；GET `/api/update/apply` 返回 405；未知 `/api/*` 返回 404 |
-| GitHub 侧核对 | 仓库 `yuchen0x1/Base64-encode-encoding` 为 public、默认分支 `main`；`build-all.yml` 状态 active；v1.2.0 Release 非 draft，含 NSIS 安装包、blockmap 与便携版 |
+| GitHub 侧核对 | 仓库 `yuchen0x1/Base64-encode-encoding` 为 public、默认分支 `main`；`build-all.yml` 状态 active；v1.2.1 Release 含带图标的 NSIS 安装包、blockmap、便携版与桌面更新 ZIP |
 | 未执行 | POST `/api/update/apply` 的真实下载—替换—重启流程（会改写 `dist/`，本次审查未触发）；桌面端安装替换流程；移动端 / macOS 真机构建 |
 
 ### 待项目维护者确认 / 补充

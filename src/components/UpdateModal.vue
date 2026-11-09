@@ -142,7 +142,8 @@ const statusText = computed(() => {
 })
 
 const modeHint = computed(() => {
-  if (state.mode === 'electron') return '桌面版：下载完成后将自动替换程序文件并重启，新版本窗口会自动打开。'
+  if (state.mode === 'electron' && state.portable) return '当前是便携版：可以检查和下载更新，但无法安全替换正在运行的临时目录。请安装新版 NSIS 安装包，安装后会创建桌面和开始菜单快捷方式。'
+  if (state.mode === 'electron') return '桌面安装版：下载完成后将自动替换程序文件并重启，新版本窗口会自动打开。'
   if (state.mode === 'server') return '网页版（本地更新服务）：将自动下载更新包、校验 SHA-256、替换文件并重启服务器，页面随后自动刷新。'
   if (state.mode === 'static') return '网页版（静态部署）：新版本文件已发布在服务器上，点击更新将清理缓存并刷新加载。'
   return '正在检测运行环境…'
@@ -161,6 +162,10 @@ async function primaryAction() {
     if (state.status === 'available') {
       await downloadUpdate()
     } else if (state.status === 'ready') {
+      if (state.portable) {
+        state.error = '便携版无法自动安装更新，请下载并安装新版 NSIS 安装包。'
+        return
+      }
       await installUpdate()
     } else {
       await checkForUpdates({ manual: true })
