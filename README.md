@@ -4,9 +4,11 @@
   <img src="public/icon-512.png" width="132" alt="极客工具箱应用图标" />
 </p>
 
-[![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-0.0.1-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-22-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
+[![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-0.0.2-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-22-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
 
-**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v0.0.1 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.1)
+**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v0.0.2 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.2)
+
+**交流群**：<https://qm.qq.com/q/bkacrv1t3G> · 点击链接直接加入 QQ 群「**冷漠网络科技交流群①**」（问题反馈 / 功能建议 / 版本更新通知）。App 内也可通过侧边栏底部「反馈 & 交流群」、工具标题栏「反馈」按钮或移动端顶栏消息图标打开加群弹窗（支持二维码扫码与复制链接）。
 
 > 一个**本地优先、零后端依赖**的跨端开发者工具箱：内置 21 款开箱即用的编解码 / 哈希 / 格式化工具，可运行于浏览器、Electron 桌面端与 Capacitor 移动容器，并自带网页版与桌面版的一键更新链路。
 
@@ -331,7 +333,7 @@ cd Base64-encode-encoding
 npm install          # 或按 CI 使用 npm ci（需要 package-lock.json）
 ```
 
-仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可直接在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.1) 下载已构建的 Windows 安装包（`GeekToolbox-Setup-<版本>.exe`，每个版本仅此一个文件），无需安装 Node.js。
+仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可直接在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.2) 下载已构建的 Windows 安装包（`GeekToolbox-Setup-<版本>.exe`，每个版本仅此一个文件），无需安装 Node.js。
 
 项目**不需要 `.env` 文件**，也不需要数据库初始化或密钥配置。
 
@@ -385,7 +387,7 @@ npx cap sync android         # 或 npx cap sync ios
 ```bash
 # 网页版服务器
 curl http://127.0.0.1:4173/api/version
-# 期望：{"version":"0.0.1","buildTime":"...","mode":"server"}
+# 期望：{"version":"0.0.2","buildTime":"...","mode":"server"}
 
 # 开发服务器（version.json 由 Vite 中间件提供）
 curl http://127.0.0.1:5173/version.json
@@ -395,7 +397,7 @@ npm test
 npm run lint
 ```
 
-另可在浏览器打开页面，检查顶部版本号是否显示 `v0.0.1`、深浅色切换是否正常、任意工具能否完成一次计算。
+另可在浏览器打开页面，检查顶部版本号是否显示 `v0.0.2`、深浅色切换是否正常、任意工具能否完成一次计算。
 
 ---
 
@@ -541,10 +543,10 @@ curl http://127.0.0.1:4173/api/update/progress
 
 ```bash
 curl http://127.0.0.1:4173/api/version
-# {"version":"0.0.1","buildTime":"2026-11-09T...","mode":"server"}
+# {"version":"0.0.2","buildTime":"2026-11-09T...","mode":"server"}
 
 curl http://127.0.0.1:4173/api/update/check
-# {"mode":"server","supported":true,"hasUpdate":false,"currentVersion":"0.0.1","latest":null}
+# {"mode":"server","supported":true,"hasUpdate":false,"currentVersion":"0.0.2","latest":null}
 
 curl -X POST http://127.0.0.1:4173/api/update/apply
 # {"jobId":"1731...","status":"preparing"}
@@ -617,14 +619,16 @@ node server/serve.js --feed https://example.com/updates/web
 
 > electron-builder 命令已显式使用 `--publish never`，避免在没有 `GH_TOKEN` 时触发隐式发布。Windows 只产出一个 NSIS 安装包，不再产出便携版与独立更新 ZIP。
 
-### 10.4 当前版本（v0.0.1）更新说明
+### 10.4 当前版本（v0.0.2）更新说明
 
 来源：`release-notes.json`，构建期由 `vite.config.js` 注入 `dist/version.json` 的 `notes` 字段。
 
-- 版本号重置为 `0.0.1`：旧版本不具备自动更新能力，历史版本与安装包已全部下线。
-- 桌面端自动更新改为基于 NSIS 安装包：下载 → SHA-256 校验 → 静默覆盖安装 → 自动重启，不再需要额外的 ZIP 更新包。
-- Windows 只发布一个安装包（`GeekToolbox-Setup-0.0.1.exe`），移除便携版、完整 ZIP、增量 ZIP 与 blockmap。
-- 更新弹窗新增「更新日志」：无论是否已是最新，都能看到当前版本与本版本的更新说明。
+- 新增「反馈 & 交流群」入口：侧边栏底部、工具标题栏「反馈」按钮、移动端顶栏消息图标三处均可打开加群弹窗。
+- 加群弹窗支持群二维码扫码、一键加入 QQ 群（冷漠网络科技交流群①）、复制群链接与直达 GitHub Issues。
+- 桌面端加群通过系统默认浏览器打开，不会把应用自身导航离开；移动容器改为扫码 / 复制链接，避免 WebView 顶掉页面。
+- 修复 minimatch 依赖 ReDoS 漏洞（GHSA-g3hv-75wg-m249），`npm audit` 归零；新增 `npm run clean` 清理脚本。
+
+> v0.0.1 的变更（版本号重置、桌面端改为 NSIS 安装包自动更新、更新弹窗展示更新日志）已包含在 0.0.2 安装包内。
 
 ---
 
@@ -676,6 +680,9 @@ npx cap sync android # 可选：同步到原生工程
 
 **Q：新增工具后构建 / 运行报错「工具注册表不一致」？**
 必须同时修改 `src/config/tools.js`（元数据）与 `src/config/registry.js`（组件映射）。`assertToolRegistry()` 与 `tests/registry.test.js` 会双向校验；测试还断言工具数量为 21，新增工具时需同步更新该期望值。
+
+**Q：在哪里反馈问题或加入交流群？**
+加群链接：<https://qm.qq.com/q/bkacrv1t3G>（冷漠网络科技交流群①）。App 内入口有三处：侧边栏底部「反馈 & 交流群」按钮、工具标题栏右侧「反馈」按钮、移动端顶栏消息图标；弹窗内提供二维码扫码、一键加群与复制链接三种方式（配置集中在 `src/config/social.js`）。需要留痕的缺陷也可以在 [GitHub Issues](https://github.com/yuchen0x1/Base64-encode-encoding/issues) 提交。
 
 **Q：PWA 图标仍是旧图 / 不显示？**
 `public/` 下的资源需要 `npm run build` 才会进入 `dist/`。修改图标后请重新构建，并清理浏览器 PWA 缓存。

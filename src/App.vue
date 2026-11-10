@@ -10,10 +10,15 @@
         <span class="cyber-pulse-dot"></span>
         <span class="gradient-text">TOOLBOX PRO</span>
       </div>
-      <button class="cyber-icon-btn" @click="toggleTheme">
-        <Sun v-if="isDark" :size="18" class="text-amber" />
-        <Moon v-else :size="18" class="text-cyan" />
-      </button>
+      <div class="mobile-header-right">
+        <button class="cyber-icon-btn" title="反馈 / 加入交流群" @click="feedbackOpen = true">
+          <MessageCircle :size="18" />
+        </button>
+        <button class="cyber-icon-btn" @click="toggleTheme">
+          <Sun v-if="isDark" :size="18" class="text-amber" />
+          <Moon v-else :size="18" class="text-cyan" />
+        </button>
+      </div>
     </header>
 
     <!-- 侧边栏：PC常驻，移动端抽屉 -->
@@ -107,6 +112,12 @@
           <Layers :size="14" />
           <span>{{ catalogToolCount }} 款全量全景图谱</span>
         </button>
+        <!-- 交流群入口：点击打开反馈弹窗（群二维码 / 一键加群 / 复制链接） -->
+        <button class="btn btn-secondary btn-sm community-btn" title="反馈 / 加入交流群" @click="feedbackOpen = true">
+          <MessageCircle :size="14" />
+          <span>反馈 &amp; 交流群</span>
+          <span class="community-dot"></span>
+        </button>
       </div>
     </aside>
 
@@ -167,6 +178,10 @@
             <p class="current-tool-desc">{{ currentTool.description }}</p>
           </div>
           <div class="tool-header-actions pc-only">
+            <button class="btn btn-secondary btn-sm" title="反馈 / 加入交流群" @click="feedbackOpen = true">
+              <MessageCircle :size="14" />
+              <span>反馈</span>
+            </button>
             <button 
               :class="['btn', isFavorite(currentTool.id) ? 'btn-primary' : 'btn-secondary', 'btn-sm']"
               @click="toggleFavorite(currentTool.id)"
@@ -220,6 +235,9 @@
 
     <!-- 版本更新弹窗（网页版 / 桌面版共用） -->
     <UpdateModal />
+
+    <!-- 反馈 & 交流群弹窗（QQ 群二维码 / 一键加群 / 复制链接） -->
+    <FeedbackModal v-model:open="feedbackOpen" />
 
     <!-- 外部工具目录图谱 -->
     <div v-if="showCatalogModal" class="modal-backdrop" @click="showCatalogModal = false">
@@ -289,13 +307,15 @@ import {
   Layers,
   Palette,
   Braces,
-  Database
+  Database,
+  MessageCircle
 } from 'lucide-vue-next'
 
 import { toolCategories, toolsList } from './config/tools.js'
 import catalogJson from '../toolhelper_directory.json'
 import ToastContainer from './components/ToastContainer.vue'
 import UpdateModal from './components/UpdateModal.vue'
+import FeedbackModal from './components/FeedbackModal.vue'
 import { useTheme } from './composables/useTheme.js'
 import { useUpdater, openUpdatePanel, scheduleStartupCheck } from './composables/useUpdater.js'
 
@@ -351,6 +371,7 @@ const { isDark, applyTheme, toggleTheme: switchTheme } = useTheme()
 applyTheme(savedState && typeof savedState.isDark === 'boolean' ? savedState.isDark : true)
 const mobileMenuOpen = ref(false)
 const showCatalogModal = ref(false)
+const feedbackOpen = ref(false)
 const searchQuery = ref('')
 const activeCategory = ref('all')
 const currentToolId = ref(savedState && savedState.currentToolId ? savedState.currentToolId : 'base64')
@@ -882,6 +903,47 @@ onUnmounted(() => {
 }
 .directory-btn {
   width: 100%;
+}
+
+/* 交流群入口按钮（侧边栏底部，常驻可见） */
+.community-btn {
+  width: 100%;
+  position: relative;
+  border-color: rgba(18, 183, 245, 0.35);
+  background: linear-gradient(135deg, rgba(18, 183, 245, 0.12) 0%, rgba(var(--rgb-cyan), 0.05) 100%);
+  color: var(--text-main);
+}
+.community-btn:hover {
+  border-color: rgba(18, 183, 245, 0.7);
+  color: #12b7f5;
+  box-shadow: 0 0 14px rgba(18, 183, 245, 0.22);
+}
+.community-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #12b7f5;
+  box-shadow: 0 0 8px #12b7f5;
+  animation: community-pulse 2s infinite;
+}
+@keyframes community-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* 移动端顶栏右侧按钮组 */
+.mobile-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* 工具头部操作区 */
+.tool-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 /* 主视口 */

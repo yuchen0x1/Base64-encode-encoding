@@ -1,7 +1,7 @@
 {
   "name": "geek-toolbox",
   "productName": "极客工具箱",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "极客工具箱 - 跨端响应式现代化工具箱",
   "main": "electron/main.js",
   "type": "module",
