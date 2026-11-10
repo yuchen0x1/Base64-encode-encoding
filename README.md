@@ -373,6 +373,13 @@ npm run package:win          # 生成唯一的 Windows 安装包到 release/
 
 `运行PC桌面版.bat` 直接启动 `release/win-unpacked/极客工具箱.exe`，**需先执行 `npm run build:win` 或 `npm run package:win`**。
 
+> **构建目录不要放在云同步盘里（重要）**
+> 本仓库位于云同步目录时，第三方同步客户端会在 100 MB 级安装包落盘过程中介入（上传、去重、回写），
+> 可能把 `app-64.7z` 的数据区写坏：安装包仍能「安装成功」并返回 0，但装出来的目录只有 dll/pak、
+> 没有主程序与 `app.asar`，桌面快捷方式随即指向不存在的文件。
+> 构建时请把输出指到本地磁盘，例如 `node scripts/release.mjs --version x.y.z --desktop --out E:/geek-build`，
+> 发布脚本会先用 7-Zip 校验 `app-64.7z` 的 CRC，损坏则直接中止发布（需要安装 7-Zip 或设置 `TOOLBOX_7Z`）。
+
 ### 6.6 移动端（Capacitor）
 
 ```bash

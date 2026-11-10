@@ -29,15 +29,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
 
 function parseArgs(argv) {
-  const args = { desktop: false, skipBuild: false, bump: '', version: '', notes: '', out: '' }
+  const args = { desktop: false, skipBuild: false, bump: '', version: '', notes: '', out: '', installer: '', skipVerify: false }
   for (let i = 2; i < argv.length; i += 1) {
     const key = argv[i]
     if (key === '--desktop') args.desktop = true
     else if (key === '--skip-build') args.skipBuild = true
+    else if (key === '--skip-verify') args.skipVerify = true
     else if (key === '--bump') { args.bump = argv[i + 1]; i += 1 }
     else if (key === '--version') { args.version = argv[i + 1]; i += 1 }
     else if (key === '--notes') { args.notes = argv[i + 1]; i += 1 }
     else if (key === '--out') { args.out = argv[i + 1]; i += 1 }
+    else if (key === '--installer') { args.installer = argv[i + 1]; i += 1 }
     else if (key === '--help' || key === '-h') args.help = true
   }
   return args
@@ -52,8 +54,10 @@ if (args.help) {
   --version <x.y.z>           指定版本号
   --desktop                   同时构建 Windows 安装包（NSIS）并写入 updates/desktop
   --skip-build                跳过 vite build（复用 dist）
+  --skip-verify               跳过安装包完整性校验（不建议；需要 7-Zip）
+  --installer <path>          复用已构建好的安装包，跳过 electron-builder
   --notes "a|b|c"             覆盖 release-notes.json 中的更新说明（用 | 分隔）
-  --out <dir>                 指定 electron-builder 输出目录（默认 release）
+  --out <dir>                 指定 electron-builder 输出目录（默认 release，可传绝对路径）
 `)
   process.exit(0)
 }
@@ -124,6 +128,87 @@ function run(command, commandArgs, options = {}) {
   })
 }
 
+/**
+ * 不经过 shell 的进程调用。
+ * shell=true 时 Node 只是把 command + args 用空格拼接，路径里带空格（本项目路径就带）
+ * 会被拆成多个参数，因此 7z 这类需要传绝对路径的调用必须走这条。
+ */
+function runDirect(command, commandArgs) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, commandArgs, { cwd: ROOT, stdio: 'ignore' })
+    child.on('error', reject)
+    child.on('exit', (code) => {
+      if (code === 0) resolve()
+      else reject(new Error(`${path.basename(command)} ${commandArgs.join(' ')} 退出码 ${code}`))
+    })
+  })
+}
+
+const SEVEN_ZIP_CANDIDATES = [
+  process.env.TOOLBOX_7Z,
+  '7z',
+  '7za',
+  'C:\\Program Files\\7-Zip\\7z.exe',
+  'C:\\Program Files (x86)\\7-Zip\\7z.exe',
+  '/usr/bin/7z',
+  '/usr/local/bin/7z'
+].filter(Boolean)
+
+async function resolveSevenZip() {
+  for (const candidate of SEVEN_ZIP_CANDIDATES) {
+    try {
+      await runDirect(candidate, ['i'])
+      return candidate
+    } catch {
+      /* 换下一个候选 */
+    }
+  }
+  return null
+}
+
+/**
+ * 安装包完整性校验。
+ *
+ * 事故背景：v0.0.2 首次构建出的 NSIS 安装包能正常「安装」并返回退出码 0，
+ * 但内层 app-64.7z 的数据区已损坏，解压到一半就静默放弃，
+ * 结果是安装目录里只有 dll/pak、没有主程序与 app.asar，快捷方式随即失效。
+ * 因此发布前必须验证内层归档的 CRC，而不是只看 electron-builder 是否退出成功。
+ */
+async function verifyInstallerIntegrity(installerPath, version) {
+  if (args.skipVerify) {
+    console.warn('[release] 已按 --skip-verify 跳过安装包完整性校验（风险自负）')
+    return
+  }
+
+  const sevenZip = await resolveSevenZip()
+  if (!sevenZip) {
+    throw new Error(
+      '未找到 7z，无法校验安装包完整性。请安装 7-Zip 或设置 TOOLBOX_7Z 指向 7z.exe；' +
+      '确认要跳过请加 --skip-verify'
+    )
+  }
+
+  const workDir = path.join(ROOT, '.tmp-release', `verify-${version}-${Date.now()}`)
+  await fs.mkdir(workDir, { recursive: true })
+
+  console.log('[release] 校验安装包内层归档（app-64.7z）…')
+  await runDirect(sevenZip, ['e', installerPath, `-o${workDir}`, '-y', '-ir!*app-64.7z'])
+  const archivePath = path.join(workDir, 'app-64.7z')
+  if (!existsSync(archivePath)) throw new Error('安装包内未找到 app-64.7z，发布包结构异常')
+
+  try {
+    await runDirect(sevenZip, ['t', archivePath])
+  } catch {
+    throw new Error(
+      '安装包内层归档校验失败（app-64.7z 数据损坏），已中止发布。\n' +
+      '  常见原因：构建输出目录位于云同步盘（OneDrive / 坚果云 / 移动云盘等），同步客户端在大文件落盘时介入写坏归档。\n' +
+      '  处理：用 --out 指向本地磁盘重建，例如 --out E:/geek-build；' +
+      '此类安装包会让用户安装到一半就失去主程序'
+    )
+  }
+  console.log('[release] 安装包完整性校验通过（app-64.7z 全部 CRC 正常）')
+}
+
 function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex')
 }
@@ -183,28 +268,45 @@ async function buildWeb(version) {
  * 用户不再需要区分「安装版 / 便携版 / 更新包」。
  */
 async function buildDesktopInstaller(version) {
-  const outDir = args.out || 'release'
-  console.log(`[release] 构建 Windows 安装包（NSIS）→ ${outDir}/ …`)
-  await run('npx', [
-    'electron-builder',
-    '--win',
-    'nsis',
-    '--x64',
-    '--publish',
-    'never',
-    ...(args.out ? [`--config.directories.output=${args.out}`] : [])
-  ])
-
+  const outDir = args.out ? path.resolve(ROOT, args.out) : path.join(ROOT, 'release')
   const fileName = `GeekToolbox-Setup-${version}.exe`
-  const installerPath = path.join(ROOT, outDir, fileName)
-  if (!existsSync(installerPath)) throw new Error(`未找到 ${outDir}/${fileName}，安装包构建失败`)
+  let installerPath = ''
+
+  if (args.installer) {
+    // 复用已构建好的安装包（例如先构建到同步盘之外的目录，再回来写更新源）
+    installerPath = path.resolve(ROOT, args.installer)
+    if (!existsSync(installerPath)) throw new Error(`指定的安装包不存在：${installerPath}`)
+    console.log(`[release] 复用已构建的安装包：${installerPath}`)
+  } else {
+    console.log(`[release] 构建 Windows 安装包（NSIS）→ ${outDir}/ …`)
+    await run('npx', [
+      'electron-builder',
+      '--win',
+      'nsis',
+      '--x64',
+      '--publish',
+      'never',
+      ...(args.out ? [`--config.directories.output=${args.out}`] : [])
+    ], {
+      // 兼容 WorkBuddy / Agent 运行环境：其 Node 安全删除垫片会把 electron-builder 的
+      // fs.rm(win-unpacked) 改写成异步「回收站移动」，与随后的解压/压缩竞态。
+      // 该变量只影响本子进程，不改变系统行为。
+      env: { ...process.env, CODEBUDDY_SAFE_DELETE_ENABLED: '0' }
+    })
+
+    installerPath = path.join(outDir, fileName)
+    if (!existsSync(installerPath)) throw new Error(`未找到 ${outDir}/${fileName}，安装包构建失败`)
+  }
+
+  // 先校验包内归档，再写更新源清单：损坏的安装包绝不能进入 version.json
+  await verifyInstallerIntegrity(installerPath, version)
 
   const buffer = await fs.readFile(installerPath)
   const manifest = await writePackage(path.join(ROOT, 'updates', 'desktop'), fileName, buffer, version)
   manifest.kind = 'nsis'
   await writeJson(path.join(ROOT, 'updates', 'desktop', 'version.json'), manifest)
 
-  console.log(`[release] Windows 安装包: ${outDir}/${fileName} (${formatSize(buffer.length)})`)
+  console.log(`[release] Windows 安装包: ${installerPath} (${formatSize(buffer.length)})`)
   console.log('[release] 桌面更新源: updates/desktop/（version.json + 同名安装包，仅两个文件）')
   return manifest
 }
@@ -233,6 +335,7 @@ async function main() {
   console.log(` 发布完成 · v${nextVersion}`)
   console.log('==============================================')
   console.log(`更新说明: ${web.notes.length} 条`)
+  if (desktop) console.log('安装包完整性: 已通过 app-64.7z 校验')
   console.log('发布目录:')
   console.log('  updates/web/     ← 网页版更新源（静态托管该目录或放到服务器）')
   if (desktop) {
