@@ -6,7 +6,7 @@
 
 [![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-0.0.3-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-22-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
 
-**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v0.0.3 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.3)（候选 Release 尚未发布）
+**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v0.0.3 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.3)
 
 **交流群**：<https://qm.qq.com/q/bkacrv1t3G> · 点击链接直接加入 QQ 群「**冷漠网络科技交流群①**」（问题反馈 / 功能建议 / 版本更新通知）。App 内也可通过侧边栏底部「反馈 & 交流群」、工具标题栏「反馈」按钮或移动端顶栏消息图标打开加群弹窗（支持二维码扫码与复制链接）。
 
@@ -333,7 +333,7 @@ cd Base64-encode-encoding
 npm install          # 或按 CI 使用 npm ci（需要 package-lock.json）
 ```
 
-仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.3) 下载 v0.0.3 Windows 安装包（**Release 发布后可用**；`GeekToolbox-Setup-<版本>.exe`，每个版本仅此一个文件），无需安装 Node.js。
+仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.3) 下载 v0.0.3 Windows 安装包（`GeekToolbox-Setup-<版本>.exe`，每个版本仅此一个文件），无需安装 Node.js。
 
 项目**不需要 `.env` 文件**，也不需要数据库初始化或密钥配置。
 
@@ -604,7 +604,7 @@ node scripts/release.mjs --bump patch --notes "修复 A|新增 B"
 - `updates/web/version.json` + `geek-toolbox-web-<version>.zip`
 - `updates/desktop/version.json` + `GeekToolbox-Setup-<version>.exe`
 
-`updates/` 已被 `.gitignore` 排除，需自行上传到 GitHub Release、静态文件服务器或内网共享目录。桌面更新源只需两个文件（`version.json` + 同名安装包），`sha256` 由发布脚本自动写入。
+`updates/` 已被 `.gitignore` 排除，需自行上传到 GitHub Release、静态文件服务器或内网共享目录。桌面更新源只需两个文件（`version.json` + 同名安装包），`sha256` 由发布脚本自动写入。GitHub Release 中网页清单使用 `web-version.json`，避免与桌面清单重名。
 
 ### 10.2 指向更新源
 
@@ -631,9 +631,9 @@ node server/serve.js --feed https://example.com/updates/web
 
 > electron-builder 命令已显式使用 `--publish never`，避免在没有 `GH_TOKEN` 时触发隐式发布。Windows 只产出一个 NSIS 安装包，不再产出便携版与独立更新 ZIP。
 
-### 10.4 当前候选版本（v0.0.3）更新说明
+### 10.4 当前版本（v0.0.3）更新说明
 
-来源：`release-notes.json`，构建期由 `vite.config.js` 注入 `dist/version.json` 的 `notes` 字段。**v0.0.3 仍是候选版本，Release 尚未发布；上方下载链接在发布前不可用。**
+来源：`release-notes.json`，构建期由 `vite.config.js` 注入 `dist/version.json` 的 `notes` 字段。v0.0.3 已发布到 GitHub Releases。
 
 - 加固 Electron 自动更新：仅接受 Windows NSIS 安装包，强制校验 SHA-256，并确认安装后的 `app.asar` 版本与目标版本一致。
 - 增强网页更新安全性与恢复能力：限制 ZIP 解压资源用量、校验归档完整性，并在文件替换失败时恢复旧版本。
