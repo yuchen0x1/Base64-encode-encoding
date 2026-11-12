@@ -137,7 +137,7 @@ describe('Electron updater package enforcement', () => {
           const stream = new ReadableStream({
             start(controller) {
               controller.enqueue(payload.subarray(0, 5))
-              setTimeout(() => controller.error(new Error('simulated connection reset')), 0)
+              setTimeout(() => controller.error(new Error('simulated connection reset')), 20)
             }
           })
           return new Response(stream, {

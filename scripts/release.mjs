@@ -29,7 +29,7 @@ import { normalizeVersion, compareVersions } from '../shared/version.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
 const require = createRequire(import.meta.url)
-const { listPackage } = require('@electron/asar')
+const { extractFile } = require('@electron/asar')
 
 function parseArgs(argv) {
   const args = { desktop: false, skipBuild: false, bump: '', version: '', notes: '', out: '', installer: '', skipVerify: false }
@@ -226,9 +226,9 @@ async function verifyInstallerIntegrity(installerPath, version) {
   if (!existsSync(asarPath)) throw new Error('安装包内未找到 app-64.7z 或 resources/app.asar，发布包结构异常')
 
   try {
-    const entries = listPackage(asarPath)
-    if (!entries.some((entry) => entry === 'package.json')) {
-      throw new Error('app.asar 缺少 package.json')
+    const metadata = JSON.parse(extractFile(asarPath, 'package.json').toString('utf8'))
+    if (normalizeVersion(metadata.version) !== version) {
+      throw new Error(`app.asar 版本为 ${metadata.version}，期望 ${version}`)
     }
   } catch (error) {
     throw new Error(`安装包 app.asar 校验失败：${error.message}`, { cause: error })
