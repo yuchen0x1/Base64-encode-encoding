@@ -18,7 +18,7 @@ const electronMock = vi.hoisted(() => ({
 
 vi.mock('electron', () => electronMock)
 
-const { checkForUpdates, downloadUpdate, installUpdate } = await import('../electron/updater.js')
+const { checkForUpdates, downloadUpdate, installUpdate, getRuntimeCopyPath } = await import('../electron/updater.js')
 const validSha256 = 'a'.repeat(64)
 const windowsIt = process.platform === 'win32' ? it : it.skip
 
@@ -50,6 +50,15 @@ async function withPlatform(platform, callback) {
 }
 
 describe('Electron updater package enforcement', () => {
+  it('places the helper runtime copy outside the installed application directory', () => {
+    const workDir = path.join('C:\\Users\\test', 'AppData', 'Roaming', '极客工具箱', 'updates')
+    const runtimeCopy = getRuntimeCopyPath(workDir, 1234, 5678)
+
+    expect(runtimeCopy).toBe(path.join(workDir, 'toolbox-updater-runtime-5678-1234.exe'))
+    expect(path.dirname(runtimeCopy)).toBe(workDir)
+    expect(path.basename(runtimeCopy)).not.toBe('极客工具箱.exe')
+  })
+
   windowsIt.each([
     ['missing hash', undefined],
     ['empty hash', ''],

@@ -4,9 +4,9 @@
   <img src="public/icon-512.png" width="132" alt="极客工具箱应用图标" />
 </p>
 
-[![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-0.0.3-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-22-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
+[![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-0.0.4-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-22-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
 
-**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v0.0.3 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.3)
+**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v0.0.4 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.4)
 
 **交流群**：<https://qm.qq.com/q/bkacrv1t3G> · 点击链接直接加入 QQ 群「**冷漠网络科技交流群①**」（问题反馈 / 功能建议 / 版本更新通知）。App 内也可通过侧边栏底部「反馈 & 交流群」、工具标题栏「反馈」按钮或移动端顶栏消息图标打开加群弹窗（支持二维码扫码与复制链接）。
 
@@ -333,7 +333,7 @@ cd Base64-encode-encoding
 npm install          # 或按 CI 使用 npm ci（需要 package-lock.json）
 ```
 
-仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.3) 下载 v0.0.3 Windows 安装包（`GeekToolbox-Setup-<版本>.exe`，每个版本仅此一个文件），无需安装 Node.js。
+仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.4) 下载 v0.0.4 Windows 安装包（`GeekToolbox-Setup-<版本>.exe`，每个版本仅此一个文件），无需安装 Node.js。
 
 项目**不需要 `.env` 文件**，也不需要数据库初始化或密钥配置。
 
@@ -394,7 +394,7 @@ npx cap sync android         # 或 npx cap sync ios
 ```bash
 # 网页版服务器
 curl http://127.0.0.1:4173/api/version
-# 期望：{"version":"0.0.3","buildTime":"...","mode":"server"}
+# 期望：{"version":"0.0.4","buildTime":"...","mode":"server"}
 
 # 开发服务器（version.json 由 Vite 中间件提供）
 curl http://127.0.0.1:5173/version.json
@@ -404,7 +404,7 @@ npm test
 npm run lint
 ```
 
-另可在浏览器打开页面，检查顶部版本号是否显示 `v0.0.3`、深浅色切换是否正常、任意工具能否完成一次计算。
+另可在浏览器打开页面，检查顶部版本号是否显示 `v0.0.4`、深浅色切换是否正常、任意工具能否完成一次计算。
 
 ---
 
@@ -550,10 +550,10 @@ curl http://127.0.0.1:4173/api/update/progress
 
 ```bash
 curl http://127.0.0.1:4173/api/version
-# {"version":"0.0.3","buildTime":"...","mode":"server"}
+# {"version":"0.0.4","buildTime":"...","mode":"server"}
 
 curl http://127.0.0.1:4173/api/update/check
-# {"mode":"server","supported":true,"hasUpdate":false,"currentVersion":"0.0.3","latest":null}
+# {"mode":"server","supported":true,"hasUpdate":false,"currentVersion":"0.0.4","latest":null}
 
 curl -X POST http://127.0.0.1:4173/api/update/apply
 # {"jobId":"1731...","status":"preparing"}
@@ -595,7 +595,7 @@ curl http://127.0.0.1:4173/api/update/progress
 ```bash
 npm run release                                      # 网页版更新包
 node scripts/release.mjs --desktop                   # Windows 安装包 + updates/desktop 更新源
-node scripts/release.mjs --version 0.0.3 --desktop
+node scripts/release.mjs --version 0.0.4 --desktop
 node scripts/release.mjs --bump patch --notes "修复 A|新增 B"
 ```
 
@@ -631,16 +631,15 @@ node server/serve.js --feed https://example.com/updates/web
 
 > electron-builder 命令已显式使用 `--publish never`，避免在没有 `GH_TOKEN` 时触发隐式发布。Windows 只产出一个 NSIS 安装包，不再产出便携版与独立更新 ZIP。
 
-### 10.4 当前版本（v0.0.3）更新说明
+### 10.4 当前版本（v0.0.4）更新说明
 
-来源：`release-notes.json`，构建期由 `vite.config.js` 注入 `dist/version.json` 的 `notes` 字段。v0.0.3 已发布到 GitHub Releases。
+来源：`release-notes.json`，构建期由 `vite.config.js` 注入 `dist/version.json` 的 `notes` 字段。v0.0.4 已发布到 GitHub Releases。
 
-- 加固 Electron 自动更新：仅接受 Windows NSIS 安装包，强制校验 SHA-256，并确认安装后的 `app.asar` 版本与目标版本一致。
-- 增强网页更新安全性与恢复能力：限制 ZIP 解压资源用量、校验归档完整性，并在文件替换失败时恢复旧版本。
-- 修复静态资源路径越界风险及多个工具的数据边界问题，完善 JSON、JWT、AES、编码、图片、批处理和正则处理。
-- 改进常用工具状态恢复、哈希结果选择、二维码生成和 SQL 字符串格式化行为。
+- 修复 Windows 自动更新助手占用安装目录主程序 EXE 导致 NSIS 卸载失败 code 2：改用安装目录外的临时运行时副本启动助手。
+- 改进 NSIS 升级兼容性：旧卸载器返回 code 2 时继续执行直接文件清理，并保留安装后版本完整性校验。
+- 安装失败时继续自动重试并回退到交互式安装向导，避免留下缺少主程序或 `app.asar` 的半安装目录。
 
-> v0.0.2 的更新入口、交流群和依赖安全修复仍包含在本版本中。
+> v0.0.3 的更新校验、网页更新防护和工具边界修复仍包含在本版本中。
 
 ---
 

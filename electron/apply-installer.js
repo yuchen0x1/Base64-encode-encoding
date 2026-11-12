@@ -136,6 +136,31 @@ function writeFailureMarker(workDir, details) {
   }
 }
 
+function cleanupFile(file) {
+  if (!file) return
+  try {
+    fs.unlinkSync(file)
+    return
+  } catch {
+    /* 当前进程可能仍持有运行时副本，交给独立 cmd 进程稍后清理 */
+  }
+
+  if (process.platform !== 'win32') return
+  const command = process.env.ComSpec || process.env.COMSPEC || 'cmd.exe'
+  const escaped = String(file).replace(/"/g, '""')
+  const script = `ping.exe 127.0.0.1 -n 2 >nul & del /f /q "${escaped}"`
+  try {
+    const child = spawn(command, ['/d', '/s', '/c', script], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true
+    })
+    child.unref()
+  } catch {
+    /* 延迟清理失败不影响已完成的安装流程 */
+  }
+}
+
 /**
  * 安装助手状态机。即使旧 exe 和 app.asar 文件存在，只有 archive 中的
  * package.json.version 与本次更新目标完全相同才视为成功。
@@ -258,18 +283,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     .finally(async () => {
       await sleep(300)
       if (args.cleanup) {
-        try {
-          fs.unlinkSync(args.cleanup)
-        } catch {
-          /* 自身文件删除失败可忽略，下次更新会覆盖 */
-        }
+        cleanupFile(args.cleanup)
       }
       if (args['cleanup-helper']) {
-        try {
-          fs.unlinkSync(args['cleanup-helper'])
-        } catch {
-          /* 清理失败不影响安装结果 */
-        }
+        cleanupFile(args['cleanup-helper'])
+      }
+      if (args['cleanup-runtime']) {
+        cleanupFile(args['cleanup-runtime'])
       }
     })
 }

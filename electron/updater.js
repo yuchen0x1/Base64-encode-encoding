@@ -66,6 +66,10 @@ function appDir() {
   return process.env.TOOLBOX_APP_DIR || (app.isPackaged && !isPortableRuntime() ? path.dirname(app.getPath('exe')) : '')
 }
 
+export function getRuntimeCopyPath(workDir, pid = process.pid, timestamp = Date.now()) {
+  return path.join(workDir, `toolbox-updater-runtime-${timestamp}-${pid}.exe`)
+}
+
 export function resolveFeed() {
   if (process.env.TOOLBOX_UPDATE_FEED) return process.env.TOOLBOX_UPDATE_FEED
 
@@ -466,32 +470,45 @@ export async function installUpdate() {
   // 若助手位于 app.asar 内，安装到一半就会把自己覆盖掉。
   await fs.mkdir(workDir, { recursive: true })
   const tempScript = path.join(workDir, `apply-installer-${Date.now()}.mjs`)
+  // A packaged Electron app uses its own executable as the Node runtime.
+  // Running the helper from that executable would keep the installed EXE
+  // mapped while NSIS tries to uninstall the old version. Use a copy outside
+  // the installation directory so the helper cannot lock the live payload.
+  const runtimeCopy = getRuntimeCopyPath(workDir)
   await fs.copyFile(helperSource, tempScript)
   await fs.copyFile(path.join(__dirname, 'installer-verification.js'), path.join(workDir, 'installer-verification.js'))
+  await fs.copyFile(process.execPath, runtimeCopy)
 
   sendProgress(98, '正在退出并安装更新…')
 
-  const child = spawn(
-    process.execPath,
-    [
-      tempScript,
-      '--pid', String(process.pid),
-      '--installer', state.installerFile,
-      '--target', target,
-      '--exe', exePath,
-      '--product', app.getName(),
-      '--version', state.latest.version,
-      '--log', logFile,
-      '--cleanup', tempScript,
-      '--cleanup-helper', path.join(workDir, 'installer-verification.js')
-    ],
-    {
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true,
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
-    }
-  )
+  let child
+  try {
+    child = spawn(
+      runtimeCopy,
+      [
+        tempScript,
+        '--pid', String(process.pid),
+        '--installer', state.installerFile,
+        '--target', target,
+        '--exe', exePath,
+        '--product', app.getName(),
+        '--version', state.latest.version,
+        '--log', logFile,
+        '--cleanup', tempScript,
+        '--cleanup-helper', path.join(workDir, 'installer-verification.js'),
+        '--cleanup-runtime', runtimeCopy
+      ],
+      {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true,
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
+      }
+    )
+  } catch (error) {
+    await fs.rm(runtimeCopy, { force: true })
+    throw new Error(`启动安装助手失败：${error.message}`, { cause: error })
+  }
   child.unref()
 
   setTimeout(() => app.exit(0), 350)

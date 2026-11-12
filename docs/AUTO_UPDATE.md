@@ -27,11 +27,11 @@ Electron 没有引入 `electron-updater`：当前项目需要先校验 NSIS 安�
 
 ```json
 {
-  "version": "0.0.3",
+  "version": "0.0.4",
   "kind": "nsis",
   "channel": "stable",
   "package": {
-    "url": "GeekToolbox-Setup-0.0.3.exe",
+    "url": "GeekToolbox-Setup-0.0.4.exe",
     "sha256": "真实的 64 位 SHA-256",
     "size": 123456789,
     "signature": {
@@ -74,10 +74,10 @@ npm test
 npm run lint
 npm run build
 git add package.json package-lock.json release-notes.json
-git commit -m "release: v0.0.3"
+git commit -m "release: v0.0.4"
 git push origin main
-git tag v0.0.3
-git push origin v0.0.3
+git tag v0.0.4
+git push origin v0.0.4
 ```
 
 标签工作流会检查标签版本与 `package.json` 完全一致。不要在没有对应版本提交的情况下重复创建同名标签。
@@ -89,7 +89,7 @@ npm run release                 # Web 更新包
 npm run release:desktop         # Windows 安装包 + 桌面清单
 ```
 
-Windows 安装包构建位于云同步目录时，优先使用 `--out` 指向本地磁盘，并让发布脚本执行内层 `app-64.7z` CRC 验证。
+Windows 安装包构建位于云同步目录时，优先使用 `--out` 指向本地磁盘，并让发布脚本执行 NSIS 外层归档与应用载荷校验（兼容 `app-64.7z` / `resources/app.asar` 两种结构）。
 
 ## 5. 客户端流程
 
@@ -98,7 +98,7 @@ Windows 安装包构建位于云同步目录时，优先使用 `--out` 指向本
 3. Electron 下载先写入 `userData/updates/`，HTTP 下载支持最多三次重试，并在服务器支持 Range 时从已有临时文件继续。
 4. 下载完成后校验清单中的文件大小和 SHA-256。
 5. 如果清单提供 Authenticode 指纹，再使用 Windows `Get-AuthenticodeSignature` 校验签名和指纹。
-6. 验证通过后才启动独立安装助手；助手等待旧进程退出，执行静默安装，检查可执行文件与 `app.asar/package.json` 版本，失败时尝试回滚。
+6. 验证通过后才启动独立安装助手；助手从安装目录外的临时运行时副本启动，等待旧进程退出，执行静默安装，检查可执行文件与 `app.asar/package.json` 版本，失败时自动重试并回退到交互式安装。
 
 ## 6. Web 更新流程
 
@@ -116,7 +116,7 @@ node server/serve.js --root dist --feed updates/web
 - 下载中断：Electron HTTP 下载保留临时文件并重试；最终失败会清理未完成文件。
 - SHA-256 不匹配：拒绝安装，旧版本保持不变。
 - Authenticode 状态或指纹不匹配：拒绝安装。
-- NSIS 安装失败：安装助手验证失败并尝试重新执行安装或交互式回退，旧版本文件不会被客户端主动删除。
+- NSIS 安装失败：安装助手验证失败并尝试重新执行安装或交互式回退；v0.0.4 对旧卸载器 code 2 做有限放行，并在新卸载器中采用直接目录清理，旧版本文件不会被客户端主动删除。
 - Web 文件替换失败：服务端恢复目录或逐文件回滚，并记录更新日志。
 
 ## 8. 测试命令

@@ -22,11 +22,14 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 import { zipDirectory } from '../shared/zip.js'
 import { normalizeVersion, compareVersions } from '../shared/version.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
+const require = createRequire(import.meta.url)
+const { listPackage } = require('@electron/asar')
 
 function parseArgs(argv) {
   const args = { desktop: false, skipBuild: false, bump: '', version: '', notes: '', out: '', installer: '', skipVerify: false }
@@ -172,7 +175,9 @@ async function resolveSevenZip() {
  * 事故背景：v0.0.2 首次构建出的 NSIS 安装包能正常「安装」并返回退出码 0，
  * 但内层 app-64.7z 的数据区已损坏，解压到一半就静默放弃，
  * 结果是安装目录里只有 dll/pak、没有主程序与 app.asar，快捷方式随即失效。
- * 因此发布前必须验证内层归档的 CRC，而不是只看 electron-builder 是否退出成功。
+ * 因此发布前必须验证安装器外层归档及其应用载荷，而不是只看
+ * electron-builder 是否退出成功。不同 electron-builder 版本可能把载荷
+ * 作为 app-64.7z 或 resources/app.asar 写入安装器，两种结构都兼容。
  */
 async function verifyInstallerIntegrity(installerPath, version) {
   if (args.skipVerify) {
@@ -191,22 +196,44 @@ async function verifyInstallerIntegrity(installerPath, version) {
   const workDir = path.join(ROOT, '.tmp-release', `verify-${version}-${Date.now()}`)
   await fs.mkdir(workDir, { recursive: true })
 
-  console.log('[release] 校验安装包内层归档（app-64.7z）…')
-  await runDirect(sevenZip, ['e', installerPath, `-o${workDir}`, '-y', '-ir!*app-64.7z'])
-  const archivePath = path.join(workDir, 'app-64.7z')
-  if (!existsSync(archivePath)) throw new Error('安装包内未找到 app-64.7z，发布包结构异常')
-
+  console.log('[release] 校验 NSIS 安装包及应用载荷…')
   try {
-    await runDirect(sevenZip, ['t', archivePath])
+    await runDirect(sevenZip, ['t', installerPath])
   } catch {
     throw new Error(
-      '安装包内层归档校验失败（app-64.7z 数据损坏），已中止发布。\n' +
-      '  常见原因：构建输出目录位于云同步盘（OneDrive / 坚果云 / 移动云盘等），同步客户端在大文件落盘时介入写坏归档。\n' +
-      '  处理：用 --out 指向本地磁盘重建，例如 --out E:/geek-build；' +
-      '此类安装包会让用户安装到一半就失去主程序'
+      '安装包外层归档校验失败，已中止发布。\n' +
+      '  常见原因：构建输出目录位于云同步目录（OneDrive / 坚果云 / 移动云盘等），同步客户端在大文件落盘时介入写坏归档。\n' +
+      '  处理：用 --out 指向本地磁盘重建，例如 --out E:/geek-build；此类安装包可能让用户安装到一半就失去主程序'
     )
   }
-  console.log('[release] 安装包完整性校验通过（app-64.7z 全部 CRC 正常）')
+
+  // electron-builder 旧版把压缩载荷命名为 app-64.7z；新版通常直接嵌入
+  // resources/app.asar。先尝试旧结构，再回退到直接提取 app.asar。
+  await runDirect(sevenZip, ['e', installerPath, `-o${workDir}`, '-y', '-ir!*app-64.7z'])
+  const archivePath = path.join(workDir, 'app-64.7z')
+  if (existsSync(archivePath)) {
+    try {
+      await runDirect(sevenZip, ['t', archivePath])
+    } catch {
+      throw new Error('安装包内层归档校验失败（app-64.7z 数据损坏），已中止发布')
+    }
+    console.log('[release] 安装包完整性校验通过（app-64.7z CRC 正常）')
+    return
+  }
+
+  const asarPath = path.join(workDir, 'app.asar')
+  await runDirect(sevenZip, ['e', installerPath, `-o${workDir}`, '-y', 'resources/app.asar'])
+  if (!existsSync(asarPath)) throw new Error('安装包内未找到 app-64.7z 或 resources/app.asar，发布包结构异常')
+
+  try {
+    const entries = listPackage(asarPath)
+    if (!entries.some((entry) => entry === 'package.json')) {
+      throw new Error('app.asar 缺少 package.json')
+    }
+  } catch (error) {
+    throw new Error(`安装包 app.asar 校验失败：${error.message}`, { cause: error })
+  }
+  console.log('[release] 安装包完整性校验通过（外层 7z + app.asar 结构正常）')
 }
 
 function sha256(buffer) {
@@ -353,7 +380,7 @@ async function main() {
   console.log(` 发布完成 · v${nextVersion}`)
   console.log('==============================================')
   console.log(`更新说明: ${web.notes.length} 条`)
-  if (desktop) console.log('安装包完整性: 已通过 app-64.7z 校验')
+  if (desktop) console.log('安装包完整性: 已通过 NSIS 外层归档与应用载荷校验')
   console.log('发布目录:')
   console.log('  updates/web/     ← 网页版更新源（静态托管该目录或放到服务器）')
   if (desktop) {
