@@ -99,6 +99,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
+import { imageExtensionForMime, parseImageDataUrl } from '../../utils/toolHelpers.js'
 
 const activeMode = ref('img2base64')
 const fileInput = ref(null)
@@ -108,36 +109,70 @@ const fileInfo = ref(null)
 const copied = ref(false)
 
 const inputBase64 = ref('')
+let fileReadGeneration = 0
+
+function clearImageState() {
+  imagePreviewUrl.value = ''
+  outputBase64.value = ''
+  fileInfo.value = null
+}
 
 function triggerFileInput() {
   if (fileInput.value) fileInput.value.click()
 }
 
 function processFile(file) {
-  if (!file || !file.type.startsWith('image/')) {
-    globalToast('请选择有效的图片格式文件！', 'error')
-    return
-  }
-  fileInfo.value = {
-    name: file.name,
-    size: (file.size / 1024).toFixed(2),
-    type: file.type
-  }
+  const generation = ++fileReadGeneration
+  clearImageState()
+
+  if (!file) return
   const reader = new FileReader()
-  reader.onload = (e) => {
-    outputBase64.value = e.target.result
-    imagePreviewUrl.value = e.target.result
+  reader.onload = (event) => {
+    if (generation !== fileReadGeneration) return
+    const parsed = parseImageDataUrl(event.target?.result)
+    if (!parsed) {
+      clearImageState()
+      globalToast('无法读取有效的图片数据，请选择有效的图片文件。', 'error')
+      return
+    }
+
+    fileInfo.value = {
+      name: file.name,
+      size: (file.size / 1024).toFixed(2),
+      type: parsed.mimeType
+    }
+    outputBase64.value = parsed.dataUrl
+    imagePreviewUrl.value = parsed.dataUrl
   }
-  reader.readAsDataURL(file)
+  reader.onerror = () => {
+    if (generation !== fileReadGeneration) return
+    clearImageState()
+    globalToast('图片读取失败，请重试。', 'error')
+  }
+  reader.onabort = () => {
+    if (generation !== fileReadGeneration) return
+    clearImageState()
+    globalToast('图片读取已取消。', 'error')
+  }
+
+  try {
+    reader.readAsDataURL(file)
+  } catch {
+    if (generation === fileReadGeneration) {
+      clearImageState()
+      globalToast('图片读取失败，请重试。', 'error')
+    }
+  }
 }
 
-function handleFileSelect(e) {
-  const file = e.target.files[0]
-  if (file) processFile(file)
+function handleFileSelect(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  processFile(file)
 }
 
-function handleDrop(e) {
-  const file = e.dataTransfer.files[0]
+function handleDrop(event) {
+  const file = event.dataTransfer.files?.[0]
   if (file) processFile(file)
 }
 
@@ -155,31 +190,23 @@ function copyHtmlTag() {
   globalToast('已复制 <img> HTML 标签代码')
 }
 
-const renderSrc = computed(() => {
-  let val = inputBase64.value.trim()
-  if (!val) return ''
-  if (!val.startsWith('data:image/')) {
-    val = 'data:image/png;base64,' + val
-  }
-  return val
-})
-
-const isRenderable = computed(() => {
-  return renderSrc.value.length > 30
-})
+const parsedImage = computed(() => parseImageDataUrl(inputBase64.value))
+const renderSrc = computed(() => parsedImage.value?.dataUrl || '')
+const isRenderable = computed(() => Boolean(parsedImage.value))
 
 function downloadDecodedImage() {
-  if (!renderSrc.value) return
+  const parsed = parsedImage.value
+  if (!parsed) return
   const a = document.createElement('a')
-  a.href = renderSrc.value
-  a.download = `decoded_image_${Date.now()}.png`
+  a.href = parsed.dataUrl
+  a.download = `decoded_image_${Date.now()}.${imageExtensionForMime(parsed.mimeType)}`
   a.click()
 }
 
 function resetAll() {
-  imagePreviewUrl.value = ''
-  outputBase64.value = ''
-  fileInfo.value = null
+  fileReadGeneration += 1
+  clearImageState()
+  if (fileInput.value) fileInput.value.value = ''
   inputBase64.value = ''
 }
 </script>

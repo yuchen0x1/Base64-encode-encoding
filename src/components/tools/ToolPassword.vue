@@ -5,7 +5,7 @@
       <div class="card-header-bar">
         <div class="title-left">
           <span class="hud-marker">KEY-GEN</span>
-          <h3 class="card-title">赛博强密码发生器 (ENTROPY GENERATOR)</h3>
+          <h3 class="card-title">赛博强密码发生器 (SECURE PASSWORD GENERATOR)</h3>
         </div>
         <span class="badge-neon">CSPRNG 安全熵源</span>
       </div>
@@ -13,8 +13,8 @@
       <div class="options-row">
         <div class="slider-box">
           <div class="slider-label-row">
-            <span class="param-name">熵池长度 (LENGTH):</span>
-            <span class="param-val code-font text-cyan">{{ passwordLength }} BITS</span>
+            <span class="param-name">密码长度 (LENGTH):</span>
+            <span class="param-val code-font text-cyan">{{ passwordLength }} 字符</span>
           </div>
           <input type="range" min="8" max="64" v-model.number="passwordLength" class="cyber-range" />
         </div>

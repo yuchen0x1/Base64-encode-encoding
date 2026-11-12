@@ -58,30 +58,34 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import QRCode from 'qrcode'
+import { createQrDataUrl } from '../../utils/toolHelpers.js'
 
 const input = ref('https://www.toolhelper.cn/')
 const size = ref(256)
 const errorCorrectionLevel = ref('M')
 const qrDataUrl = ref('')
 
+let generation = 0
+
 async function generateQr() {
-  if (!input.value.trim()) {
-    qrDataUrl.value = ''
-    return
+  const currentGeneration = ++generation
+  qrDataUrl.value = ''
+  const options = {
+    width: size.value,
+    margin: 2,
+    errorCorrectionLevel: errorCorrectionLevel.value,
+    color: {
+      dark: '#000000',
+      light: '#ffffff'
+    }
   }
-  try {
-    qrDataUrl.value = await QRCode.toDataURL(input.value, {
-      width: size.value,
-      margin: 2,
-      errorCorrectionLevel: errorCorrectionLevel.value,
-      color: {
-        dark: '#000000',
-        light: '#ffffff'
-      }
-    })
-  } catch (err) {
-    console.error(err)
-  }
+  const dataUrl = await createQrDataUrl(
+    input.value,
+    options,
+    (text, qrOptions) => QRCode.toDataURL(text, qrOptions),
+    (error) => console.error(error)
+  )
+  if (currentGeneration === generation) qrDataUrl.value = dataUrl
 }
 
 watch([input, size, errorCorrectionLevel], () => {

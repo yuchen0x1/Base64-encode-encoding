@@ -94,6 +94,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
+import { decodeBase64ToUtf8, encodeUtf8ToBase64 } from '../../utils/toolEncodings.js'
 
 const mode = ref('encode')
 const input = ref('你好，极客工具箱！Hello, World! 🚀')
@@ -101,56 +102,14 @@ const urlSafe = ref(false)
 const copied = ref(false)
 const error = ref('')
 
-function utf8ToBase64(str) {
-  try {
-    const bytes = new TextEncoder().encode(str)
-    let binary = ''
-    const len = bytes.byteLength
-    const chunkSize = 8192
-    for (let i = 0; i < len; i += chunkSize) {
-      const sub = bytes.subarray(i, Math.min(i + chunkSize, len))
-      binary += String.fromCharCode.apply(null, sub)
-    }
-    let b64 = window.btoa(binary)
-    if (urlSafe.value) {
-      b64 = b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-    }
-    return b64
-  } catch (e) {
-    return ''
-  }
-}
-
-function base64ToUtf8(str) {
-  let clean = str.trim()
-  if (!clean) return ''
-  try {
-    if (urlSafe.value || clean.includes('-') || clean.includes('_')) {
-      clean = clean.replace(/-/g, '+').replace(/_/g, '/')
-      while (clean.length % 4) {
-        clean += '='
-      }
-    }
-    const binary = window.atob(clean)
-    const len = binary.length
-    const bytes = new Uint8Array(len)
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binary.charCodeAt(i)
-    }
-    return new TextDecoder().decode(bytes)
-  } catch (e) {
-    throw new Error('无效的 Base64 格式或编码损坏', { cause: e })
-  }
-}
-
 const output = computed(() => {
   error.value = ''
   if (!input.value) return ''
   try {
     if (mode.value === 'encode') {
-      return utf8ToBase64(input.value)
+      return encodeUtf8ToBase64(input.value, urlSafe.value)
     } else {
-      return base64ToUtf8(input.value)
+      return decodeBase64ToUtf8(input.value, urlSafe.value)
     }
   } catch (e) {
     error.value = e.message || '解码错误'

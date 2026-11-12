@@ -3,7 +3,7 @@
     <div class="glass-panel tool-toolbar">
       <div class="jwt-tags">
         <span class="hud-marker">JWT DECODER</span>
-        <span :class="['status-chip', tokenStatus.valid ? (tokenStatus.expired ? 'expired' : 'active') : 'invalid']">
+        <span :class="['status-chip', tokenStatus.notYetValid ? 'not-yet-valid' : (tokenStatus.valid ? (tokenStatus.expired ? 'expired' : 'active') : 'invalid')]">
           {{ tokenStatus.text }}
         </span>
       </div>
@@ -79,110 +79,53 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { getJwtClaims, getJwtStatus, parseJwt } from './jwtTool.js'
 
-const rawJwt = ref(`eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkdlZWsgRGV2ZWxvcGVyIiwicm9sZXMiOlsic3VwZXJhZG1pbiIsImRldm9wcyJdLCJpYXQiOjE3OTM4NjIwMDAsImV4cCI6MTgwOTY0ODAwMH0.d41d8cd98f00b204e9800998ecf8427e`)
+const rawJwt = ref(`eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkdlZWsgRGV2ZWxvcGVyIiwicm9sZXMiOlsic3VwZXJhZG1pbmUiLCJkZXZvcHMiXSwiaWF0IjoxNzkzODYyMDAwLCJleHAiOjE4MDk2NDgwMDB9.d41d8cd98f00b204e9800998ecf8427e`)
 
-function base64UrlDecode(str) {
-  try {
-    let clean = str.replace(/-/g, '+').replace(/_/g, '/')
-    while (clean.length % 4) clean += '='
-    const binary = window.atob(clean)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i)
-    }
-    return new TextDecoder().decode(bytes)
-  } catch (e) {
-    return ''
-  }
-}
-
-const parsedParts = computed(() => {
-  const parts = rawJwt.value.trim().split('.')
-  if (parts.length < 2) return { header: null, payload: null, valid: false }
-  try {
-    const h = JSON.parse(base64UrlDecode(parts[0]))
-    const p = JSON.parse(base64UrlDecode(parts[1]))
-    return { header: h, payload: p, valid: true }
-  } catch (e) {
-    return { header: null, payload: null, valid: false }
-  }
-})
+const parsedParts = computed(() => parseJwt(rawJwt.value))
 
 const formattedHeader = computed(() => {
-  if (!parsedParts.value.header) return '// 等待有效 JWT Header'
+  if (!parsedParts.value.valid) return '// 等待有效 JWT Header'
   return JSON.stringify(parsedParts.value.header, null, 2)
 })
 
 const formattedPayload = computed(() => {
-  if (!parsedParts.value.payload) return '// 等待有效 JWT Payload'
+  if (!parsedParts.value.valid) return '// 等待有效 JWT Payload'
   return JSON.stringify(parsedParts.value.payload, null, 2)
 })
 
 const tokenStatus = computed(() => {
-  if (!rawJwt.value.trim()) return { valid: false, expired: false, text: '等待输入' }
-  if (!parsedParts.value.valid) return { valid: false, expired: false, text: '⚠️ 令牌格式无效' }
-  const payload = parsedParts.value.payload
-  if (payload && payload.exp) {
-    const expMs = payload.exp * 1000
-    const isExpired = Date.now() > expMs
-    return {
-      valid: true,
-      expired: isExpired,
-      text: isExpired ? '🔴 令牌已过期' : '🟢 令牌在有效期内'
-    }
+  if (!rawJwt.value.trim()) {
+    return { valid: false, expired: false, notYetValid: false, text: '等待输入（仅解析，不验签）' }
   }
-  return { valid: true, expired: false, text: '🔵 格式正确 (未声明过期时间)' }
+  return getJwtStatus(parsedParts.value)
 })
 
 const claimsMeta = computed(() => {
-  const p = parsedParts.value.payload
-  if (!p) return []
-  const list = []
-  const now = Date.now()
-
-  function formatTime(sec) {
-    const d = new Date(sec * 1000)
-    return d.toLocaleString()
-  }
-
-  function getDiff(sec) {
-    const target = sec * 1000
-    const diffSec = Math.round((target - now) / 1000)
-    const isPast = diffSec < 0
-    const abs = Math.abs(diffSec)
-    const d = Math.floor(abs / 86400)
-    const h = Math.floor((abs % 86400) / 3600)
-    const m = Math.floor((abs % 3600) / 60)
-    const str = `${d ? d + '天 ' : ''}${h ? h + '小时 ' : ''}${m}分钟`
-    return { isPast, diffText: isPast ? `已过去 ${str}` : `将在 ${str} 后到期` }
-  }
-
-  if (p.iat) {
-    const diff = getDiff(p.iat)
-    list.push({ key: 'iat', name: '签发时间', formatted: formatTime(p.iat), ...diff })
-  }
-  if (p.nbf) {
-    const diff = getDiff(p.nbf)
-    list.push({ key: 'nbf', name: '生效时间', formatted: formatTime(p.nbf), ...diff })
-  }
-  if (p.exp) {
-    const diff = getDiff(p.exp)
-    list.push({ key: 'exp', name: '过期时间', formatted: formatTime(p.exp), ...diff })
-  }
-  return list
+  if (!parsedParts.value.valid) return []
+  return getJwtClaims(parsedParts.value.payload)
 })
+
+function base64UrlEncode(str) {
+  const bytes = new TextEncoder().encode(str)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return window.btoa(binary).replace(/=/g, '')
+}
 
 function loadSample() {
   const now = Math.floor(Date.now() / 1000)
-  const header = window.btoa(JSON.stringify({ alg: "HS256", typ: "JWT" })).replace(/=/g, '')
-  const payload = window.btoa(JSON.stringify({
-    sub: "admin-cyber-01",
-    username: "Neo",
-    scope: ["read", "write", "admin"],
+  const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+  const payload = base64UrlEncode(JSON.stringify({
+    sub: 'admin-cyber-01',
+    username: 'Neo',
+    scope: ['read', 'write', 'admin'],
     iat: now,
-    exp: now + 3600 * 24 * 7 // 7天后过期
-  })).replace(/=/g, '')
+    exp: now + 3600 * 24 * 7
+  }))
   rawJwt.value = `${header}.${payload}.SIGNATURE_HASH_HEX_VALUE`
 }
 </script>
@@ -225,6 +168,11 @@ function loadSample() {
   color: var(--accent-green);
   border: 1px solid rgba(var(--rgb-green), 0.35);
   box-shadow: 0 0 10px rgba(var(--rgb-green), 0.2);
+}
+.status-chip.not-yet-valid {
+  background: rgba(var(--rgb-amber), 0.15);
+  color: var(--accent-amber);
+  border: 1px solid rgba(var(--rgb-amber), 0.35);
 }
 .status-chip.expired {
   background: rgba(239, 68, 68, 0.15);

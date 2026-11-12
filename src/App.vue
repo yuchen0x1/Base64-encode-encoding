@@ -2,7 +2,7 @@
   <div :class="['app-layout', isDark ? 'dark' : 'light']">
     <!-- 移动端顶部赛博导航栏 -->
     <header class="mobile-header">
-      <button class="cyber-icon-btn" @click="mobileMenuOpen = !mobileMenuOpen">
+      <button class="cyber-icon-btn" :aria-label="mobileMenuOpen ? '关闭工具菜单' : '打开工具菜单'" @click="mobileMenuOpen = !mobileMenuOpen">
         <Menu v-if="!mobileMenuOpen" :size="20" />
         <X v-else :size="20" />
       </button>
@@ -11,10 +11,10 @@
         <span class="gradient-text">TOOLBOX PRO</span>
       </div>
       <div class="mobile-header-right">
-        <button class="cyber-icon-btn" title="反馈 / 加入交流群" @click="feedbackOpen = true">
+        <button class="cyber-icon-btn" aria-label="反馈 / 加入交流群" title="反馈 / 加入交流群" @click="feedbackOpen = true">
           <MessageCircle :size="18" />
         </button>
-        <button class="cyber-icon-btn" @click="toggleTheme">
+        <button class="cyber-icon-btn" :aria-label="isDark ? '切换浅色模式' : '切换深色模式'" @click="toggleTheme">
           <Sun v-if="isDark" :size="18" class="text-amber" />
           <Moon v-else :size="18" class="text-cyan" />
         </button>
@@ -118,6 +118,24 @@
           <span>反馈 &amp; 交流群</span>
           <span class="community-dot"></span>
         </button>
+        <div class="workspace-actions" aria-label="工作区备份">
+          <button class="btn btn-secondary btn-sm workspace-action" title="导出收藏、标签页和主题设置" @click="exportWorkspace">
+            <Download :size="14" />
+            <span>导出工作区</span>
+          </button>
+          <button class="btn btn-secondary btn-sm workspace-action" title="从 JSON 文件恢复工作区" @click="workspaceFileInput?.click()">
+            <Upload :size="14" />
+            <span>导入工作区</span>
+          </button>
+          <input
+            ref="workspaceFileInput"
+            class="hidden-file-input"
+            type="file"
+            accept="application/json,.json"
+            aria-label="选择工作区备份文件"
+            @change="handleWorkspaceImport"
+          />
+        </div>
       </div>
     </aside>
 
@@ -177,13 +195,14 @@
             </div>
             <p class="current-tool-desc">{{ currentTool.description }}</p>
           </div>
-          <div class="tool-header-actions pc-only">
-            <button class="btn btn-secondary btn-sm" title="反馈 / 加入交流群" @click="feedbackOpen = true">
+          <div class="tool-header-actions">
+            <button class="btn btn-secondary btn-sm pc-only" title="反馈 / 加入交流群" @click="feedbackOpen = true">
               <MessageCircle :size="14" />
               <span>反馈</span>
             </button>
-            <button 
+            <button
               :class="['btn', isFavorite(currentTool.id) ? 'btn-primary' : 'btn-secondary', 'btn-sm']"
+              :aria-pressed="isFavorite(currentTool.id)"
               @click="toggleFavorite(currentTool.id)"
             >
               <Star :size="14" :fill="isFavorite(currentTool.id) ? 'currentColor' : 'none'" />
@@ -277,6 +296,14 @@
   </div>
 </template>
 
+<script>
+export {
+  filterCommonTools,
+  getCommonToolsCount,
+  normalizeAppState
+} from './utils/appState.js'
+</script>
+
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import {
@@ -295,20 +322,14 @@ import {
   Calculator,
   Clock,
   Image,
-  Globe,
-  Hash,
-  Lock,
-  Regex,
-  GitCompare,
-  QrCode,
-  KeyRound,
-  AlignLeft,
   Star,
   Layers,
   Palette,
   Braces,
   Database,
-  MessageCircle
+  MessageCircle,
+  Download,
+  Upload
 } from 'lucide-vue-next'
 
 import { toolCategories, toolsList } from './config/tools.js'
@@ -318,6 +339,14 @@ import UpdateModal from './components/UpdateModal.vue'
 import FeedbackModal from './components/FeedbackModal.vue'
 import { useTheme } from './composables/useTheme.js'
 import { useUpdater, openUpdatePanel, scheduleStartupCheck } from './composables/useUpdater.js'
+import { globalToast } from './composables/useToast.js'
+import {
+  createWorkspaceBackup,
+  filterCommonTools,
+  getCommonToolsCount,
+  normalizeAppState,
+  parseWorkspaceBackup
+} from './utils/appState.js'
 
 // 工具组件注册表：组件与元数据的单一映射，新增工具只需在 registry.js 登记
 import { toolComponents, assertToolRegistry } from './config/registry.js'
@@ -334,7 +363,8 @@ const categoryIconMap = {
   Image,
   Palette,
   Braces,
-  Database
+  Database,
+  Layers
 }
 
 // localStorage 持久化辅助
@@ -361,6 +391,7 @@ function saveState() {
 }
 
 const savedState = loadState()
+const appState = normalizeAppState(savedState, toolsList, Object.keys(toolComponents))
 
 // 版本更新（网页版 / 桌面版统一状态机）
 const { state: updaterState, hasUpdate } = useUpdater()
@@ -372,29 +403,14 @@ applyTheme(savedState && typeof savedState.isDark === 'boolean' ? savedState.isD
 const mobileMenuOpen = ref(false)
 const showCatalogModal = ref(false)
 const feedbackOpen = ref(false)
+const workspaceFileInput = ref(null)
 const searchQuery = ref('')
 const activeCategory = ref('all')
-const currentToolId = ref(savedState && savedState.currentToolId ? savedState.currentToolId : 'base64')
-const favorites = ref(savedState && Array.isArray(savedState.favorites) && savedState.favorites.length
-  ? savedState.favorites
-  : ['base64', 'json-format', 'timestamp', 'url-codec', 'radix-convert'])
+const currentToolId = ref(appState.currentToolId)
+const favorites = ref(appState.favorites)
 
 // 多标签管理
-function resolveTabs() {
-  if (savedState && Array.isArray(savedState.openTabs) && savedState.openTabs.length) {
-    const tabs = savedState.openTabs
-      .map(id => toolsList.find(t => t.id === id))
-      .filter(Boolean)
-    if (tabs.length) return tabs
-  }
-  return [
-    toolsList.find(t => t.id === 'base64'),
-    toolsList.find(t => t.id === 'json-format'),
-    toolsList.find(t => t.id === 'timestamp'),
-    toolsList.find(t => t.id === 'radix-convert')
-  ].filter(Boolean)
-}
-const openTabs = ref(resolveTabs())
+const openTabs = ref(appState.openTabs)
 
 const allCatalog = ref(catalogJson)
 const catalogToolCount = computed(() => allCatalog.value.reduce((total, category) => total + category.tools.length, 0))
@@ -430,10 +446,12 @@ const activeCategoryName = computed(() => {
 
 // 分类与搜索过滤
 const filteredTools = computed(() => {
-  let list = toolsList
   if (activeCategory.value === 'common') {
-    list = list.filter(t => t.isCommon || favorites.value.includes(t.id))
-  } else if (activeCategory.value !== 'all') {
+    return filterCommonTools(toolsList, favorites.value, searchQuery.value)
+  }
+
+  let list = toolsList
+  if (activeCategory.value !== 'all') {
     list = list.filter(t => t.category === activeCategory.value)
   }
 
@@ -450,7 +468,7 @@ const filteredTools = computed(() => {
 
 function getCategoryCount(catId) {
   if (catId === 'all') return toolsList.length
-  if (catId === 'common') return toolsList.filter(t => t.isCommon).length
+  if (catId === 'common') return getCommonToolsCount(toolsList, favorites.value, searchQuery.value)
   return toolsList.filter(t => t.category === catId).length
 }
 
@@ -502,6 +520,40 @@ function toggleFavorite(id) {
 
 function isFavorite(id) {
   return favorites.value.includes(id)
+}
+
+function exportWorkspace() {
+  const payload = JSON.stringify(createWorkspaceBackup({
+    isDark: isDark.value,
+    favorites: favorites.value,
+    openTabs: openTabs.value,
+    currentToolId: currentToolId.value
+  }), null, 2)
+  const blob = new Blob([payload], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `geek-toolbox-workspace-${new Date().toISOString().slice(0, 10)}.json`
+  link.click()
+  URL.revokeObjectURL(url)
+  globalToast('工作区备份已导出')
+}
+
+async function handleWorkspaceImport(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+  try {
+    const imported = parseWorkspaceBackup(await file.text(), toolsList, Object.keys(toolComponents))
+    favorites.value = imported.favorites
+    openTabs.value = imported.openTabs
+    currentToolId.value = imported.currentToolId
+    applyTheme(imported.isDark)
+    saveState()
+    globalToast('工作区已恢复')
+  } catch (error) {
+    globalToast(error instanceof Error ? error.message : '工作区备份无法读取', 'error')
+  }
 }
 
 function isNativeTool(name) {
@@ -903,6 +955,24 @@ onUnmounted(() => {
 }
 .directory-btn {
   width: 100%;
+}
+.workspace-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.workspace-action {
+  min-width: 0;
+  justify-content: center;
+  padding-inline: 0.5rem;
+}
+.workspace-action span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hidden-file-input {
+  display: none;
 }
 
 /* 交流群入口按钮（侧边栏底部，常驻可见） */

@@ -105,6 +105,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import CryptoJS from 'crypto-js'
+import { parseCiphertext, validateAesParameters } from './aesTool.js'
 
 const mode = ref('encrypt')
 const modeOpt = ref('CBC')
@@ -118,28 +119,32 @@ const error = ref('')
 
 function buildCipher(text, isEncrypt) {
   if (!text) return ''
-  if (!secretKey.value) {
-    throw new Error('请先填写密钥 KEY')
-  }
+
+  const validation = validateAesParameters({
+    key: secretKey.value,
+    iv: iv.value,
+    mode: modeOpt.value
+  })
+  if (!validation.valid) throw new Error(validation.error)
 
   const cfg = { mode: CryptoJS.mode[modeOpt.value], padding: CryptoJS.pad[padding.value] }
-
-  if (modeOpt.value !== 'ECB') {
-    if (!iv.value) throw new Error('请先填写偏移量 IV')
-    cfg.iv = CryptoJS.enc.Utf8.parse(iv.value)
-  }
-
+  if (modeOpt.value !== 'ECB') cfg.iv = CryptoJS.enc.Utf8.parse(iv.value)
   const key = CryptoJS.enc.Utf8.parse(secretKey.value)
 
   if (isEncrypt) {
     const encrypted = CryptoJS.AES.encrypt(text, key, cfg)
     return outputEncoding.value === 'Hex' ? encrypted.ciphertext.toString(CryptoJS.enc.Hex) : encrypted.toString()
-  } else {
-    const params = outputEncoding.value === 'Hex'
-      ? CryptoJS.enc.Hex.parse(text)
-      : CryptoJS.enc.Base64.parse(text)
-    const decrypted = CryptoJS.AES.decrypt({ ciphertext: params }, key, cfg)
+  }
+
+  const ciphertext = parseCiphertext(text, outputEncoding.value, modeOpt.value)
+  const params = outputEncoding.value === 'Hex'
+    ? CryptoJS.enc.Hex.parse(ciphertext)
+    : CryptoJS.enc.Base64.parse(ciphertext)
+  const decrypted = CryptoJS.AES.decrypt({ ciphertext: params }, key, cfg)
+  try {
     return decrypted.toString(CryptoJS.enc.Utf8)
+  } catch {
+    throw new Error('无法解密：密钥、模式、IV 或填充不匹配')
   }
 }
 

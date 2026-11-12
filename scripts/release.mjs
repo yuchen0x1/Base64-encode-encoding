@@ -213,6 +213,19 @@ function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex')
 }
 
+function loadAuthenticodeSignature() {
+  const raw = String(process.env.TOOLBOX_AUTHENTICODE_THUMBPRINT || '').replace(/\s+/g, '').toUpperCase()
+  if (!raw) return null
+  if (!/^[A-F0-9]{40}$/.test(raw)) {
+    throw new Error('TOOLBOX_AUTHENTICODE_THUMBPRINT 必须是 40 位十六进制 Authenticode 指纹')
+  }
+  return {
+    type: 'authenticode',
+    thumbprint: raw,
+    subject: String(process.env.TOOLBOX_AUTHENTICODE_SUBJECT || '')
+  }
+}
+
 function formatSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`
 }
@@ -231,7 +244,7 @@ async function assertDist(version) {
 
 function buildManifest(version, fileName, buffer) {
   const entry = loadEntry(version)
-  return {
+  const manifest = {
     version,
     channel: 'stable',
     buildTime: new Date().toISOString(),
@@ -243,6 +256,11 @@ function buildManifest(version, fileName, buffer) {
       size: buffer.length
     }
   }
+  if (/\.exe$/i.test(fileName)) {
+    const signature = loadAuthenticodeSignature()
+    if (signature) manifest.package.signature = signature
+  }
+  return manifest
 }
 
 async function writePackage(outputDir, fileName, buffer, version) {
@@ -270,7 +288,7 @@ async function buildWeb(version) {
 async function buildDesktopInstaller(version) {
   const outDir = args.out ? path.resolve(ROOT, args.out) : path.join(ROOT, 'release')
   const fileName = `GeekToolbox-Setup-${version}.exe`
-  let installerPath = ''
+  let installerPath
 
   if (args.installer) {
     // 复用已构建好的安装包（例如先构建到同步盘之外的目录，再回来写更新源）

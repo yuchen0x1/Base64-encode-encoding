@@ -202,6 +202,7 @@
 import { ref, reactive, computed, onUnmounted } from 'vue'
 import CryptoJS from 'crypto-js'
 import { globalToast } from '../../composables/useToast.js'
+import { getUniqueFileReferences, splitBatchLines } from '../../utils/toolHelpers.js'
 import {
   Play,
   Square,
@@ -275,7 +276,7 @@ const nextId = () => ++seed
 const isHashOp = computed(() => ['md5', 'sha1', 'sha256'].includes(operation.value))
 
 const lines = computed(() => {
-  const raw = textInput.value.split('\n')
+  const raw = splitBatchLines(textInput.value)
   if (!options.skipEmpty) return raw
   return raw.filter((line) => line.trim() !== '')
 })
@@ -399,13 +400,11 @@ function pickFiles() {
 }
 
 function addFiles(fileList) {
-  const incoming = Array.from(fileList || [])
-  if (!incoming.length) return
-  const existing = new Set(files.value.map((item) => `${item.name}:${item.size}:${item.lastModified}`))
-  for (const file of incoming) {
-    const key = `${file.name}:${file.size}:${file.lastModified}`
-    if (existing.has(key)) continue
-    existing.add(key)
+  const uniqueFiles = getUniqueFileReferences(
+    files.value.map((item) => item.file),
+    fileList
+  )
+  for (const file of uniqueFiles) {
     files.value.push({
       id: nextId(),
       name: file.name,

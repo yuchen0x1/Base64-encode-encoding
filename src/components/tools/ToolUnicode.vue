@@ -75,27 +75,12 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { decodeHtmlEntities } from '../../utils/htmlEntities.js'
+import { escapeUnicode, unescapeUnicode } from '../../utils/toolEncodings.js'
 
 const targetType = ref('unicode')
 const mode = ref('encode')
 const input = ref('你好，极客工具箱！<Cyber & Hacker> 🚀')
 const copied = ref(false)
-
-function strToUnicode(str) {
-  return str.split('').map(c => {
-    const code = c.charCodeAt(0)
-    if (code > 127) {
-      return '\\u' + code.toString(16).padStart(4, '0')
-    }
-    return c
-  }).join('')
-}
-
-function unicodeToStr(str) {
-  return str.replace(/\\u([0-9a-fA-F]{4})/g, (match, grp) => {
-    return String.fromCharCode(parseInt(grp, 16))
-  })
-}
 
 function strToHtmlEntities(str) {
   return str.replace(/[\u00A0-\u9999<>&"]/gim, function(i) {
@@ -112,11 +97,11 @@ const output = computed(() => {
   if (!input.value) return ''
   try {
     if (targetType.value === 'unicode') {
-      return mode.value === 'encode' ? strToUnicode(input.value) : unicodeToStr(input.value)
+      return mode.value === 'encode' ? escapeUnicode(input.value) : unescapeUnicode(input.value)
     } else {
       return mode.value === 'encode' ? strToHtmlEntities(input.value) : htmlEntitiesToStr(input.value)
     }
-  } catch (e) {
+  } catch {
     return '解析异常'
   }
 })

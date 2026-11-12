@@ -85,9 +85,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import CryptoJS from 'crypto-js'
+import { ref, watch } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
+import { signJwtHs256 } from './jwtGeneratorTool.js'
 
 const headerJson = ref(JSON.stringify({ alg: 'HS256', typ: 'JWT' }, null, 2))
 const payloadJson = ref('')
@@ -97,56 +97,28 @@ const generatedToken = ref('')
 const copied = ref(false)
 const error = ref('')
 
-function base64UrlEncode(str) {
-  const bytes = new TextEncoder().encode(str)
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i])
-  }
-  return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
-
-function parseJson(text) {
-  try {
-    return JSON.parse(text)
-  } catch {
-    return null
-  }
-}
-
-const headerObj = computed(() => parseJson(headerJson.value))
-const payloadObj = computed(() => parseJson(payloadJson.value))
+watch([headerJson, payloadJson, secret, expirySeconds], () => {
+  generatedToken.value = ''
+  copied.value = false
+  error.value = ''
+})
 
 function generateToken() {
   error.value = ''
-  const h = headerObj.value
-  const p = payloadObj.value
-  if (!h) {
-    error.value = 'Header 不是合法 JSON'
+  const result = signJwtHs256({
+    headerJson: headerJson.value,
+    payloadJson: payloadJson.value,
+    secret: secret.value,
+    expirySeconds: expirySeconds.value
+  })
+  if (!result.ok) {
+    generatedToken.value = ''
+    copied.value = false
+    error.value = result.error
     return
   }
-  if (!p) {
-    error.value = 'Payload 不是合法 JSON'
-    return
-  }
-  if (!secret.value) {
-    error.value = '请填写签名密钥'
-    return
-  }
-
-  // 自动注入 iat / exp
-  const finalPayload = { ...p }
-  const now = Math.floor(Date.now() / 1000)
-  if (!finalPayload.iat) finalPayload.iat = now
-  if (expirySeconds.value > 0) finalPayload.exp = now + expirySeconds.value
-
-  const headerB64 = base64UrlEncode(JSON.stringify(h))
-  const payloadB64 = base64UrlEncode(JSON.stringify(finalPayload))
-  const signingInput = `${headerB64}.${payloadB64}`
-  const signature = CryptoJS.HmacSHA256(signingInput, secret.value).toString(CryptoJS.enc.Base64)
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-
-  generatedToken.value = `${signingInput}.${signature}`
+  generatedToken.value = result.token
+  copied.value = false
   globalToast('JWT Token 已生成')
 }
 

@@ -4,9 +4,9 @@
   <img src="public/icon-512.png" width="132" alt="极客工具箱应用图标" />
 </p>
 
-[![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-0.0.2-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-22-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
+[![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-0.0.3-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-22-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
 
-**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v0.0.2 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.2)
+**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v0.0.3 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.3)（候选 Release 尚未发布）
 
 **交流群**：<https://qm.qq.com/q/bkacrv1t3G> · 点击链接直接加入 QQ 群「**冷漠网络科技交流群①**」（问题反馈 / 功能建议 / 版本更新通知）。App 内也可通过侧边栏底部「反馈 & 交流群」、工具标题栏「反馈」按钮或移动端顶栏消息图标打开加群弹窗（支持二维码扫码与复制链接）。
 
@@ -81,8 +81,8 @@
 | 9 | 摘要哈希计算 | `hash-crypto` | 加密 | MD5、SHA-1、SHA-256、SHA-512、HMAC | 已实现（基于 `crypto-js`） |
 | 10 | AES 对称加解密 | `aes-crypto` | 加密 | CBC / ECB 模式、多种填充与密钥 IV | 已实现（开发调试用途） |
 | 11 | Unix 时间戳转换 | `timestamp` | 时间 | 秒 / 毫秒时间戳与北京时间互转 | 已实现 |
-| 12 | 正则表达式测试器 | `regex-tester` | 文本 | 常用正则、匹配测试、捕获组提取与高亮 | 已实现 |
-| 13 | 文本代码对比 | `text-diff` | 文本 | 逐行 / 逐字差异高亮（基于 `diff`） | 已实现 |
+| 12 | 正则表达式测试器 | `regex-tester` | 文本 | 常用正则、匹配测试、捕获组提取与高亮 | 已实现（Worker 隔离，超时终止） |
+| 13 | 文本代码对比 | `text-diff` | 文本 | 逐行差异高亮（基于 `diff`） | 已实现 |
 | 14 | 多进制转换 | `radix-convert` | 进制 | 二 / 八 / 十 / 十六进制实时互转 | 已实现 |
 | 15 | 二维码生成 | `qrcode-generator` | 媒体 | 生成二维码、容错率调整、PNG 导出 | 部分实现（**仅生成，未实现解析**；依赖中无解码库） |
 | 16 | 随机密码 & UUID | `random-password` | 加密 | 强密码、随机串、UUID v4、批量生成 | 已实现 |
@@ -102,6 +102,7 @@
 
 - 深色 / 浅色主题，默认深色；`index.html` 在首帧前同步预应用主题类，避免闪烁。
 - 界面状态保存在 `localStorage` 的 `geek-toolbox-state`，包含 `isDark`、`favorites`、`openTabs`、`currentToolId`。
+- 侧边栏支持导出 / 导入版本化工作区 JSON，迁移收藏、标签页、当前工具和主题；导入时按当前注册表过滤未知工具。
 - 支持工具搜索、分类筛选、收藏、多标签打开；收藏默认值见 `src/App.vue`。
 - 响应式布局适配桌面与移动端。
 
@@ -123,11 +124,11 @@
 
 | 项目 | 状态 |
 |---|---|
-| 21 款工具、主题、搜索、收藏、批量处理 | 已实现 |
+| 21 款工具、主题、搜索、收藏、批量处理、工作区备份 | 已实现 |
 | 网页版 / 桌面版检查、下载、校验、替换、重启 | 已实现（服务端 / 主进程内） |
 | 二维码解析、JWT 验签 | 未实现 |
 | 账号体系、数据库、缓存、消息队列、云同步 | 未使用，项目亦不依赖 |
-| 组件 / DOM 交互自动化测试 | 未实现（Vitest 运行于纯 Node 环境） |
+| 组件 / DOM 交互自动化测试 | 已补充浏览器 smoke 验证；Vitest 仍运行于纯 Node 环境 |
 | iOS / macOS / Android 真机验证 | 未在本次审查中验证（见 [PROJECT_AUDIT_REPORT.md](PROJECT_AUDIT_REPORT.md) 第 8 节） |
 
 ---
@@ -209,7 +210,7 @@ flowchart TB
 3. **工具调用**：`App.vue` 依据 `tools.js` 的元数据渲染分类与搜索，通过 `registry.js` 的 `toolComponents` 动态挂载对应组件。`assertToolRegistry()` 在开发期校验元数据与组件一一对应。所有计算在组件内完成，输入不经过网络。
 4. **状态持久化**：仅 `localStorage`，无 Pinia / Vuex，无 `vue-router`（页面切换由 `currentToolId` 等 ref 驱动）。
 5. **配置加载**：项目不使用 `.env`。网页服务器配置来自 CLI 参数与环境变量（优先级：`PORT` / `HOST` / `TOOLBOX_WEB_ROOT` / `TOOLBOX_WEB_FEED` 覆盖 CLI）；桌面更新源优先级为 `TOOLBOX_UPDATE_FEED` → `update-config.json` 的 `feed` → 打包版默认 GitHub Releases `latest/download/version.json`；开发环境默认读取项目根 `updates/desktop/`。桌面端的更新载体就是 NSIS 安装包本身：下载 → 校验 → 静默覆盖安装 → 自动重启。
-6. **异常处理**：静态服务做路径穿越校验；更新失败时网页版回滚 `index.html` / `version.json`，桌面版交给独立的安装助手进程处理；ZIP 解压拒绝 `..` 条目与目标目录外写入。
+6. **异常处理**：静态服务做路径穿越与真实路径校验；网页版更新失败时恢复完整旧目录，桌面版更新由独立安装助手处理并核验预期版本；ZIP 解压拒绝 `..` 条目与目标目录外写入，并限制解压资源占用。
 
 ### 3.4 更新流程
 
@@ -219,16 +220,15 @@ flowchart TD
     B -->|"否"| C["提示已是最新"]
     B -->|"是"| D["下载更新包并上报进度"]
     D --> E{"清单含 sha256?"}
-    E -->|"是"| F["SHA-256 校验"]
-    E -->|"否"| G["跳过校验并写警告日志"]
-    F -->|"失败"| H["中止更新，旧文件保持不变"]
+    E -->|"有效 SHA-256"| F["SHA-256 校验"]
+    E -->|"缺失或格式非法"| H["拒绝更新，旧文件保持不变"]
+    F -->|"失败"| H
     F -->|"通过"| J{"运行宿主"}
-    G --> J
     J -->|"网页版"| K["解压到暂存目录 → 目录换位 → 服务器自重启"]
     J -->|"桌面版"| L["退出应用 → 安装助手静默运行安装包 → 拉起新版本"]
 ```
 
-> 注意：清单缺少 `sha256` 时**不会**校验失败，而是跳过校验并在服务端日志记录警告；发布脚本 `scripts/release.mjs` 始终会写入 `sha256`。
+> 网页版与桌面版更新均强制校验有效的 `sha256`；清单缺失或格式非法会拒绝应用更新，摘要不匹配也会中止更新并保持旧版本。发布脚本 `scripts/release.mjs` 会写入摘要。
 
 ---
 
@@ -286,7 +286,7 @@ flowchart TD
 ├── shared/
 │   ├── version.js              语义化版本解析与比较
 │   └── zip.js                  零依赖 ZIP 读写与解压防护
-├── tests/                      4 个 Vitest 测试文件（27 个用例）
+├── tests/                      21 个 Vitest 测试文件（131 个用例）
 ├── android/ ios/               Capacitor 原生工程（含各密度图标与启动图）
 ├── .github/workflows/          build-all.yml（macOS / iOS / Android / Windows）
 │
@@ -333,7 +333,7 @@ cd Base64-encode-encoding
 npm install          # 或按 CI 使用 npm ci（需要 package-lock.json）
 ```
 
-仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可直接在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.2) 下载已构建的 Windows 安装包（`GeekToolbox-Setup-<版本>.exe`，每个版本仅此一个文件），无需安装 Node.js。
+仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.3) 下载 v0.0.3 Windows 安装包（**Release 发布后可用**；`GeekToolbox-Setup-<版本>.exe`，每个版本仅此一个文件），无需安装 Node.js。
 
 项目**不需要 `.env` 文件**，也不需要数据库初始化或密钥配置。
 
@@ -394,7 +394,7 @@ npx cap sync android         # 或 npx cap sync ios
 ```bash
 # 网页版服务器
 curl http://127.0.0.1:4173/api/version
-# 期望：{"version":"0.0.2","buildTime":"...","mode":"server"}
+# 期望：{"version":"0.0.3","buildTime":"...","mode":"server"}
 
 # 开发服务器（version.json 由 Vite 中间件提供）
 curl http://127.0.0.1:5173/version.json
@@ -404,7 +404,7 @@ npm test
 npm run lint
 ```
 
-另可在浏览器打开页面，检查顶部版本号是否显示 `v0.0.2`、深浅色切换是否正常、任意工具能否完成一次计算。
+另可在浏览器打开页面，检查顶部版本号是否显示 `v0.0.3`、深浅色切换是否正常、任意工具能否完成一次计算。
 
 ---
 
@@ -508,7 +508,7 @@ curl http://127.0.0.1:4173/api/update/progress
 | `npm run electron:dev` | `vite build && electron .` |
 | `npm run build:win` | Windows 目录版打包（`--dir`） |
 | `npm run package:win` | Windows NSIS 安装包（唯一发布产物） |
-| `npm test` | `vitest run`（27 个用例） |
+| `npm test` | `vitest run`（131 个用例） |
 | `npm run test:watch` | `vitest` 监听模式 |
 | `npm run lint` / `npm run lint:fix` | ESLint 检查 / 自动修复 |
 | `npm run clean` | 清理构建产物与临时目录（`--dry` 预览，`--all` 连依赖一起清） |
@@ -550,10 +550,10 @@ curl http://127.0.0.1:4173/api/update/progress
 
 ```bash
 curl http://127.0.0.1:4173/api/version
-# {"version":"0.0.2","buildTime":"2026-11-09T...","mode":"server"}
+# {"version":"0.0.3","buildTime":"...","mode":"server"}
 
 curl http://127.0.0.1:4173/api/update/check
-# {"mode":"server","supported":true,"hasUpdate":false,"currentVersion":"0.0.2","latest":null}
+# {"mode":"server","supported":true,"hasUpdate":false,"currentVersion":"0.0.3","latest":null}
 
 curl -X POST http://127.0.0.1:4173/api/update/apply
 # {"jobId":"1731...","status":"preparing"}
@@ -570,7 +570,7 @@ curl http://127.0.0.1:4173/api/update/progress
 |---|---|---|
 | `update:info` | `getInfo()` | `{ mode, currentVersion, packaged, feed, appDir, platform }` |
 | `update:check` | `check()` | `{ supported, hasUpdate, currentVersion, latest, mode, packaged, appDir }` |
-| `update:download` | `download()` | `{ ok, size, installer }`；下载安装包并校验 SHA-256 |
+| `update:download` | `download()` | `{ ok, size, installer, signature }`；下载安装包、断点重试并校验 SHA-256 / 可选 Authenticode |
 | `update:install` | `install()` | `{ ok, restarting }`；退出应用后由安装助手静默安装 |
 | `update:event` | `onEvent(listener)` | 事件：`{ type: "progress", percent, message }`、`{ type: "available", currentVersion, latest }` |
 
@@ -584,7 +584,7 @@ curl http://127.0.0.1:4173/api/update/progress
 |---|---|---|
 | `dist/version.json` | `vite.config.js` | `version, buildTime, channel, releaseDate, notes[]` |
 | `updates/web/version.json` | `scripts/release.mjs` | 上述字段 + `package: { url, sha256, size }`，`url` 指向网页 ZIP |
-| `updates/desktop/version.json` | `scripts/release.mjs` | 上述字段 + `package.url` 指向 `GeekToolbox-Setup-<version>.exe`，`kind: "nsis"` |
+| `updates/desktop/version.json` | `scripts/release.mjs` | 上述字段 + `package.url` 指向 `GeekToolbox-Setup-<version>.exe`，`kind: "nsis"`，可选 `package.signature` |
 
 ---
 
@@ -595,7 +595,7 @@ curl http://127.0.0.1:4173/api/update/progress
 ```bash
 npm run release                                      # 网页版更新包
 node scripts/release.mjs --desktop                   # Windows 安装包 + updates/desktop 更新源
-node scripts/release.mjs --version 0.0.2 --desktop
+node scripts/release.mjs --version 0.0.3 --desktop
 node scripts/release.mjs --bump patch --notes "修复 A|新增 B"
 ```
 
@@ -622,20 +622,25 @@ node server/serve.js --feed https://example.com/updates/web
 
 ### 10.3 CI
 
-[`.github/workflows/build-all.yml`](.github/workflows/build-all.yml)（工作流名 `Build Multiplatform Release`，状态 active）在 `push` / `pull_request`（`main`、`master`）与手动触发时运行 4 个 job：`build-macos`（DMG）、`build-ios`（未签名 Xcode build）、`build-android`（debug APK）、`build-windows`（仅 NSIS 安装包）。所有 job 使用 Node 22；Capacitor 8 的 Android / iOS 同步要求 Node.js 22+。所有 job 均使用 `npm ci`。
+[`quality.yml`](.github/workflows/quality.yml) 在 `main` push、面向 `main` 的 PR 和手动触发时运行测试、lint 与构建。
+[`build-all.yml`](.github/workflows/build-all.yml) 在 `main` push、面向 `main` 的 PR 和手动触发时运行 4 个 job：`build-macos`（DMG）、`build-ios`（未签名 Xcode build）、`build-android`（debug APK）、`build-windows`（NSIS 安装包）。所有 job 使用 Node 22；Capacitor 8 的 Android / iOS 同步要求 Node.js 22+。所有 job 均使用 `npm ci`。
+
+[`release.yml`](.github/workflows/release.yml) 只由 `vX.Y.Z` 标签或手动指定标签触发，执行测试、构建、Windows 安装包完整性验证、生成 Web/桌面清单并创建 GitHub Release。普通 push 和 PR 不会发布 Release。
+
+完整的 Secrets、签名、清单、回滚和验收说明见 [`docs/AUTO_UPDATE.md`](docs/AUTO_UPDATE.md)。
 
 > electron-builder 命令已显式使用 `--publish never`，避免在没有 `GH_TOKEN` 时触发隐式发布。Windows 只产出一个 NSIS 安装包，不再产出便携版与独立更新 ZIP。
 
-### 10.4 当前版本（v0.0.2）更新说明
+### 10.4 当前候选版本（v0.0.3）更新说明
 
-来源：`release-notes.json`，构建期由 `vite.config.js` 注入 `dist/version.json` 的 `notes` 字段。
+来源：`release-notes.json`，构建期由 `vite.config.js` 注入 `dist/version.json` 的 `notes` 字段。**v0.0.3 仍是候选版本，Release 尚未发布；上方下载链接在发布前不可用。**
 
-- 新增「反馈 & 交流群」入口：侧边栏底部、工具标题栏「反馈」按钮、移动端顶栏消息图标三处均可打开加群弹窗。
-- 加群弹窗支持群二维码扫码、一键加入 QQ 群（冷漠网络科技交流群①）、复制群链接与直达 GitHub Issues。
-- 桌面端加群通过系统默认浏览器打开，不会把应用自身导航离开；移动容器改为扫码 / 复制链接，避免 WebView 顶掉页面。
-- 修复 minimatch 依赖 ReDoS 漏洞（GHSA-g3hv-75wg-m249），`npm audit` 归零；新增 `npm run clean` 清理脚本。
+- 加固 Electron 自动更新：仅接受 Windows NSIS 安装包，强制校验 SHA-256，并确认安装后的 `app.asar` 版本与目标版本一致。
+- 增强网页更新安全性与恢复能力：限制 ZIP 解压资源用量、校验归档完整性，并在文件替换失败时恢复旧版本。
+- 修复静态资源路径越界风险及多个工具的数据边界问题，完善 JSON、JWT、AES、编码、图片、批处理和正则处理。
+- 改进常用工具状态恢复、哈希结果选择、二维码生成和 SQL 字符串格式化行为。
 
-> v0.0.1 的变更（版本号重置、桌面端改为 NSIS 安装包自动更新、更新弹窗展示更新日志）已包含在 0.0.2 安装包内。
+> v0.0.2 的更新入口、交流群和依赖安全修复仍包含在本版本中。
 
 ---
 
@@ -677,7 +682,7 @@ npx cap sync android # 可选：同步到原生工程
 默认仅允许回环地址触发更新。启动时加 `--allow-remote-update`，或设置 `TOOLBOX_ALLOW_REMOTE_UPDATE=1`；仅在可信网络内启用。
 
 **Q：更新提示「更新包校验失败」？**
-`version.json` 中 `package.sha256` 与下载内容不一致，更新已中止、旧文件未改动。请重新下载或检查更新源。若清单缺少 `sha256`，服务端会跳过校验并写警告日志——这不是安全状态。
+`version.json` 中 `package.sha256` 与下载内容不一致或缺失时，更新会被拒绝、旧文件保持不变。请重新下载或检查更新源清单。
 
 **Q：Windows 上更新替换失败？**
 `serve.js` 在目录 rename 报 `EPERM` 时自动降级为逐文件覆盖，并在失败时回滚 `index.html` / `version.json`。若仍失败，检查杀毒软件 / 索引服务是否占用 `dist/`，以及旧进程是否已释放端口（内置 12 次端口重试）。
@@ -727,7 +732,7 @@ README 与 CI 使用 20，`启动网页版.bat` 的提示文案是 18+。项目�
 ```bash
 npm install
 npm run dev
-npm test             # Vitest，27 个用例，node 环境
+npm test             # Vitest，131 个用例，node 环境
 npm run lint         # ESLint（src / electron / server / shared / scripts / tests）
 npm run build        # 生产构建
 ```
@@ -763,7 +768,7 @@ npm run build        # 生产构建
 | `tests/htmlEntities.test.js` | 命名 / 数字实体解码、未知实体、注入载荷不执行 |
 | `tests/registry.test.js` | 元数据 ↔ 组件双向一致性、数量断言 |
 
-Vitest 运行于纯 Node 环境，**没有组件 / DOM 交互测试**；`vue` 插件仅用于解析 SFC 导入。
+Vitest 运行于纯 Node 环境；`.tmp-verify/workspace_ui_check.mjs` 使用 Playwright 对开发服务器执行桌面 / 移动 smoke 验证，`vue` 插件用于解析 SFC 导入。
 
 ### 13.5 调试提示
 
@@ -789,7 +794,7 @@ Vitest 运行于纯 Node 环境，**没有组件 / DOM 交互测试**；`vue` �
 
 **风险与边界（请务必知悉）**
 
-- 若自行构造的更新清单缺少 `package.sha256`，校验会被**跳过**（服务端记录警告）。务必使用 `scripts/release.mjs` 生成清单，并把更新源托管在可信位置。
+- 若自行构造的更新清单缺少 `package.sha256` 或格式非法，更新会被**拒绝**，旧版本保持不变。务必使用 `scripts/release.mjs` 生成清单，并把更新源托管在可信位置。
 - `--allow-remote-update` / `TOOLBOX_ALLOW_REMOTE_UPDATE=1` 会让同一网络内的其他机器触发更新替换，仅限可信网络使用。
 - 项目无密钥、Token、`.env` 或账号体系；不要为了部署便利把更新源指向不可信的第三方地址。
 - AES、JWT、哈希工具面向开发调试：JWT 解析不验签、AES 使用 `crypto-js`，不用于生产环境的密钥管理或安全审计。

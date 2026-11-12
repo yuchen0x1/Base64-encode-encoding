@@ -24,6 +24,7 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { extractZip } from '../shared/zip.js'
 import { isNewerVersion, normalizeVersion } from '../shared/version.js'
+import { replaceInPlace } from './webUpdate.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -61,7 +62,7 @@ const FEED = args.feed || process.env.TOOLBOX_WEB_FEED || path.join(__dirname, '
 const PORT = Number(process.env.PORT || args.port)
 const HOST = process.env.HOST || args.host
 const ALLOW_REMOTE_UPDATE = args.allowRemoteUpdate || process.env.TOOLBOX_ALLOW_REMOTE_UPDATE === '1'
-const LOG_FILE = path.join(__dirname, '..', 'updates', 'web-update.log')
+const LOG_FILE = process.env.TOOLBOX_WEB_UPDATE_LOG || path.join(__dirname, '..', 'updates', 'web-update.log')
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -214,20 +215,6 @@ async function renameWithRetry(from, to, attempts = 4) {
   throw lastError
 }
 
-async function copyFileWithRetry(from, to, attempts = 4) {
-  let lastError
-  for (let i = 0; i < attempts; i += 1) {
-    try {
-      await fs.copyFile(from, to)
-      return
-    } catch (error) {
-      lastError = error
-      await new Promise((resolve) => setTimeout(resolve, 200))
-    }
-  }
-  throw lastError
-}
-
 /**
  * 删除暂存目录。
  * Windows 上 fs.rm(recursive) 可能被杀毒/索引服务或宿主安全策略拦截而整体失败，
@@ -236,60 +223,43 @@ async function copyFileWithRetry(from, to, attempts = 4) {
 async function removeDir(dir) {
   try {
     await fs.rm(dir, { recursive: true, force: true })
-    return
+    return true
   } catch {
     /* 回退逐文件删除 */
   }
+
   async function walk(current) {
-    let items
+    let stat
     try {
-      items = await fs.readdir(current, { withFileTypes: true })
-    } catch {
-      return
+      stat = await fs.lstat(current)
+    } catch (error) {
+      return error.code === 'ENOENT'
     }
-    for (const item of items) {
-      const target = path.join(current, item.name)
-      if (item.isDirectory()) await walk(target)
-      else await fs.unlink(target).catch(() => {})
+
+    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+      await fs.unlink(current).catch(() => {})
+    } else {
+      let items
+      try {
+        items = await fs.readdir(current)
+      } catch {
+        return false
+      }
+      for (const name of items) {
+        if (!await walk(path.join(current, name))) return false
+      }
+      await fs.rmdir(current).catch(() => {})
     }
-    await fs.rmdir(current).catch(() => {})
-  }
-  await walk(dir)
-}
 
-/**
- * Windows 下目录可能被杀毒/索引服务短暂占用，导致整目录 rename 失败（EPERM）。
- * 此时退化为逐文件覆盖：先写资源，再写入口文件，任何失败都回滚入口文件，
- * 保证旧版本页面始终可用。
- */
-async function replaceInPlace(staging, root) {
-  const entryFiles = new Set(['index.html', 'version.json'])
-  const oldIndex = await fs.readFile(path.join(root, 'index.html'))
-  const oldVersion = await fs.readFile(path.join(root, 'version.json')).catch(() => null)
-
-  async function walk(from, to) {
-    const items = await fs.readdir(from, { withFileTypes: true })
-    await fs.mkdir(to, { recursive: true })
-    for (const item of items) {
-      if (item.isFile() && entryFiles.has(item.name)) continue
-      const src = path.join(from, item.name)
-      const dest = path.join(to, item.name)
-      if (item.isDirectory()) await walk(src, dest)
-      else if (item.isFile()) await copyFileWithRetry(src, dest)
+    try {
+      await fs.lstat(current)
+      return false
+    } catch (error) {
+      return error.code === 'ENOENT'
     }
   }
 
-  try {
-    await walk(staging, root)
-    await copyFileWithRetry(path.join(staging, 'index.html'), path.join(root, 'index.html'))
-    if (oldVersion) {
-      await copyFileWithRetry(path.join(staging, 'version.json'), path.join(root, 'version.json'))
-    }
-  } catch (error) {
-    await fs.writeFile(path.join(root, 'index.html'), oldIndex).catch(() => {})
-    if (oldVersion) await fs.writeFile(path.join(root, 'version.json'), oldVersion).catch(() => {})
-    throw new Error(`逐文件覆盖失败，已回滚入口文件：${error.message}`, { cause: error })
-  }
+  return walk(dir)
 }
 
 async function applyUpdate(jobId) {
@@ -316,19 +286,23 @@ async function applyUpdate(jobId) {
   await log(`更新包下载完成，${(buffer.length / 1024).toFixed(1)} KB`)
 
   setJob({ status: 'verifying', percent: 72, message: '正在校验完整性…' })
-  if (pkgInfo.sha256) {
-    const actual = sha256(buffer)
-    if (actual.toLowerCase() !== String(pkgInfo.sha256).toLowerCase()) {
-      throw new Error(`更新包校验失败（期望 ${pkgInfo.sha256.slice(0, 12)}…，实际 ${actual.slice(0, 12)}…）`)
-    }
-  } else {
-    await log('警告：更新清单未提供 sha256，已跳过完整性校验')
+  if (typeof pkgInfo.sha256 !== 'string' || !/^[a-f\d]{64}$/i.test(pkgInfo.sha256)) {
+    throw new Error('更新清单缺少有效 SHA-256，已拒绝应用更新')
+  }
+  const actual = sha256(buffer)
+  if (actual.toLowerCase() !== pkgInfo.sha256.toLowerCase()) {
+    throw new Error(`更新包校验失败（期望 ${pkgInfo.sha256.slice(0, 12)}…，实际 ${actual.slice(0, 12)}…）`)
   }
 
   setJob({ status: 'extracting', percent: 78, message: '正在解压更新包…' })
   const staging = `${ROOT}.next-${startedAt}`
   await removeDir(staging)
-  await extractZip(buffer, staging)
+  try {
+    await extractZip(buffer, staging)
+  } catch (error) {
+    await removeDir(staging)
+    throw error
+  }
 
   const hasIndex = existsSync(path.join(staging, 'index.html'))
   const hasVersion = existsSync(path.join(staging, 'version.json'))
@@ -346,18 +320,26 @@ async function applyUpdate(jobId) {
   } catch (renameError) {
     await log(`目录换位不可用（${renameError.code || renameError.message}），改用逐文件覆盖`)
     mode = 'copy'
-    await replaceInPlace(staging, ROOT)
-    await removeDir(staging)
+    await replaceInPlace(staging, ROOT, (message) => log(`警告：${message}`))
   }
 
   if (mode === 'rename') {
     try {
       await renameWithRetry(staging, ROOT)
     } catch (error) {
-      await renameWithRetry(backup, ROOT).catch(() => {})
-      throw new Error(`替换文件失败，已回滚：${error.message}`, { cause: error })
+      try {
+        await renameWithRetry(backup, ROOT)
+      } catch (rollbackError) {
+        await removeDir(staging)
+        const failure = new AggregateError([error, rollbackError], `替换文件失败且无法恢复旧目录；旧版本仍保留在 ${backup}`, { cause: rollbackError })
+        throw failure
+      }
+      await removeDir(staging)
+      throw new Error(`替换文件失败，已恢复旧版本：${error.message}`, { cause: error })
     }
-    removeDir(backup).catch(() => {})
+    if (!await removeDir(backup)) {
+      await log(`警告：更新成功，但无法清理旧版本目录 ${backup}`)
+    }
   }
 
   setJob({ status: 'restarting', percent: 96, message: '正在重启服务器…' })
@@ -479,9 +461,17 @@ async function serveStatic(req, res, url) {
   }
 
   try {
-    const data = await fs.readFile(filePath)
-    const ext = path.extname(filePath).toLowerCase()
-    const name = path.basename(filePath)
+    const realRoot = await fs.realpath(ROOT)
+    const realFilePath = await fs.realpath(filePath)
+    const relative = path.relative(realRoot, realFilePath)
+    if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      res.writeHead(403).end('Forbidden')
+      return
+    }
+
+    const data = await fs.readFile(realFilePath)
+    const ext = path.extname(realFilePath).toLowerCase()
+    const name = path.basename(realFilePath)
     const noCache = name === 'index.html' || name === 'version.json' || name === 'manifest.json'
     res.writeHead(200, {
       'Content-Type': MIME[ext] || 'application/octet-stream',
@@ -527,5 +517,4 @@ function start(attempt = 0) {
 `)
   })
 }
-
-start()
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) start()

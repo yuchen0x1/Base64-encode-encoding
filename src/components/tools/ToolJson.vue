@@ -85,6 +85,14 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
+import {
+  formatJson as formatJsonInput,
+  generateTypeScript as inferJsonTypeScript,
+  parseJson,
+  removeEmptyJsonValues,
+  sortJsonObjectKeys,
+  unescapeJsonString
+} from './jsonTool.js'
 
 const input = ref(`{
   "system": "极客工具箱 (ToolBox Pro)",
@@ -111,60 +119,48 @@ const typeCopied = ref(false)
 const generatedTypeScript = ref('')
 const error = ref('')
 
-const isValid = computed(() => {
-  if (!input.value.trim()) return false
-  try {
-    JSON.parse(input.value)
-    return true
-  } catch {
-    return false
-  }
-})
+const validation = computed(() => parseJson(input.value))
+const isValid = computed(() => input.value.trim().length > 0 && validation.value.ok)
 
 const jsonStats = computed(() => {
   if (!isValid.value) return { keys: 0, size: 0 }
-  try {
-    const obj = JSON.parse(input.value)
-    let keys = 0
-    function countKeys(target) {
-      if (typeof target === 'object' && target !== null) {
-        for (let k in target) {
-          keys++
-          countKeys(target[k])
-        }
+  let keys = 0
+  function countKeys(target) {
+    if (typeof target === 'object' && target !== null) {
+      for (const key of Object.keys(target)) {
+        keys++
+        countKeys(target[key])
       }
     }
-    countKeys(obj)
-    const size = (new TextEncoder().encode(input.value).length / 1024).toFixed(2)
-    return { keys, size }
-  } catch {
-    return { keys: 0, size: 0 }
   }
+  countKeys(validation.value.value)
+  const size = (new TextEncoder().encode(input.value).length / 1024).toFixed(2)
+  return { keys, size }
 })
 
 function parseInput() {
-  try {
-    return JSON.parse(input.value)
-  } catch (e) {
-    error.value = e.message
-    return null
-  }
+  const result = parseJson(input.value)
+  if (!result.ok) error.value = result.error.message
+  return result
 }
 
 function formatJson() {
   error.value = ''
-  const parsed = parseInput()
-  if (parsed === null) return
-  input.value = JSON.stringify(parsed, null, 2)
+  const result = formatJsonInput(input.value)
+  if (!result.ok) {
+    error.value = result.error.message
+    return
+  }
+  input.value = result.value
   generatedTypeScript.value = ''
   globalToast('JSON 已格式化')
 }
 
 function minifyJson() {
   error.value = ''
-  const parsed = parseInput()
-  if (parsed === null) return
-  input.value = JSON.stringify(parsed)
+  const result = parseInput()
+  if (!result.ok) return
+  input.value = JSON.stringify(result.value)
   generatedTypeScript.value = ''
   globalToast('JSON 已压缩')
 }
@@ -176,89 +172,38 @@ function escapeJson() {
 
 function unescapeJson() {
   error.value = ''
-  try {
-    input.value = JSON.parse(input.value)
-    generatedTypeScript.value = ''
-  } catch (e) {
-    error.value = '无法反转义：' + e.message
+  const result = unescapeJsonString(input.value)
+  if (!result.ok) {
+    error.value = result.error instanceof TypeError
+      ? '无法反转义：JSON 值必须是字符串'
+      : '无法反转义：' + result.error.message
+    return
   }
-}
-
-function sortObjectKeys(value) {
-  if (Array.isArray(value)) return value.map(sortObjectKeys)
-  if (value && typeof value === 'object') {
-    return Object.keys(value).sort((a, b) => a.localeCompare(b)).reduce((result, key) => {
-      result[key] = sortObjectKeys(value[key])
-      return result
-    }, {})
-  }
-  return value
+  input.value = result.value
+  generatedTypeScript.value = ''
 }
 
 function sortJsonKeys() {
   error.value = ''
-  const parsed = parseInput()
-  if (parsed === null) return
-  input.value = JSON.stringify(sortObjectKeys(parsed), null, 2)
+  const result = parseInput()
+  if (!result.ok) return
+  input.value = JSON.stringify(sortJsonObjectKeys(result.value), null, 2)
   globalToast('JSON 键名已排序')
-}
-
-function removeEmptyValuesFrom(value) {
-  if (Array.isArray(value)) {
-    return value.map(removeEmptyValuesFrom).filter(item => item !== null && item !== undefined && item !== '')
-  }
-  if (value && typeof value === 'object') {
-    return Object.keys(value).reduce((result, key) => {
-      const next = removeEmptyValuesFrom(value[key])
-      if (next !== null && next !== undefined && next !== '') result[key] = next
-      return result
-    }, {})
-  }
-  return value
 }
 
 function removeEmptyValues() {
   error.value = ''
-  const parsed = parseInput()
-  if (parsed === null) return
-  input.value = JSON.stringify(removeEmptyValuesFrom(parsed), null, 2)
+  const result = parseInput()
+  if (!result.ok) return
+  input.value = JSON.stringify(removeEmptyJsonValues(result.value), null, 2)
   globalToast('空值已清理')
-}
-
-function toTypeName(key) {
-  const cleaned = key.replace(/[^a-zA-Z0-9_$]/g, '_')
-  return /^[0-9]/.test(cleaned) ? `_${cleaned}` : cleaned || 'Root'
-}
-
-function inferType(value, name, interfaces) {
-  if (value === null) return 'unknown'
-  if (Array.isArray(value)) {
-    if (!value.length) return 'unknown[]'
-    const types = [...new Set(value.map(item => inferType(item, `${name}Item`, interfaces)))]
-    return types.length === 1 ? `${types[0]}[]` : `(${types.join(' | ')})[]`
-  }
-  if (typeof value === 'object') {
-    const interfaceName = toTypeName(name)
-    const fields = Object.entries(value).map(([key, item]) => {
-      const type = inferType(item, `${interfaceName}${toTypeName(key)}`, interfaces)
-      const optional = item === null ? '?' : ''
-      return `  ${toTypeName(key)}${optional}: ${type};`
-    })
-    interfaces.push(`export interface ${interfaceName} {\n${fields.join('\n')}\n}`)
-    return interfaceName
-  }
-  if (typeof value === 'number') return Number.isInteger(value) ? 'number' : 'number'
-  if (typeof value === 'boolean') return 'boolean'
-  return 'string'
 }
 
 function generateTypeScript() {
   error.value = ''
-  const parsed = parseInput()
-  if (parsed === null) return
-  const interfaces = []
-  const rootType = inferType(parsed, 'Root', interfaces)
-  generatedTypeScript.value = `${interfaces.reverse().join('\n\n')}\n\nexport type RootData = ${rootType}`
+  const result = parseInput()
+  if (!result.ok) return
+  generatedTypeScript.value = inferJsonTypeScript(result.value)
   globalToast('TypeScript 类型已生成')
 }
 

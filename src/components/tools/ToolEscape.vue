@@ -69,56 +69,12 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
+import { escapeC, escapeHex, escapeUnicode, unescapeC, unescapeHex, unescapeUnicode } from '../../utils/toolEncodings.js'
 
 const mode = ref('escape')
 const style = ref('c')
 const input = ref('你好，极客工具箱！\n第二行 \t "引号" \\ 反斜杠')
 const copied = ref(false)
-
-function escapeC(str) {
-  const map = {
-    '\n': '\\n', '\r': '\\r', '\t': '\\t',
-    '\b': '\\b', '\f': '\\f', '\v': '\\v',
-    '\\': '\\\\', '"': '\\"', "'": "\\'"
-  }
-  return str.replace(/[\n\r\t\b\f\v\\"']/g, ch => map[ch])
-}
-
-function unescapeC(str) {
-  return str
-    .replace(/\\n/g, '\n')
-    .replace(/\\r/g, '\r')
-    .replace(/\\t/g, '\t')
-    .replace(/\\b/g, '\b')
-    .replace(/\\f/g, '\f')
-    .replace(/\\v/g, '\v')
-    .replace(/\\\\/g, '\uE000')
-    .replace(/\\"/g, '"')
-    .replace(/\\'/g, "'")
-    .replace(/\uE000/g, '\\')
-}
-
-function escapeUnicode(str) {
-  return Array.from(str).map(ch => {
-    const code = ch.codePointAt(0)
-    return code > 0x7f ? `\\u${code.toString(16).padStart(4, '0')}` : ch
-  }).join('')
-}
-
-function unescapeUnicode(str) {
-  return str.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-}
-
-function escapeHex(str) {
-  return Array.from(str).map(ch => {
-    const code = ch.charCodeAt(0)
-    return code > 0x7f ? ch : `\\x${code.toString(16).padStart(2, '0')}`
-  }).join('')
-}
-
-function unescapeHex(str) {
-  return str.replace(/\\x([0-9a-fA-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-}
 
 const output = computed(() => {
   if (!input.value) return ''

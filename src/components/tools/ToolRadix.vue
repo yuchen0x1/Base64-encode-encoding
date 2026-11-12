@@ -113,6 +113,7 @@
 <script setup>
 import { ref } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
+import { formatRadixValue, parseRadixValue } from '../../utils/toolHelpers.js'
 
 const binVal = ref('11010110')
 const octVal = ref('326')
@@ -129,23 +130,23 @@ function syncFromBigInt(val, exclude) {
     if (exclude !== 'hex') hexVal.value = ''
     return
   }
-  if (exclude !== 'bin') binVal.value = val.toString(2)
-  if (exclude !== 'oct') octVal.value = val.toString(8)
-  if (exclude !== 'dec') decVal.value = val.toString(10)
-  if (exclude !== 'hex') hexVal.value = val.toString(16).toUpperCase()
+  if (exclude !== 'bin') binVal.value = formatRadixValue(val, 2)
+  if (exclude !== 'oct') octVal.value = formatRadixValue(val, 8)
+  if (exclude !== 'dec') decVal.value = formatRadixValue(val, 10)
+  if (exclude !== 'hex') hexVal.value = formatRadixValue(val, 16)
 }
 
 function onBinChange() {
   const clean = binVal.value.trim()
   if (!clean) return syncFromBigInt(null, 'bin')
-  if (!/^[01]+$/.test(clean)) {
-    error.value = '二进制只允许输入 0 或 1'
+  if (!/^-?[01]+$/.test(clean)) {
+    error.value = '二进制只允许输入 0 或 1，可使用前导负号'
     return
   }
   try {
-    const val = BigInt('0b' + clean)
+    const val = parseRadixValue(clean, 2)
     syncFromBigInt(val, 'bin')
-  } catch (e) {
+  } catch {
     error.value = '数值过大或格式无效'
   }
 }
@@ -153,14 +154,14 @@ function onBinChange() {
 function onOctChange() {
   const clean = octVal.value.trim()
   if (!clean) return syncFromBigInt(null, 'oct')
-  if (!/^[0-7]+$/.test(clean)) {
-    error.value = '八进制只允许输入 0 到 7'
+  if (!/^-?[0-7]+$/.test(clean)) {
+    error.value = '八进制只允许输入 0 到 7，可使用前导负号'
     return
   }
   try {
-    const val = BigInt('0o' + clean)
+    const val = parseRadixValue(clean, 8)
     syncFromBigInt(val, 'oct')
-  } catch (e) {
+  } catch {
     error.value = '数值过大或格式无效'
   }
 }
@@ -169,13 +170,13 @@ function onDecChange() {
   const clean = decVal.value.trim()
   if (!clean) return syncFromBigInt(null, 'dec')
   if (!/^-?[0-9]+$/.test(clean)) {
-    error.value = '十进制只允许输入数字'
+    error.value = '十进制只允许输入数字和前导负号'
     return
   }
   try {
-    const val = BigInt(clean)
+    const val = parseRadixValue(clean, 10)
     syncFromBigInt(val, 'dec')
-  } catch (e) {
+  } catch {
     error.value = '数值过大或格式无效'
   }
 }
@@ -183,14 +184,14 @@ function onDecChange() {
 function onHexChange() {
   const clean = hexVal.value.trim()
   if (!clean) return syncFromBigInt(null, 'hex')
-  if (!/^[0-9a-fA-F]+$/.test(clean)) {
-    error.value = '十六进制只允许输入 0-9 以及 A-F'
+  if (!/^-?[0-9a-fA-F]+$/.test(clean)) {
+    error.value = '十六进制只允许输入 0-9、A-F 和前导负号'
     return
   }
   try {
-    const val = BigInt('0x' + clean)
+    const val = parseRadixValue(clean, 16)
     syncFromBigInt(val, 'hex')
-  } catch (e) {
+  } catch {
     error.value = '数值过大或格式无效'
   }
 }

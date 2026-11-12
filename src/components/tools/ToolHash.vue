@@ -46,19 +46,37 @@
         ></textarea>
       </div>
 
-      <!-- 输出区域：矩阵终端 -->
+      <!-- 输出区域：选中算法的主结果与完整摘要矩阵 -->
       <div class="glass-panel panel hash-results">
         <div class="panel-header">
-          <span class="panel-title">散列指纹矩阵 (HASH MATRIX)</span>
-          <span class="badge-neon">REAL-TIME</span>
+          <span class="panel-title">主结果 · {{ primaryHash.name }}</span>
+          <span class="badge-neon">{{ selectedAlgorithm }}</span>
+        </div>
+        <div class="primary-result">
+          <div class="hash-meta">
+            <span class="algo-name code-font">当前选中算法</span>
+            <button class="btn btn-secondary btn-sm" :disabled="!primaryHash.val" @click="copy(primaryHash.val)">📋 复制主结果</button>
+          </div>
+          <div class="primary-result-value code-font">{{ primaryHash.val || '（等待输入数据流）' }}</div>
+        </div>
+        <div class="matrix-header">
+          <span class="panel-title">全部摘要矩阵 (HASH MATRIX)</span>
+          <span class="matrix-hint">选中行与主结果一致</span>
         </div>
         <div class="hashes-list">
-          <div v-for="res in calculatedHashes" :key="res.name" class="hash-row">
+          <div
+            v-for="res in calculatedHashes"
+            :key="res.id"
+            class="hash-row"
+            :class="{ 'is-selected': res.id === primaryHash.id }"
+            :aria-current="res.id === primaryHash.id ? 'true' : undefined"
+          >
             <div class="hash-meta">
               <span class="algo-name code-font">{{ res.name }}</span>
-              <button class="btn btn-secondary btn-sm" @click="copy(res.val)">📋 复制</button>
+              <span v-if="res.id === primaryHash.id" class="selected-tag">主结果</span>
+              <button class="btn btn-secondary btn-sm" :disabled="!res.val" @click="copy(res.val)">📋 复制</button>
             </div>
-            <div class="hash-val code-font">{{ res.val || '（等待输入数据流）' }}</div>
+            <div class="hash-val code-font">{{ res.val || (input ? '仅选择 HMAC-SHA256 时计算' : '（等待输入数据流）') }}</div>
           </div>
         </div>
       </div>
@@ -68,7 +86,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import CryptoJS from 'crypto-js'
+import { calculateHashResults } from './hashHelpers.js'
 import { globalToast } from '../../composables/useToast.js'
 
 const input = ref('admin123456')
@@ -76,41 +94,14 @@ const selectedAlgorithm = ref('MD5')
 const letterCase = ref('lower')
 const secretKey = ref('my_secret_key')
 
-function formatCase(str) {
-  return letterCase.value === 'upper' ? str.toUpperCase() : str.toLowerCase()
-}
-
-const calculatedHashes = computed(() => {
-  if (!input.value) {
-    return [
-      { name: 'MD5 (16-BIT)', val: '' },
-      { name: 'MD5 (32-BIT)', val: '' },
-      { name: 'SHA-1 (40-BIT)', val: '' },
-      { name: 'SHA-256 (64-BIT)', val: '' },
-      { name: 'SHA-512 (128-BIT)', val: '' },
-      { name: 'HMAC-SHA256', val: '' }
-    ]
-  }
-
-  try {
-    const md5 = formatCase(CryptoJS.MD5(input.value).toString())
-    const sha1 = formatCase(CryptoJS.SHA1(input.value).toString())
-    const sha256 = formatCase(CryptoJS.SHA256(input.value).toString())
-    const sha512 = formatCase(CryptoJS.SHA512(input.value).toString())
-    const hmacSha256 = formatCase(CryptoJS.HmacSHA256(input.value, secretKey.value || '').toString())
-
-    return [
-      { name: 'MD5 (16位中截取)', val: md5.substring(8, 24) },
-      { name: 'MD5 (32位完整摘要)', val: md5 },
-      { name: 'SHA-1 (40位安全指纹)', val: sha1 },
-      { name: 'SHA-256 (64位密码级)', val: sha256 },
-      { name: 'SHA-512 (128位超强摘要)', val: sha512 },
-      { name: 'HMAC-SHA256 (密钥签名)', val: hmacSha256 }
-    ]
-  } catch (e) {
-    return []
-  }
-})
+const hashResults = computed(() => calculateHashResults({
+  input: input.value,
+  algorithm: selectedAlgorithm.value,
+  letterCase: letterCase.value,
+  secretKey: secretKey.value
+}))
+const calculatedHashes = computed(() => hashResults.value.hashes)
+const primaryHash = computed(() => hashResults.value.primary)
 
 function copy(text) {
   if (!text) return
@@ -163,6 +154,10 @@ function copy(text) {
   color: var(--accent-cyan);
   font-weight: 700;
 }
+.secret-box .input-control {
+  flex: 1;
+  min-width: 0;
+}
 .workbench-grid {
   display: grid;
   grid-template-columns: 1fr 1.25fr;
@@ -202,6 +197,43 @@ function copy(text) {
   resize: vertical;
   min-height: 280px;
 }
+.hash-results {
+  min-width: 0;
+}
+.primary-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(var(--rgb-primary), 0.06);
+}
+.primary-result-value {
+  min-height: 2.6rem;
+  display: flex;
+  align-items: center;
+  overflow-wrap: anywhere;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  color: var(--text-main);
+  background: var(--surface-well);
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(var(--rgb-primary), 0.35);
+  border-radius: 4px;
+  user-select: all;
+}
+.matrix-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem 0;
+}
+.matrix-hint {
+  font-size: 0.72rem;
+  color: var(--text-sub);
+}
 .hashes-list {
   padding: 1rem 1.25rem;
   display: flex;
@@ -224,10 +256,27 @@ function copy(text) {
   border-color: rgba(var(--rgb-primary), 0.4);
   box-shadow: 0 0 15px rgba(var(--rgb-primary), 0.1);
 }
+.hash-row.is-selected {
+  border-color: rgba(var(--rgb-primary), 0.75);
+  box-shadow: inset 3px 0 0 var(--accent-cyan), 0 0 14px rgba(var(--rgb-primary), 0.12);
+}
 .hash-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.5rem;
+}
+.hash-meta .algo-name {
+  margin-right: auto;
+}
+.selected-tag {
+  flex: none;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  background: rgba(var(--rgb-primary), 0.12);
 }
 .algo-name {
   font-size: 0.775rem;

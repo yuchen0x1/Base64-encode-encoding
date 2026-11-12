@@ -88,7 +88,7 @@ const output = computed(() => {
         ? decodeURIComponent(input.value)
         : decodeURI(input.value)
     }
-  } catch (e) {
+  } catch {
     error.value = 'URL 格式解析错误'
     return ''
   }

@@ -34,7 +34,7 @@
         <span class="slash">/{{ activeFlags }}</span>
       </div>
       <div v-if="regexError" class="regex-error">
-        ⚠️ 正则表达式语法错误: {{ regexError }}
+        ⚠️ {{ regexError }}
       </div>
     </div>
 
@@ -55,7 +55,7 @@
       <!-- 匹配结果汇总 -->
       <div class="panel">
         <div class="panel-header">
-          <span class="panel-title">匹配结果 (共 {{ matches.length }} 处命中)</span>
+          <span class="panel-title">{{ isMatching ? '正在匹配…' : `匹配结果 (共 ${matches.length} 处命中)` }}</span>
           <span v-if="isTruncated" class="warn-badge">仅展示前 500 项</span>
         </div>
         <div class="matches-list">
@@ -75,7 +75,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { createRegexMatchRunner } from '../../utils/regexMatch.js'
 
 const pattern = ref('[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}')
 const testString = ref(`欢迎联系客服：service@company.com
@@ -90,6 +91,12 @@ const flags = ref({
 const selectedPreset = ref('email')
 const regexError = ref('')
 const isTruncated = ref(false)
+const matches = ref([])
+const isMatching = ref(false)
+const regexMatchRunner = createRegexMatchRunner(
+  () => new Worker(new URL('../../utils/regexWorker.js', import.meta.url), { type: 'module' })
+)
+let matchRequestId = 0
 
 const activeFlags = computed(() => {
   let f = ''
@@ -134,39 +141,41 @@ function applyPreset() {
   }
 }
 
-const matches = computed(() => {
+watch([pattern, testString, activeFlags, () => flags.value.g], async () => {
+  const requestId = ++matchRequestId
+  regexMatchRunner.cancel()
   regexError.value = ''
   isTruncated.value = false
-  if (!pattern.value || !testString.value) return []
-  try {
-    const reg = new RegExp(pattern.value, activeFlags.value)
-    if (flags.value.g) {
-      // 安全循环提取，限制最大匹配数防止空字符无限循环或卡死
-      const list = []
-      let match
-      let count = 0
-      const maxCount = 500
-      while ((match = reg.exec(testString.value)) !== null) {
-        list.push(match[0])
-        count++
-        if (count >= maxCount) {
-          isTruncated.value = true
-          break
-        }
-        // 关键防御：空匹配时手动步进 lastIndex 防止无限死循环
-        if (match[0].length === 0) {
-          reg.lastIndex++
-        }
-      }
-      return list
-    } else {
-      const one = testString.value.match(reg)
-      return one ? [one[0]] : []
-    }
-  } catch (e) {
-    regexError.value = e.message
-    return []
+  matches.value = []
+
+  if (!pattern.value || !testString.value) {
+    isMatching.value = false
+    return
   }
+
+  isMatching.value = true
+  const result = await regexMatchRunner.run({
+    pattern: pattern.value,
+    text: testString.value,
+    flags: activeFlags.value,
+    global: flags.value.g
+  })
+
+  if (requestId !== matchRequestId) return
+  isMatching.value = false
+
+  if (result?.error) {
+    regexError.value = result.error
+    return
+  }
+
+  matches.value = result?.matches || []
+  isTruncated.value = Boolean(result?.isTruncated)
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  matchRequestId += 1
+  regexMatchRunner.cancel()
 })
 </script>
 

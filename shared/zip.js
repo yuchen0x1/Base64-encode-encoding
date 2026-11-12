@@ -14,6 +14,12 @@ const CENTRAL_SIG = 0x02014b50
 const EOCD_SIG = 0x06054b50
 const UTF8_FLAG = 0x0800
 
+// 当前生产 dist 为 12 个条目、约 1.2 MB；这些宽裕上限避免限制正常更新，
+// 同时限制恶意 ZIP 对解析时间和解压后内存的占用。
+const MAX_ARCHIVE_ENTRIES = 4096
+const MAX_ENTRY_UNCOMPRESSED_SIZE = 64 * 1024 * 1024
+const MAX_TOTAL_UNCOMPRESSED_SIZE = 128 * 1024 * 1024
+
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256)
   for (let i = 0; i < 256; i += 1) {
@@ -152,10 +158,14 @@ export function readZip(buffer) {
   if (totalEntries === 0xffff || centralOffset === 0xffffffff || centralSize === 0xffffffff) {
     throw new Error('暂不支持 ZIP64 格式的更新包')
   }
+  if (totalEntries > MAX_ARCHIVE_ENTRIES) {
+    throw new Error(`ZIP 条目数量超过限制（最多 ${MAX_ARCHIVE_ENTRIES} 个）`)
+  }
   if (centralOffset + centralSize > buffer.length) throw new Error('ZIP 中央目录越界，文件可能已损坏')
 
-  const entries = []
+  const records = []
   let cursor = centralOffset
+  let totalUncompressedSize = 0
   for (let i = 0; i < totalEntries; i += 1) {
     if (buffer.readUInt32LE(cursor) !== CENTRAL_SIG) throw new Error('ZIP 中央目录结构损坏')
     const flags = buffer.readUInt16LE(cursor + 8)
@@ -167,8 +177,18 @@ export function readZip(buffer) {
     const extraLen = buffer.readUInt16LE(cursor + 30)
     const commentLen = buffer.readUInt16LE(cursor + 32)
     const localOffset = buffer.readUInt32LE(cursor + 42)
+    if (usize > MAX_ENTRY_UNCOMPRESSED_SIZE) {
+      throw new Error(`ZIP 条目声明的解压后大小超过限制（最多 ${MAX_ENTRY_UNCOMPRESSED_SIZE} 字节）`)
+    }
+    if (usize > MAX_TOTAL_UNCOMPRESSED_SIZE - totalUncompressedSize) {
+      throw new Error(`ZIP 归档声明的累计解压后大小超过限制（最多 ${MAX_TOTAL_UNCOMPRESSED_SIZE} 字节）`)
+    }
+    totalUncompressedSize += usize
+
     const rawName = buffer.subarray(cursor + 46, cursor + 46 + nameLen)
     const name = normalizeEntryPath((flags & UTF8_FLAG) ? rawName.toString('utf8') : decodeName(rawName))
+    if (method !== 0 && method !== 8) throw new Error(`不支持的压缩算法 ${method}: ${name}`)
+    if (method === 0 && csize !== usize) throw new Error(`ZIP 条目大小校验失败: ${name}`)
 
     if (buffer.readUInt32LE(localOffset) !== LOCAL_SIG) throw new Error(`ZIP 条目头损坏: ${name}`)
     const localNameLen = buffer.readUInt16LE(localOffset + 26)
@@ -177,16 +197,23 @@ export function readZip(buffer) {
     if (dataStart + csize > buffer.length) throw new Error(`ZIP 条目数据越界: ${name}`)
 
     const raw = buffer.subarray(dataStart, dataStart + csize)
+    records.push({ name, raw, method, checksum, usize })
+    cursor += 46 + nameLen + extraLen + commentLen
+  }
+
+  // 所有中央目录记录已先通过限制和边界验证，再开始解压任何条目。
+  const entries = []
+  for (const { name, raw, method, checksum, usize } of records) {
     let data
     if (method === 0) data = Buffer.from(raw)
-    else if (method === 8) data = zlib.inflateRawSync(raw)
-    else throw new Error(`不支持的压缩算法 ${method}: ${name}`)
+    else if (method === 8) {
+      data = zlib.inflateRawSync(raw, { maxOutputLength: Math.max(1, usize) })
+    } else throw new Error(`不支持的压缩算法 ${method}: ${name}`)
 
-    if (usize && data.length !== usize) throw new Error(`ZIP 条目大小校验失败: ${name}`)
-    if (checksum && crc32(data) !== checksum) throw new Error(`ZIP 条目 CRC 校验失败: ${name}`)
+    if (data.length !== usize) throw new Error(`ZIP 条目大小校验失败: ${name}`)
+    if (crc32(data) !== checksum) throw new Error(`ZIP 条目 CRC 校验失败: ${name}`)
 
     if (!name.endsWith('/')) entries.push({ path: name, data, size: data.length })
-    cursor += 46 + nameLen + extraLen + commentLen
   }
   return entries
 }

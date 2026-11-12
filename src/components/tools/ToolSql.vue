@@ -46,6 +46,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
+import { formatSqlText, minifySqlText } from '../../utils/sqlStringProtection.js'
 
 const sampleSql = `SELECT u.id, u.username, u.email, COUNT(o.id) AS order_count
 FROM users u
@@ -60,7 +61,6 @@ const input = ref(sampleSql)
 const copied = ref(false)
 
 const keywords = /\b(SELECT|FROM|WHERE|AND|OR|NOT|IN|IS|NULL|JOIN|LEFT|RIGHT|INNER|OUTER|FULL|CROSS|ON|GROUP BY|ORDER BY|HAVING|LIMIT|OFFSET|UNION|ALL|INSERT INTO|VALUES|UPDATE|SET|DELETE FROM|CREATE TABLE|ALTER TABLE|DROP TABLE|AS|DISTINCT|CASE|WHEN|THEN|ELSE|END)\b/gi
-const clauseBreaks = /\s+(?=(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|OFFSET|UNION|VALUES|SET)\b)/gi
 
 const stats = computed(() => ({
   lines: input.value ? input.value.split('\n').length : 0,
@@ -68,54 +68,17 @@ const stats = computed(() => ({
   keywords: (input.value.match(keywords) || []).length
 }))
 
-function protectStrings(sql) {
-  const strings = []
-  const protectedSql = sql.replace(/'(?:''|[^'])*'|"(?:""|[^"])*"|`(?:``|[^`])*`/g, value => {
-    strings.push(value)
-    return `__SQL_STRING_${strings.length - 1}__`
-  })
-  return { protectedSql, strings }
-}
-
-function restoreStrings(sql, strings) {
-  return sql.replace(/__SQL_STRING_(\d+)__/g, (_, index) => strings[Number(index)])
-}
-
 function formatSql() {
   const source = input.value.trim()
   if (!source) return
-  const { protectedSql, strings } = protectStrings(source)
-  let formatted = protectedSql
-    .replace(/\s+/g, ' ')
-    .replace(clauseBreaks, '\n')
-    .replace(/\s*,\s*/g, ',\n  ')
-    .replace(/\s+AND\s+/gi, '\n  AND ')
-    .replace(/\s+OR\s+/gi, '\n  OR ')
-    .replace(/\s+((?:LEFT|RIGHT|INNER|OUTER|FULL|CROSS)\s+)?JOIN\s+/gi, (_, prefix = '') => `\n${prefix}JOIN `)
-    .replace(/\s+ON\s+/gi, '\n  ON ')
-    .replace(/\s+VALUES\s*/gi, '\nVALUES ')
-    .replace(/\s+SET\s+/gi, '\nSET ')
-    .replace(/\s*;\s*/g, ';\n')
-    .split('\n')
-    .map(line => line.trimEnd())
-    .join('\n')
-    .trim()
-
-  input.value = restoreStrings(formatted, strings)
+  input.value = formatSqlText(source)
   globalToast('SQL 已格式化')
 }
 
 function minifySql() {
   const source = input.value.trim()
   if (!source) return
-  const { protectedSql, strings } = protectStrings(source)
-  const minified = protectedSql
-    .replace(/--[^\n]*/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\s+/g, ' ')
-    .replace(/\s*([(),;])\s*/g, '$1')
-    .trim()
-  input.value = restoreStrings(minified, strings)
+  input.value = minifySqlText(source)
   globalToast('SQL 已压缩')
 }
 

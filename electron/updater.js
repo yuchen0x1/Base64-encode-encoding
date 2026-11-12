@@ -22,6 +22,7 @@ import crypto from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { isNewerVersion, normalizeVersion } from '../shared/version.js'
+import { assertSupportedInstallerPackage, normalizeSignatureMetadata } from './update-validation.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -30,9 +31,11 @@ const DEFAULT_UPDATE_FEED = 'https://github.com/yuchen0x1/Base64-encode-encoding
 const state = {
   latest: null,
   manifestBase: '',
+  manifestKind: '',
   packageInfo: null,
   installerFile: '',
-  downloading: false
+  downloading: false,
+  signature: null
 }
 
 function getWindow() {
@@ -88,15 +91,30 @@ async function httpFetch(url, options) {
   return fetch(url, options)
 }
 
-async function readManifest(feed) {
-  if (/^https?:\/\//i.test(feed)) {
-    const url = feed.endsWith('.json') ? feed : `${feed.replace(/\/$/, '')}/version.json`
-    const res = await httpFetch(url, { cache: 'no-store' })
-    if (!res.ok) throw new Error(`更新源返回 HTTP ${res.status}`)
-    return { manifest: await res.json(), base: url.replace(/\/version\.json.*$/i, '') }
+function isHttpUrl(value) {
+  if (typeof value !== 'string') return false
+  try {
+    const url = new URL(value)
+    return (url.protocol === 'http:' || url.protocol === 'https:') && Boolean(url.hostname)
+  } catch {
+    return false
   }
-  const base = feed.endsWith('.json') ? path.dirname(feed) : feed
-  const file = feed.endsWith('.json') ? feed : path.join(feed, 'version.json')
+}
+
+async function readManifest(feed) {
+  if (isHttpUrl(feed)) {
+    const manifestUrl = new URL(feed)
+    if (!/\.json$/i.test(manifestUrl.pathname)) {
+      if (!manifestUrl.pathname.endsWith('/')) manifestUrl.pathname += '/'
+      manifestUrl.pathname += 'version.json'
+    }
+    const res = await httpFetch(manifestUrl.href, { cache: 'no-store' })
+    if (!res.ok) throw new Error(`更新源返回 HTTP ${res.status}`)
+    return { manifest: await res.json(), base: new URL('.', manifestUrl).href }
+  }
+  const isManifestFile = path.extname(feed).toLowerCase() === '.json'
+  const base = isManifestFile ? path.dirname(feed) : feed
+  const file = isManifestFile ? feed : path.join(feed, 'version.json')
   if (!existsSync(file)) {
     throw new Error(`未找到更新源清单：${file}`)
   }
@@ -104,19 +122,39 @@ async function readManifest(feed) {
   return { manifest, base }
 }
 
-function resolvePackage(manifest, base) {
+export function resolvePackage(manifest, base) {
   const info = manifest.package || {}
-  const url = info.url || `GeekToolbox-Setup-${manifest.version}.exe`
-  if (/^https?:\/\//i.test(url)) return { ...info, url, kind: 'http' }
+  const url = Object.hasOwn(info, 'url')
+    ? info.url
+    : `GeekToolbox-Setup-${manifest.version}.exe`
+  if (isHttpUrl(url)) return { ...info, url: new URL(url).href, kind: 'http' }
 
-  // version.json 可能来自 HTTP 更新源。不能用 path.join 拼接 URL，
-  // Windows 会把 https:// 错误转换成文件路径，导致下载阶段找不到更新包。
-  if (/^https?:\/\//i.test(base)) {
-    const feedBase = `${base.replace(/\/$/, '')}/`
-    return { ...info, url: new URL(url, feedBase).toString(), kind: 'http' }
+  // Reject unsupported URL schemes instead of turning them into local file paths.
+  if (typeof url === 'string' && /^[a-z][a-z\d+.-]*:/i.test(url) && !/^[a-z]:[\\/]/i.test(url)) {
+    return { ...info, url, kind: 'invalid' }
   }
 
+  // Resolve relative package URLs using URL semantics, not filesystem path rules.
+  if (isHttpUrl(base)) {
+    try {
+      return { ...info, url: new URL(url, base).href, kind: 'http' }
+    } catch {
+      // Keep malformed values for strict package validation to reject.
+      return { ...info, url, kind: 'http' }
+    }
+  }
+
+  if (typeof url !== 'string') return { ...info, url, kind: 'file' }
   return { ...info, url: path.isAbsolute(url) ? url : path.join(base, url), kind: 'file' }
+}
+
+async function writeAll(handle, buffer, position) {
+  let offset = 0
+  while (offset < buffer.byteLength) {
+    const { bytesWritten } = await handle.write(buffer, offset, buffer.byteLength - offset, position + offset)
+    if (!bytesWritten) throw new Error('写入更新包失败：未能完整写入内容')
+    offset += bytesWritten
+  }
 }
 
 async function hashFile(file) {
@@ -137,32 +175,84 @@ async function hashFile(file) {
   return hash.digest('hex')
 }
 
-async function downloadTo(url, dest, expectedSize, onProgress) {
-  await fs.mkdir(path.dirname(dest), { recursive: true })
-  const handle = await fs.open(dest, 'w')
-  try {
-    if (/^https?:\/\//i.test(url)) {
-      const res = await httpFetch(url, { cache: 'no-store' })
-      if (!res.ok) throw new Error(`下载更新包失败：HTTP ${res.status}`)
-      const total = Number(res.headers.get('content-length') || expectedSize || 0)
+async function downloadHttpTo(url, dest, expectedSize, onProgress, attempts = 3) {
+  const declaredSize = Number(expectedSize)
+  let lastError
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    let start = 0
+    try {
+      const existing = await fs.stat(dest).catch(() => null)
+      if (existing?.isFile() && existing.size > 0 && (!declaredSize || existing.size < declaredSize)) {
+        start = existing.size
+      }
+
+      const headers = start ? { Range: `bytes=${start}-` } : undefined
+      const res = await httpFetch(url, { cache: 'no-store', headers })
+      if (!res?.ok) throw new Error(`下载更新包失败：HTTP ${res?.status ?? '未知状态'}`)
+      if (!res.body || typeof res.body.getReader !== 'function') {
+        throw new Error('下载更新包失败：HTTP 响应缺少内容流')
+      }
+
+      const resumed = start > 0 && res.status === 206
+      if (start > 0 && !resumed) {
+        start = 0
+        await fs.truncate(dest, 0)
+      }
+
+      const contentLength = Number(res.headers?.get?.('content-length'))
+      const contentRange = res.headers?.get?.('content-range') || ''
+      const rangeTotal = Number(contentRange.match(/\/([0-9]+)$/)?.[1] || 0)
+      const total = rangeTotal || (Number.isFinite(declaredSize) && declaredSize > 0
+        ? declaredSize
+        : Number.isFinite(contentLength) && contentLength > 0
+          ? start + contentLength
+          : 0)
+      const handle = await fs.open(dest, start ? 'r+' : 'w')
       const reader = res.body.getReader()
-      let received = 0
+      let received = start
       let lastReport = 0
-      for (;;) {
-        const { done, value } = await reader.read()
-        if (done) break
-        await handle.write(value)
-        received += value.length
-        const now = Date.now()
-        if (now - lastReport > 120) {
-          lastReport = now
-          onProgress(total ? received / total : 0)
+      try {
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          if (!(value instanceof Uint8Array)) throw new Error('下载更新包失败：内容流返回了无效数据')
+          await writeAll(handle, value, received)
+          received += value.byteLength
+          const now = Date.now()
+          if (now - lastReport > 120) {
+            lastReport = now
+            onProgress(total ? received / total : 0)
+          }
         }
+      } finally {
+        reader.releaseLock()
+        await handle.close()
+      }
+
+      if (received === 0) throw new Error('下载更新包失败：响应内容为空')
+      if (declaredSize > 0 && received !== declaredSize) {
+        throw new Error(`下载更新包大小不匹配（期望 ${declaredSize} 字节，实际 ${received} 字节）`)
       }
       onProgress(1)
       return received
+    } catch (error) {
+      lastError = error
+      if (attempt < attempts) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 700))
+      }
     }
+  }
 
+  throw new Error(`下载更新包失败（已重试 ${attempts} 次）：${lastError?.message || '未知错误'}`, { cause: lastError })
+}
+
+async function downloadTo(url, dest, expectedSize, onProgress) {
+  await fs.mkdir(path.dirname(dest), { recursive: true })
+  if (isHttpUrl(url)) return downloadHttpTo(url, dest, expectedSize, onProgress)
+
+  const handle = await fs.open(dest, 'w')
+  try {
     const stat = await fs.stat(url)
     const total = stat.size || 1
     const buffer = Buffer.alloc(256 * 1024)
@@ -172,21 +262,80 @@ async function downloadTo(url, dest, expectedSize, onProgress) {
       for (;;) {
         const { bytesRead } = await source.read(buffer, 0, buffer.length, received)
         if (!bytesRead) break
-        await handle.write(buffer.subarray(0, bytesRead), 0, bytesRead, received)
+        await writeAll(handle, buffer.subarray(0, bytesRead), received)
         received += bytesRead
         onProgress(received / total)
       }
     } finally {
       await source.close()
     }
+    if (received === 0) throw new Error('下载更新包失败：安装包内容为空')
     return received
   } finally {
     await handle.close()
   }
 }
 
+export async function verifyAuthenticodeSignature(file, signature) {
+  const expected = normalizeSignatureMetadata(signature)
+  if (!expected) return { status: 'missing', signed: false }
+  if (process.platform !== 'win32') throw new Error('无法验证 Authenticode：当前平台不是 Windows')
+
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    "$file = $env:TOOLBOX_SIGNATURE_TARGET",
+    "if ([string]::IsNullOrWhiteSpace($file)) { throw '签名校验目标路径为空' }",
+    "$sig = Get-AuthenticodeSignature -LiteralPath $file",
+    "if ($sig.Status -ne 'Valid') { Write-Error ('状态=' + $sig.Status); exit 2 }",
+    "$thumb = ($sig.SignerCertificate.Thumbprint -replace '\\s', '').ToUpperInvariant()",
+    "Write-Output ($sig.Status.ToString() + '|' + $thumb)"
+  ].join('; ')
+
+  const output = await new Promise((resolve, reject) => {
+    const child = spawn('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script
+    ], {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, TOOLBOX_SIGNATURE_TARGET: file }
+    })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString() })
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString() })
+    child.on('error', reject)
+    child.on('exit', (code) => code === 0 ? resolve(stdout.trim()) : reject(new Error(stderr.trim() || `签名验证退出码 ${code}`)))
+  })
+
+  const [status, thumbprint] = String(output).split('|')
+  if (status !== 'Valid' || thumbprint.toUpperCase() !== expected.thumbprint) {
+    throw new Error(`安装包数字签名校验失败（期望 ${expected.thumbprint}，实际 ${thumbprint || '未知'}）`)
+  }
+  return { status: 'valid', signed: true, thumbprint: thumbprint.toUpperCase() }
+}
+
 export async function checkForUpdates() {
   const currentVersion = normalizeVersion(app.getVersion())
+  state.latest = null
+  state.packageInfo = null
+  state.manifestKind = ''
+  state.installerFile = ''
+  state.signature = null
+
+  if (process.platform !== 'win32') {
+    return {
+      supported: false,
+      reason: 'Electron 自动更新仅支持 Windows NSIS 安装包',
+      hasUpdate: false,
+      currentVersion,
+      latest: null,
+      mode: 'electron',
+      packaged: app.isPackaged,
+      appDir: appDir() || null,
+      portable: isPortableRuntime()
+    }
+  }
+
   const feed = resolveFeed()
 
   let manifest
@@ -202,11 +351,16 @@ export async function checkForUpdates() {
   if (!manifest || !manifest.version) throw new Error('更新清单缺少 version 字段')
 
   const latestVersion = normalizeVersion(manifest.version)
+  if (!latestVersion) throw new Error('更新清单 version 字段无效')
   const pkg = resolvePackage(manifest, base)
+  const kind = manifest.kind || ''
+  const hasUpdate = isNewerVersion(latestVersion, currentVersion)
+  if (hasUpdate) assertSupportedInstallerPackage(pkg, kind)
+
   state.manifestBase = base
   state.packageInfo = pkg
+  state.manifestKind = kind
 
-  const hasUpdate = isNewerVersion(latestVersion, currentVersion)
   if (hasUpdate) {
     state.latest = {
       version: latestVersion,
@@ -214,7 +368,8 @@ export async function checkForUpdates() {
       notes: Array.isArray(manifest.notes) ? manifest.notes : [],
       releaseDate: manifest.releaseDate || null,
       size: pkg.size || null,
-      force: Boolean(manifest.force)
+      force: Boolean(manifest.force),
+      signed: Boolean(pkg.signature)
     }
   } else {
     state.latest = null
@@ -244,16 +399,19 @@ function installerFileName(pkg, version) {
 }
 
 export async function downloadUpdate() {
+  if (process.platform !== 'win32') throw new Error('Electron 自动更新仅支持 Windows NSIS 安装包')
   if (!state.latest) throw new Error('没有可用的更新')
   if (state.downloading) throw new Error('更新包正在下载中')
 
   const pkg = state.packageInfo
   if (!pkg) throw new Error('更新包信息缺失，请重新检查更新')
+  assertSupportedInstallerPackage(pkg, state.manifestKind)
 
   state.downloading = true
+  let dest = ''
   try {
     const baseDir = path.join(app.getPath('userData'), 'updates')
-    const dest = path.join(baseDir, installerFileName(pkg, state.latest.version))
+    dest = path.join(baseDir, installerFileName(pkg, state.latest.version))
     await fs.mkdir(baseDir, { recursive: true })
     await fs.rm(dest, { force: true })
 
@@ -263,26 +421,33 @@ export async function downloadUpdate() {
     })
 
     sendProgress(90, '正在校验安装包…')
-    if (pkg.sha256) {
-      const actual = await hashFile(dest)
-      if (actual.toLowerCase() !== String(pkg.sha256).toLowerCase()) {
-        await fs.rm(dest, { force: true })
-        throw new Error(`安装包校验失败（期望 ${String(pkg.sha256).slice(0, 12)}…，实际 ${actual.slice(0, 12)}…）`)
-      }
-    } else {
-      // 服务端记录警告：缺失哈希意味着无法防篡改，只能依赖 HTTPS 传输安全
-      console.warn('[updater] 更新清单缺少 package.sha256，已跳过完整性校验')
+    const actual = await hashFile(dest)
+    if (actual.toLowerCase() !== pkg.sha256.toLowerCase()) {
+      throw new Error(`安装包校验失败（期望 ${pkg.sha256.slice(0, 12)}…，实际 ${actual.slice(0, 12)}…）`)
     }
 
+    state.signature = await verifyAuthenticodeSignature(dest, pkg.signature)
+
     state.installerFile = dest
-    sendProgress(96, '安装包已就绪')
-    return { ok: true, size: received, installer: dest }
+    sendProgress(96, state.signature.signed ? 'SHA-256 与数字签名校验通过' : 'SHA-256 校验通过（清单未提供数字签名）')
+    return { ok: true, size: received, installer: dest, signature: state.signature }
+  } catch (error) {
+    state.installerFile = ''
+    if (dest) {
+      await fs.rm(dest, { force: true }).catch((cleanupError) => {
+        console.warn('[updater] 清理未完成的安装包失败:', cleanupError.message)
+      })
+    }
+    throw error
   } finally {
     state.downloading = false
   }
 }
 
 export async function installUpdate() {
+  if (process.platform !== 'win32') throw new Error('Electron 自动更新仅支持 Windows NSIS 安装包')
+  assertSupportedInstallerPackage(state.packageInfo, state.manifestKind)
+  if (!state.latest?.version) throw new Error('更新目标版本缺失，请重新检查更新')
   if (!state.installerFile || !existsSync(state.installerFile)) {
     throw new Error('安装包尚未下载完成，请重新检查更新')
   }
@@ -302,6 +467,7 @@ export async function installUpdate() {
   await fs.mkdir(workDir, { recursive: true })
   const tempScript = path.join(workDir, `apply-installer-${Date.now()}.mjs`)
   await fs.copyFile(helperSource, tempScript)
+  await fs.copyFile(path.join(__dirname, 'installer-verification.js'), path.join(workDir, 'installer-verification.js'))
 
   sendProgress(98, '正在退出并安装更新…')
 
@@ -314,8 +480,10 @@ export async function installUpdate() {
       '--target', target,
       '--exe', exePath,
       '--product', app.getName(),
+      '--version', state.latest.version,
       '--log', logFile,
-      '--cleanup', tempScript
+      '--cleanup', tempScript,
+      '--cleanup-helper', path.join(workDir, 'installer-verification.js')
     ],
     {
       detached: true,
@@ -337,7 +505,8 @@ export function getUpdateInfo() {
     packaged: app.isPackaged,
     feed: resolveFeed(),
     appDir: appDir() || null,
-    platform: process.platform
+    platform: process.platform,
+    signature: state.signature
   }
 }
 

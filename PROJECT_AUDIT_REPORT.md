@@ -172,7 +172,7 @@
   - `src/config/registry.js` + `tools.js`：每个元数据工具都有组件、无孤儿组件、自检通过、数量为 21 —— 4 例；
   - `src/utils/htmlEntities.js`：命名/十进制/十六进制实体解码、未知实体保留、注入载荷安全 —— 5 例。
   - 合计 **27 例全部通过**。`tests/` 同时作为注册表一致性护栏。
-- **ESLint 静态检查**：新增 `eslint.config.js`（ESLint 9 扁平配置 + `eslint-plugin-vue` + `globals`），并声明 Vite 注入的 `__APP_VERSION__`/`__BUILD_TIME__` 为只读全局。当前 **0 error**（剩余 33 warning 见第 3 节）。
+- **ESLint 静态检查**：新增 `eslint.config.js`（ESLint 9 扁平配置 + `eslint-plugin-vue` + `globals`），并声明 Vite 注入的 `__APP_VERSION__`/`__BUILD_TIME__` 为只读全局。第二轮记录为 **0 error / 33 warning**；第三轮复验为 **0 error / 10 warning**。
 - **安全相关修正**：`ToolUnicode` 原先通过 `textarea.innerHTML = str` 再读 `.value` 解码 HTML 实体（将用户输入写入 DOM 的反模式），替换为纯字符串解析的 `src/utils/htmlEntities.js`，无 DOM、无执行路径，并补充单测验证注入载荷不被执行。
 
 ## 2. 本轮修复的真实问题
@@ -241,7 +241,7 @@
 | 版本号徽章 | 静态徽章依赖 shields.io，离线环境不显示；版本值取自 `package.json` 的 `1.2.1` |
 | `author` 与版权人 | `GeekToolBox` vs `yuchen0x1`，建议统一 |
 | 工具矩阵 223 项 URL | 第三方站点相对路径，未验证可达性，也未确认授权，不建议作为「本项目功能」宣传 |
-| `categoryIconMap` | `src/App.vue` 的图标映射未包含 `Layers`（批量处理分类图标），建议补齐 |
+| `categoryIconMap` | 第三轮已补齐 `Layers`（批量处理分类图标） |
 | 平台真机验证 | iOS / macOS / Android 打包与桌面端「下载 → 替换 → 重启」全流程未实机执行 |
 | CI Windows job | 已补 `--publish never` 并在本机构建验证；GitHub Actions 待下一次运行确认 |
 | 组件级自动化测试 | 无 DOM / 组件交互测试，新增工具的行为回归依赖人工验证 |
@@ -251,3 +251,12 @@
 ## 9. Git 与远程状态
 
 本轮所有变更仅停留在本地工作区与新增未跟踪文件；未执行 `git add/commit/push`，未创建远程分支/Tag/Release，未发布安装包。当前工作区仍包含首轮（2026-11-09）的 6 个未提交修改文件，二者共存、无冲突。待验收合格后由用户决定是否提交。
+
+## 10. 第三轮项目进化（2026-11-12）
+
+- 新增 `src/utils/appState.js`：把工作区状态规范化、备份序列化和导入校验从页面组件中抽出。
+- `src/App.vue` 新增「导出工作区 / 导入工作区」入口，备份内容为版本化 JSON，只包含主题、收藏、标签页和当前工具；导入会按当前注册表过滤未知工具。
+- 修复 `categoryIconMap` 缺少 `Layers` 的真实 UI 缺陷；移动端菜单、反馈和主题按钮补充 `aria-label`。
+- 测试从此前基线更新为 21 个测试文件、131 个用例；本轮 Playwright smoke 覆盖 1440×900 桌面和 390×844 移动视口，导入/导出通过且无页面或控制台错误。
+- lint 从 13 个 warning 降至 10 个；剩余 warning 全部来自既有 computed 副作用技术债，详见 `.evolution/final_report.md`。
+- 研究清单、功能差距、进度和测试证据集中保存于 `.evolution/`，并未把未实现的 recipe、API 客户端或原生发布流程标记为完成。
