@@ -105,8 +105,12 @@ jobs:
             "updates/desktop/GeekToolbox-Setup-$version.exe",
             "updates/desktop/version.json",
             "updates/web/geek-toolbox-web-$version.zip",
-            "updates/web/version.json"
+            # GitHub Release asset names must be unique. Keep the desktop
+            # manifest as version.json because the packaged updater uses the
+            # latest/download/version.json URL by default.
+            (Join-Path $env:RUNNER_TEMP "web-version.json")
           )
+          Copy-Item -LiteralPath "updates/web/version.json" -Destination $assets[3] -Force
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {
             Write-Host "Release $tag already exists; updating its assets for an idempotent manual rerun."
