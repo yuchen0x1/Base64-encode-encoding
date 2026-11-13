@@ -47,6 +47,7 @@
 </template>
 
 <script setup>
+import { copyText } from '../../utils/clipboard.js'
 import { ref, computed } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
 
@@ -133,9 +134,9 @@ const formats = computed(() => {
   ]
 })
 
-function copy(text) {
+async function copy(text) {
   if (!text) return
-  navigator.clipboard.writeText(text)
+  if (!await copyText(text)) return
   globalToast('已复制：' + text)
 }
 </script>

@@ -1,3 +1,5 @@
+import { assertJsonDepth, assertJsonNumbersRoundTrip, formatJsonText } from '../../utils/jsonText.js'
+
 export function parseJson(text) {
   try {
     return { ok: true, value: JSON.parse(text) }
@@ -7,9 +9,25 @@ export function parseJson(text) {
 }
 
 export function formatJson(text) {
-  const result = parseJson(text)
-  if (!result.ok) return result
-  return { ok: true, value: JSON.stringify(result.value, null, 2) }
+  try { return { ok: true, value: formatJsonText(text) } }
+  catch (error) { return { ok: false, error } }
+}
+
+export function minifyJson(text) {
+  try { return { ok: true, value: formatJsonText(text, false) } }
+  catch (error) { return { ok: false, error } }
+}
+
+export function parseJsonForMutation(text) {
+  try { assertJsonNumbersRoundTrip(text) }
+  catch (error) { return { ok: false, error } }
+  return parseJson(text)
+}
+
+export function parseJsonForStructure(text) {
+  try { assertJsonDepth(text) }
+  catch (error) { return { ok: false, error } }
+  return parseJson(text)
 }
 
 export function unescapeJsonString(text) {

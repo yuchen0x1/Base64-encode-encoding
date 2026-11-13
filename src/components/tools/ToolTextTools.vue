@@ -6,7 +6,7 @@
           <span class="pill-dot"></span><span>行去重</span>
         </button>
         <button :class="['tab-pill', mode === 'case' ? 'active' : '']" @click="mode = 'case'">
-          <span class="pill-dot"></span><span>大小写转换</span>
+          <span class="pill-dot"></span><span>转为小写</span>
         </button>
         <button :class="['tab-pill', mode === 'clean' ? 'active' : '']" @click="mode = 'clean'">
           <span class="pill-dot"></span><span>清理空行</span>
@@ -66,6 +66,7 @@
 </template>
 
 <script setup>
+import { copyText } from '../../utils/clipboard.js'
 import { ref, computed } from 'vue'
 
 const mode = ref('dedupe')
@@ -106,9 +107,9 @@ const output = computed(() => {
   }
 })
 
-function copyOutput() {
+async function copyOutput() {
   if (!output.value) return
-  navigator.clipboard.writeText(output.value)
+  if (!await copyText(output.value)) return
   copied.value = true
   setTimeout(() => (copied.value = false), 2000)
 }

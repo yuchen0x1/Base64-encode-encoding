@@ -23,7 +23,7 @@
     <div v-if="error" class="cyber-status-bar error">
       <div class="status-left">
         <span class="status-dot error-dot"></span>
-        <span>JSON SYNTAX ERROR: {{ error }}</span>
+        <span role="alert">JSON 处理错误：{{ error }}</span>
       </div>
     </div>
     <div v-else-if="isValid" class="cyber-status-bar success">
@@ -83,10 +83,14 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { copyText } from '../../utils/clipboard.js'
+import { ref, computed, watch } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
 import {
   formatJson as formatJsonInput,
+  minifyJson as minifyJsonInput,
+  parseJsonForMutation,
+  parseJsonForStructure,
   generateTypeScript as inferJsonTypeScript,
   parseJson,
   removeEmptyJsonValues,
@@ -118,6 +122,11 @@ const copied = ref(false)
 const typeCopied = ref(false)
 const generatedTypeScript = ref('')
 const error = ref('')
+watch(input, () => {
+  error.value = ''
+  generatedTypeScript.value = ''
+  copied.value = typeCopied.value = false
+})
 
 const validation = computed(() => parseJson(input.value))
 const isValid = computed(() => input.value.trim().length > 0 && validation.value.ok)
@@ -125,21 +134,20 @@ const isValid = computed(() => input.value.trim().length > 0 && validation.value
 const jsonStats = computed(() => {
   if (!isValid.value) return { keys: 0, size: 0 }
   let keys = 0
-  function countKeys(target) {
-    if (typeof target === 'object' && target !== null) {
-      for (const key of Object.keys(target)) {
-        keys++
-        countKeys(target[key])
-      }
+  const pending = [validation.value.value]
+  while (pending.length) {
+    const target = pending.pop()
+    if (target && typeof target === 'object') {
+      keys += Object.keys(target).length
+      for (const value of Object.values(target)) pending.push(value)
     }
   }
-  countKeys(validation.value.value)
   const size = (new TextEncoder().encode(input.value).length / 1024).toFixed(2)
   return { keys, size }
 })
 
-function parseInput() {
-  const result = parseJson(input.value)
+function parseInput(forMutation = false) {
+  const result = forMutation ? parseJsonForMutation(input.value) : parseJsonForStructure(input.value)
   if (!result.ok) error.value = result.error.message
   return result
 }
@@ -158,9 +166,9 @@ function formatJson() {
 
 function minifyJson() {
   error.value = ''
-  const result = parseInput()
-  if (!result.ok) return
-  input.value = JSON.stringify(result.value)
+  const result = minifyJsonInput(input.value)
+  if (!result.ok) { error.value = result.error.message; return }
+  input.value = result.value
   generatedTypeScript.value = ''
   globalToast('JSON 已压缩')
 }
@@ -185,7 +193,7 @@ function unescapeJson() {
 
 function sortJsonKeys() {
   error.value = ''
-  const result = parseInput()
+  const result = parseInput(true)
   if (!result.ok) return
   input.value = JSON.stringify(sortJsonObjectKeys(result.value), null, 2)
   globalToast('JSON 键名已排序')
@@ -193,7 +201,7 @@ function sortJsonKeys() {
 
 function removeEmptyValues() {
   error.value = ''
-  const result = parseInput()
+  const result = parseInput(true)
   if (!result.ok) return
   input.value = JSON.stringify(removeEmptyJsonValues(result.value), null, 2)
   globalToast('空值已清理')
@@ -223,17 +231,17 @@ function loadSample() {
   generatedTypeScript.value = ''
 }
 
-function copyCode() {
+async function copyCode() {
   if (!input.value) return
-  navigator.clipboard.writeText(input.value)
+  if (!await copyText(input.value)) return
   copied.value = true
   setTimeout(() => (copied.value = false), 2000)
   globalToast('JSON 已复制到剪贴板')
 }
 
-function copyTypeScript() {
+async function copyTypeScript() {
   if (!generatedTypeScript.value) return
-  navigator.clipboard.writeText(generatedTypeScript.value)
+  if (!await copyText(generatedTypeScript.value)) return
   typeCopied.value = true
   setTimeout(() => (typeCopied.value = false), 2000)
   globalToast('TypeScript 类型已复制')

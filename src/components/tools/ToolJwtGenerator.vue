@@ -85,6 +85,7 @@
 </template>
 
 <script setup>
+import { copyText } from '../../utils/clipboard.js'
 import { ref, watch } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
 import { signJwtHs256 } from './jwtGeneratorTool.js'
@@ -122,9 +123,9 @@ function generateToken() {
   globalToast('JWT Token 已生成')
 }
 
-function copyToken() {
+async function copyToken() {
   if (!generatedToken.value) return
-  navigator.clipboard.writeText(generatedToken.value)
+  if (!await copyText(generatedToken.value)) return
   copied.value = true
   setTimeout(() => (copied.value = false), 2000)
   globalToast('已复制 JWT Token')

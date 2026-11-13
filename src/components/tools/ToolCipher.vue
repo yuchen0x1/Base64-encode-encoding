@@ -70,6 +70,7 @@
 </template>
 
 <script setup>
+import { copyText } from '../../utils/clipboard.js'
 import { ref, computed } from 'vue'
 import { decodeBase32, decodeHexText, encodeBase32, encodeHexText } from '../../utils/toolEncodings.js'
 
@@ -138,9 +139,9 @@ const output = computed(() => {
   }
 })
 
-function copyOutput() {
+async function copyOutput() {
   if (!output.value) return
-  navigator.clipboard.writeText(output.value)
+  if (!await copyText(output.value)) return
   copied.value = true
   setTimeout(() => (copied.value = false), 2000)
 }

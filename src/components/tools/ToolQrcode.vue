@@ -48,6 +48,8 @@
         </div>
         <div class="qr-canvas-wrapper">
           <img v-if="qrDataUrl" :src="qrDataUrl" alt="QR Code" class="qr-image" />
+          <div v-else-if="isGenerating" role="status" class="placeholder-tip">正在生成二维码…</div>
+          <div v-else-if="errorMessage" role="alert" class="qr-error">{{ errorMessage }}</div>
           <div v-else class="placeholder-tip">输入内容后即可生成二维码</div>
         </div>
       </div>
@@ -56,7 +58,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import QRCode from 'qrcode'
 import { createQrDataUrl } from '../../utils/toolHelpers.js'
 
@@ -64,12 +66,16 @@ const input = ref('https://www.toolhelper.cn/')
 const size = ref(256)
 const errorCorrectionLevel = ref('M')
 const qrDataUrl = ref('')
+const isGenerating = ref(false)
+const errorMessage = ref('')
 
 let generation = 0
 
 async function generateQr() {
   const currentGeneration = ++generation
   qrDataUrl.value = ''
+  errorMessage.value = ''
+  isGenerating.value = Boolean(input.value.trim())
   const options = {
     width: size.value,
     margin: 2,
@@ -83,14 +89,19 @@ async function generateQr() {
     input.value,
     options,
     (text, qrOptions) => QRCode.toDataURL(text, qrOptions),
-    (error) => console.error(error)
+    () => {
+      if (currentGeneration === generation) errorMessage.value = '无法生成二维码：内容过长，请缩短内容或降低容错率。'
+    }
   )
-  if (currentGeneration === generation) qrDataUrl.value = dataUrl
+  if (currentGeneration === generation) {
+    qrDataUrl.value = dataUrl
+    isGenerating.value = false
+  }
 }
 
 watch([input, size, errorCorrectionLevel], () => {
   generateQr()
-})
+}, { immediate: true })
 
 function downloadQr() {
   if (!qrDataUrl.value) return
@@ -100,12 +111,11 @@ function downloadQr() {
   a.click()
 }
 
-onMounted(() => {
-  generateQr()
-})
+onUnmounted(() => { generation += 1 })
 </script>
 
 <style scoped>
+.qr-error { color: var(--accent-red); padding: 1rem; line-height: 1.6; text-align: center; }
 .tool-content {
   display: flex;
   flex-direction: column;

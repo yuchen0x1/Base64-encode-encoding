@@ -16,7 +16,7 @@
             <span class="param-name">密码长度 (LENGTH):</span>
             <span class="param-val code-font text-cyan">{{ passwordLength }} 字符</span>
           </div>
-          <input type="range" min="8" max="64" v-model.number="passwordLength" class="cyber-range" />
+          <input type="range" min="8" max="64" v-model.number="passwordLength" aria-label="密码长度" class="cyber-range" />
         </div>
 
         <div class="charset-grid">
@@ -27,12 +27,14 @@
         </div>
       </div>
 
+      <p v-if="passwordError" class="generation-error" role="alert">{{ passwordError }}</p>
+      <p v-else class="generation-hint">每种已选字符类型至少包含一个字符。</p>
       <div class="result-action-row">
         <div class="password-box">
-          <input readonly type="text" :value="generatedPassword" class="input-control code-font password-display" />
+          <input readonly type="text" :value="generatedPassword" aria-label="生成的密码" class="input-control code-font password-display" />
         </div>
         <button class="btn btn-primary" @click="generatePassword">🎲 重新生成</button>
-        <button class="btn btn-secondary" @click="copy(generatedPassword)">📋 一键复制</button>
+        <button class="btn btn-secondary" :disabled="!generatedPassword" @click="copy(generatedPassword)">📋 一键复制</button>
       </div>
     </div>
 
@@ -58,6 +60,7 @@
         <label class="cyber-check"><input type="checkbox" v-model="uuidNoHyphens" /> <span>移除连字符 (NO HYPHEN)</span></label>
       </div>
 
+      <p v-if="uuidError" class="generation-error" role="alert">{{ uuidError }}</p>
       <div class="uuid-terminal code-font">
         <div v-for="(id, idx) in generatedUuids" :key="idx" class="uuid-line">
           <span class="uuid-idx text-cyan">[{{ String(idx + 1).padStart(2, '0') }}]</span>
@@ -76,6 +79,7 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
+import { generateSecurePassword, generateUuidV4 } from '../../utils/randomTools.js'
 
 const passwordLength = ref(20)
 const includeUpper = ref(true)
@@ -83,6 +87,8 @@ const includeLower = ref(true)
 const includeNumbers = ref(true)
 const includeSymbols = ref(true)
 const generatedPassword = ref('')
+const passwordError = ref('')
+const uuidError = ref('')
 
 const uuidCount = ref(5)
 const uuidUppercase = ref(false)
@@ -90,31 +96,30 @@ const uuidNoHyphens = ref(false)
 const generatedUuids = ref([])
 
 function generatePassword() {
-  let chars = ''
-  if (includeUpper.value) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  if (includeLower.value) chars += 'abcdefghijklmnopqrstuvwxyz'
-  if (includeNumbers.value) chars += '0123456789'
-  if (includeSymbols.value) chars += '!@#$%^&*()_+~`|}{[]:;?><,./-='
-  if (!chars) chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-
-  let res = ''
-  const array = new Uint32Array(passwordLength.value)
-  window.crypto.getRandomValues(array)
-  for (let i = 0; i < passwordLength.value; i++) {
-    res += chars[array[i] % chars.length]
-  }
-  generatedPassword.value = res
+  generatedPassword.value = ''
+  passwordError.value = ''
+  try {
+    generatedPassword.value = generateSecurePassword({
+      length: passwordLength.value, includeUpper: includeUpper.value,
+      includeLower: includeLower.value, includeNumbers: includeNumbers.value,
+      includeSymbols: includeSymbols.value
+    })
+  } catch (error) { passwordError.value = error.message || '密码生成失败' }
 }
 
 function generateUuids() {
-  const list = []
-  for (let i = 0; i < uuidCount.value; i++) {
-    let id = crypto.randomUUID()
-    if (uuidNoHyphens.value) id = id.replace(/-/g, '')
-    if (uuidUppercase.value) id = id.toUpperCase()
-    list.push(id)
-  }
-  generatedUuids.value = list
+  generatedUuids.value = []
+  uuidError.value = ''
+  try {
+    const list = []
+    for (let i = 0; i < uuidCount.value; i++) {
+      let id = generateUuidV4()
+      if (uuidNoHyphens.value) id = id.replace(/-/g, '')
+      if (uuidUppercase.value) id = id.toUpperCase()
+      list.push(id)
+    }
+    generatedUuids.value = list
+  } catch (error) { uuidError.value = error.message || 'UUID 生成失败' }
 }
 
 watch([uuidCount, uuidUppercase, uuidNoHyphens], () => {
@@ -125,9 +130,12 @@ watch([passwordLength, includeUpper, includeLower, includeNumbers, includeSymbol
   generatePassword()
 })
 
-function copy(text) {
-  navigator.clipboard.writeText(text)
-  globalToast('已复制到剪贴板')
+async function copy(text) {
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+    globalToast('已复制到剪贴板')
+  } catch { globalToast('复制失败，请手动选择并复制', 'error') }
 }
 
 onMounted(() => {
@@ -137,6 +145,8 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.generation-error { color: var(--accent-red); }
+.generation-hint { color: var(--text-muted); font-size: 0.8rem; }
 .tool-content {
   display: flex;
   flex-direction: column;

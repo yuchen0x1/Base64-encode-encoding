@@ -16,8 +16,8 @@ export const toolsList = [
     id: 'batch-processor',
     name: '批量处理模式',
     category: 'batch',
-    description: '多行文本 / 多文件批量 Base64、URL、哈希与 JSON 处理，支持导出 TXT / CSV / JSON',
-    tags: ['batch', 'bulk', '批量', '批量编码', '批量哈希', '批量转换', '导出'],
+    description: '多行文本 / 多文件后台批量处理，最多 8 步串联 Base64、URL、哈希与 JSON；支持配方及结果导出',
+    tags: ['batch', 'bulk', 'pipeline', 'recipe', '批量', '配方', '流程', '批量编码', '批量哈希', '批量转换', '导出'],
     icon: 'Layers',
     isCommon: true
   },
@@ -140,7 +140,7 @@ export const toolsList = [
   },
   {
     id: 'qrcode-generator',
-    name: '二维码生成与解析',
+    name: '二维码生成器',
     category: 'media',
     description: '在线生成高清晰度二维码，支持容错率调整与 PNG 导出下载',
     tags: ['qrcode', 'qr', '二维码', '生成'],
@@ -160,7 +160,7 @@ export const toolsList = [
     id: 'text-toolbox',
     name: '文本去重 & 统计处理',
     category: 'text',
-    description: '行去重、字母大小写转换、字数/字符数/行数统计、空行清除',
+    description: '行去重、字母转小写、字数/字符数/行数统计、空行清除',
     tags: ['text', 'count', 'unique', '文本统计', '去重'],
     icon: 'AlignLeft',
     isCommon: false
@@ -178,7 +178,7 @@ export const toolsList = [
     id: 'color-converter',
     name: '颜色格式转换器',
     category: 'media',
-    description: 'HEX / RGB / RGBA / HSL 全格式互转，带实时取色器与调色板',
+    description: 'HEX 取色与 RGB/RGBA/HSL/HSLA 格式输出，带预设调色板；Alpha 固定为 1',
     tags: ['color', 'hex', 'rgb', 'hsl', '颜色', '取色'],
     icon: 'Palette',
     isCommon: true

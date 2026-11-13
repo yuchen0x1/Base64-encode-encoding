@@ -97,6 +97,7 @@
 </template>
 
 <script setup>
+import { copyText } from '../../utils/clipboard.js'
 import { ref, computed } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
 import { imageExtensionForMime, parseImageDataUrl } from '../../utils/toolHelpers.js'
@@ -176,17 +177,17 @@ function handleDrop(event) {
   if (file) processFile(file)
 }
 
-function copy(text) {
+async function copy(text) {
   if (!text) return
-  navigator.clipboard.writeText(text)
+  if (!await copyText(text)) return
   copied.value = true
   setTimeout(() => (copied.value = false), 2000)
 }
 
-function copyHtmlTag() {
+async function copyHtmlTag() {
   if (!outputBase64.value) return
   const tag = `<img src="${outputBase64.value}" alt="image" />`
-  navigator.clipboard.writeText(tag)
+  if (!await copyText(tag)) return
   globalToast('已复制 <img> HTML 标签代码')
 }
 

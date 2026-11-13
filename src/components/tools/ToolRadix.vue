@@ -111,6 +111,7 @@
 </template>
 
 <script setup>
+import { copyText } from '../../utils/clipboard.js'
 import { ref } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
 import { formatRadixValue, parseRadixValue } from '../../utils/toolHelpers.js'
@@ -204,9 +205,9 @@ function resetValues() {
   error.value = ''
 }
 
-function copy(text) {
+async function copy(text) {
   if (!text) return
-  navigator.clipboard.writeText(text)
+  if (!await copyText(text)) return
   globalToast('已复制：' + text)
 }
 </script>

@@ -63,6 +63,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="呼出命令检索 (Ctrl+K)..."
+            aria-label="搜索工具"
             class="search-input code-font"
             @keydown.esc="searchQuery = ''"
           />
@@ -99,13 +100,13 @@
           </div>
           <div class="hud-divider"></div>
           <div class="hud-stat-item">
-            <span class="hud-num gradient-green">0.0 ms</span>
-            <span class="hud-sub">本地延迟</span>
+            <span class="hud-num gradient-green">本机</span>
+            <span class="hud-sub">计算位置</span>
           </div>
           <div class="hud-divider"></div>
           <div class="hud-stat-item">
-            <span class="hud-num gradient-purple">100%</span>
-            <span class="hud-sub">隐私沙箱</span>
+            <span class="hud-num gradient-purple">不上传</span>
+            <span class="hud-sub">工具输入</span>
           </div>
         </div>
         <button class="btn btn-secondary btn-sm directory-btn" @click="showCatalogModal = true">
@@ -222,7 +223,7 @@
         </div>
 
         <!-- 快速切换其他相关工具 (科技网格抽屉) -->
-        <div class="quick-tools-section" v-if="filteredTools.length > 1">
+        <div class="quick-tools-section" v-if="filteredTools.length">
           <div class="section-title">
             <div class="section-title-left">
               <Sparkles :size="16" class="text-cyan" />
@@ -231,20 +232,26 @@
             <span class="count-tip">共 {{ filteredTools.length }} 款即时可用</span>
           </div>
           <div class="tools-grid">
-            <div
+            <button
               v-for="item in filteredTools"
               :key="item.id"
+              type="button"
+              :aria-label="`打开${item.name}`"
               :class="['mini-tool-card', currentToolId === item.id ? 'current' : '']"
               @click="openTool(item)"
             >
-              <div class="card-glow-bg"></div>
-              <div class="card-top">
+              <span class="card-glow-bg"></span>
+              <span class="card-top">
                 <span class="mini-title">{{ item.name }}</span>
                 <span v-if="item.isCommon" class="hot-badge">TOP</span>
-              </div>
-              <p class="mini-desc">{{ item.description }}</p>
-            </div>
+              </span>
+              <span class="mini-desc">{{ item.description }}</span>
+            </button>
           </div>
+        </div>
+        <div v-else class="quick-tools-section empty-search" role="status">
+          <p>未找到匹配的工具，请调整关键词或分类。</p>
+          <button class="btn btn-secondary btn-sm" @click="searchQuery = ''; activeCategory = 'all'">重置筛选</button>
         </div>
       </div>
     </main>
@@ -1185,6 +1192,9 @@ onUnmounted(() => {
   gap: 0.85rem;
 }
 .mini-tool-card {
+  color: var(--text-main);
+  text-align: left;
+  font: inherit;
   background: var(--bg-card);
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--border-color);
@@ -1200,6 +1210,9 @@ onUnmounted(() => {
   border-color: var(--accent-cyan);
   box-shadow: 0 0 20px rgba(var(--rgb-primary), 0.2);
 }
+.mini-tool-card:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 3px; }
+.empty-search { color: var(--text-muted); }
+.empty-search p { margin-bottom: 0.75rem; }
 .mini-tool-card.current {
   border-color: var(--accent-cyan);
   background: rgba(var(--rgb-primary), 0.08);

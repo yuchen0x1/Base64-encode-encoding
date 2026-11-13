@@ -4,13 +4,25 @@
   <img src="public/icon-512.png" width="132" alt="极客工具箱应用图标" />
 </p>
 
-[![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-0.0.4-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-22-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
+[![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-0.0.5-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-22-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
 
-**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v0.0.4 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.4)
+**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v0.0.5 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.5)
 
 **交流群**：<https://qm.qq.com/q/bkacrv1t3G> · 点击链接直接加入 QQ 群「**冷漠网络科技交流群①**」（问题反馈 / 功能建议 / 版本更新通知）。App 内也可通过侧边栏底部「反馈 & 交流群」、工具标题栏「反馈」按钮或移动端顶栏消息图标打开加群弹窗（支持二维码扫码与复制链接）。
 
 > 一个**本地优先、零后端依赖**的跨端开发者工具箱：内置 21 款开箱即用的编解码 / 哈希 / 格式化工具，可运行于浏览器、Electron 桌面端与 Capacitor 移动容器，并自带网页版与桌面版的一键更新链路。
+
+## 最新更新
+
+### v0.0.5（2026-11-13）
+
+- 新增最多 8 步批量处理流程，可串联 Base64、URL、哈希和 JSON，支持配方导入导出及顺序调整
+- 批量任务支持后台运算、立即停止、真实进度和结果分页，停止后保留已完成结果
+- 修复 JSON 美化与压缩导致大整数、高精度小数和指数数值被改写的问题，危险结构修改会保留原输入并提示
+- 改进批量导出：CSV 保护公式前缀，JSON 记录实际运行配置与完成状态，二进制解码后可直接计算摘要
+- 修复多个工具复制失败仍提示成功的问题；密码生成遵循所选字符类型，普通 HTTP 环境也可生成 UUID
+
+[完整更新历史](docs/releases/release-notes.md) · [批量流程指南](docs/BATCH_PROCESSING.md) · [Bug 复查记录](docs/BUG_RECHECK_2026-11-13.md)
 
 > **关于工具数量（请先读这一条）**
 > 项目实际内置 **21 款可运行工具**（`src/config/tools.js` 与 `src/config/registry.js` 一一对应，并有单元测试强制校验）。`toolhelper_directory.json` 中的 **223 项**分属 30 个分类，是「工具矩阵图谱」的静态目录数据，**仅用于展示与检索，第三方链接不在本项目内实现**。早期 `public/manifest.json` 中「187 款小工具」为过期表述，已更正。
@@ -70,7 +82,7 @@
 
 | # | 工具 | id | 分类 | 能力摘要 | 状态 |
 |---|---|---|---|---|---|
-| 1 | 批量处理模式 | `batch-processor` | 批量 | 多行文本 / 多文件拖拽，批量 Base64、URL、MD5/SHA、JSON 处理，导出 TXT / CSV / JSON | 已实现 |
+| 1 | 批量处理模式 | `batch-processor` | 批量 | 文本 / 文件后台批处理、最多 8 步配方、流程导入导出、停止、分页与 TXT / CSV / JSON 导出 | 已实现 |
 | 2 | Base64 编解码 | `base64` | 编码 | 文本与 URL 安全模式的实时编解码 | 已实现 |
 | 3 | JWT 令牌解析 & 时效诊断 | `jwt-decoder` | 编码 | Header / Payload 解析，`iat` / `nbf` / `exp` 时效检查 | 部分实现（仅解析，**不校验签名**） |
 | 4 | Unicode & HTML 实体互转 | `unicode-codec` | 编码 | `\uXXXX` 转义与 HTML 字符实体编解码 | 已实现 |
@@ -84,15 +96,15 @@
 | 12 | 正则表达式测试器 | `regex-tester` | 文本 | 常用正则、匹配测试、捕获组提取与高亮 | 已实现（Worker 隔离，超时终止） |
 | 13 | 文本代码对比 | `text-diff` | 文本 | 逐行差异高亮（基于 `diff`） | 已实现 |
 | 14 | 多进制转换 | `radix-convert` | 进制 | 二 / 八 / 十 / 十六进制实时互转 | 已实现 |
-| 15 | 二维码生成 | `qrcode-generator` | 媒体 | 生成二维码、容错率调整、PNG 导出 | 部分实现（**仅生成，未实现解析**；依赖中无解码库） |
+| 15 | 二维码生成器 | `qrcode-generator` | 媒体 | 生成二维码、容错率调整、PNG 导出、容量错误提示 | 已实现（仅生成，不含二维码解析） |
 | 16 | 随机密码 & UUID | `random-password` | 加密 | 强密码、随机串、UUID v4、批量生成 | 已实现 |
-| 17 | 文本去重 & 统计 | `text-toolbox` | 文本 | 行去重、大小写转换、字数 / 行数统计、空行清除 | 已实现 |
+| 17 | 文本去重 & 统计 | `text-toolbox` | 文本 | 行去重、转小写、字数 / 行数统计、空行清除 | 已实现 |
 | 18 | JWT 生成器 | `jwt-generator` | 编码 | 自定义 Header / Payload，注入 `iat` / `exp`，HS256 签名 | 已实现 |
-| 19 | 颜色格式转换 | `color-converter` | 媒体 | HEX / RGB / RGBA / HSL 互转与取色 | 已实现 |
+| 19 | 颜色格式转换 | `color-converter` | 媒体 | HEX 输入 / 取色，输出 RGB、RGBA、HSL、HSLA；Alpha 固定为 1 | 已实现（不含 RGB/HSL 反向输入） |
 | 20 | 转义字符工具 | `escape-toolbox` | 编码 | C 风格、`\uXXXX`、`\x41` 转义与还原 | 已实现 |
 | 21 | SQL 格式化 | `sql-formatter` | JSON | SQL 美化与压缩，**仅处理文本，不连接数据库** | 已实现 |
 
-> 工具的「能力摘要」来自 `src/config/tools.js` 中的 `description` 字段。标注为「部分实现」的两项已在代码与依赖层面核实，请勿按工具名称望文生义。
+> 工具能力依据组件和相关逻辑模块核实。JWT 解析不验签；二维码工具只生成，不提供识别功能。
 
 ### 2.2 工具矩阵图谱（静态目录）
 
@@ -108,7 +120,13 @@
 
 ### 2.4 批量处理
 
-`ToolBatch.vue` 支持多行文本输入与多文件拖拽，操作包括 Base64 / URL 编解码、MD5 / SHA-1 / SHA-256 摘要、JSON 格式化与压缩；结果可搜索、按状态筛选、逐条复制，并导出 TXT、CSV（带 UTF-8 BOM，避免 Excel 中文乱码）、JSON。
+`ToolBatch.vue` 支持多行文本与多文件拖拽，可将 Base64 / URL 编解码、MD5 / SHA-1 / SHA-256、JSON 格式化与压缩串成 **1–8 步流程**。例如选择「Base64 解码 → JSON 格式化」，一次处理多条编码后的 JSON，无需逐条复制。可增删步骤、上下调整顺序、导入 / 导出配方；配方仅包含处理选项，不包含输入或结果。
+
+运算在专用 Web Worker 中执行，支持立即停止并保留已完成结果。单批最多 1000 条；文本每行最多 2 MB，文件每个最多 64 MB，输入总计最多 128 MB；结果按 100 条分页。二进制解码后可继续哈希或重新编码，文本输出要求有效 UTF-8，损坏字节会明确报错。
+
+结果可筛选、复制及导出 TXT / CSV / JSON。CSV 带 UTF-8 BOM，并为潜在公式添加单引号；需要逐字保留原始内容时请用 JSON / TXT。JSON 导出记录实际运行的配方、完成状态和条目数量。完整限制、文件格式及使用示例见 [批量流程指南](docs/BATCH_PROCESSING.md)。
+
+![批量处理真实运行界面（测试示例）](docs/screenshots/batch-desktop-dark.png)
 
 ### 2.5 跨端运行与自动更新
 
@@ -333,7 +351,7 @@ cd Base64-encode-encoding
 npm install          # 或按 CI 使用 npm ci（需要 package-lock.json）
 ```
 
-仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.4) 下载 v0.0.4 Windows 安装包（`GeekToolbox-Setup-<版本>.exe`，每个版本仅此一个文件），无需安装 Node.js。
+仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.5) 下载 v0.0.4 Windows 安装包（`GeekToolbox-Setup-<版本>.exe`，每个版本仅此一个文件），无需安装 Node.js。
 
 项目**不需要 `.env` 文件**，也不需要数据库初始化或密钥配置。
 
@@ -508,8 +526,9 @@ curl http://127.0.0.1:4173/api/update/progress
 | `npm run electron:dev` | `vite build && electron .` |
 | `npm run build:win` | Windows 目录版打包（`--dir`） |
 | `npm run package:win` | Windows NSIS 安装包（唯一发布产物） |
-| `npm test` | `vitest run`（131 个用例） |
+| `npm test` | `vitest run`（逻辑与回归测试） |
 | `npm run test:watch` | `vitest` 监听模式 |
+| `npm run test:desktop` | 构建并在隐藏的 Electron 沙箱窗口验证 `file://` 下的批量 Worker（不会安装应用） |
 | `npm run lint` / `npm run lint:fix` | ESLint 检查 / 自动修复 |
 | `npm run clean` | 清理构建产物与临时目录（`--dry` 预览，`--all` 连依赖一起清） |
 

@@ -85,6 +85,7 @@
 </template>
 
 <script setup>
+import { copyText } from '../../utils/clipboard.js'
 import { ref, computed } from 'vue'
 import { calculateHashResults } from './hashHelpers.js'
 import { globalToast } from '../../composables/useToast.js'
@@ -103,9 +104,9 @@ const hashResults = computed(() => calculateHashResults({
 const calculatedHashes = computed(() => hashResults.value.hashes)
 const primaryHash = computed(() => hashResults.value.primary)
 
-function copy(text) {
+async function copy(text) {
   if (!text) return
-  navigator.clipboard.writeText(text)
+  if (!await copyText(text)) return
   globalToast('已复制指纹到剪贴板')
 }
 </script>

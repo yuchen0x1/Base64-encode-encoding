@@ -10,6 +10,10 @@ describe('decodeHtmlEntities', () => {
     expect(decodeHtmlEntities('&#20320;')).toBe('你')
     expect(decodeHtmlEntities('&#x4f60;')).toBe('你')
     expect(decodeHtmlEntities('&#65;')).toBe('A')
+    expect(decodeHtmlEntities('&#X41; &#X1F680;')).toBe('A 🚀')
+  })
+  it('does not partially decode malformed decimal entities', () => {
+    expect(decodeHtmlEntities('&#65abc; &#1E2; &#xGG;')).toBe('&#65abc; &#1E2; &#xGG;')
   })
   it('leaves unknown entities untouched', () => {
     expect(decodeHtmlEntities('&foo;')).toBe('&foo;')

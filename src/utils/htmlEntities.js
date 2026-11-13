@@ -25,7 +25,7 @@ const NAMED_ENTITIES = {
  */
 export function decodeHtmlEntities(input) {
   if (typeof input !== 'string' || input.length === 0) return input || ''
-  return input.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/g, (match, body) => {
+  return input.replace(/&(#(?:[xX][0-9a-fA-F]+|[0-9]+)|[a-zA-Z][a-zA-Z0-9]*);/g, (match, body) => {
     if (body[0] === '#') {
       const isHex = body[1] === 'x' || body[1] === 'X'
       const code = parseInt(isHex ? body.slice(2) : body.slice(1), isHex ? 16 : 10)

@@ -44,6 +44,7 @@
 </template>
 
 <script setup>
+import { copyText } from '../../utils/clipboard.js'
 import { ref, computed } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
 import { formatSqlText, minifySqlText } from '../../utils/sqlStringProtection.js'
@@ -87,9 +88,9 @@ function loadSample() {
   globalToast('SQL 示例已加载')
 }
 
-function copySql() {
+async function copySql() {
   if (!input.value) return
-  navigator.clipboard.writeText(input.value)
+  if (!await copyText(input.value)) return
   copied.value = true
   setTimeout(() => (copied.value = false), 2000)
   globalToast('SQL 已复制到剪贴板')

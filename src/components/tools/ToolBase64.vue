@@ -92,6 +92,7 @@
 </template>
 
 <script setup>
+import { copyText } from '../../utils/clipboard.js'
 import { ref, computed } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
 import { decodeBase64ToUtf8, encodeUtf8ToBase64 } from '../../utils/toolEncodings.js'
@@ -126,9 +127,9 @@ async function pasteInput() {
   }
 }
 
-function copyOutput() {
+async function copyOutput() {
   if (!output.value) return
-  navigator.clipboard.writeText(output.value)
+  if (!await copyText(output.value)) return
   copied.value = true
   setTimeout(() => (copied.value = false), 2000)
 }
