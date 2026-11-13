@@ -42,6 +42,7 @@
 - [13. 开发指南](#13-开发指南)
 - [14. 安全说明](#14-安全说明)
 - [15. 许可证与致谢](#15-许可证与致谢)
+- [16. Star History 星图](#16-star-history-星图)
 
 ---
 
@@ -829,3 +830,17 @@ Vitest 运行于纯 Node 环境；`.tmp-verify/workspace_ui_check.mjs` 使用 Pl
 贡献流程与约定见 [CONTRIBUTING.md](CONTRIBUTING.md)，历史审计结论见 [PROJECT_AUDIT_REPORT.md](PROJECT_AUDIT_REPORT.md)。应用图标源图由项目维护者提供。
 
 审查范围、实测验证结果与待维护者确认事项统一记录在 [PROJECT_AUDIT_REPORT.md](PROJECT_AUDIT_REPORT.md) 中，本文档不再重复。
+
+---
+
+## 16. Star History 星图
+
+项目在 GitHub 上的 Star 增长趋势，点击图表可查看交互式星标历史。
+
+<a href="https://www.star-history.com/?repos=yuchen0x1%2FBase64-encode-encoding&amp;type=date&amp;legend=top-left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=yuchen0x1/Base64-encode-encoding&amp;type=date&amp;theme=dark&amp;legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=yuchen0x1/Base64-encode-encoding&amp;type=date&amp;legend=top-left" />
+    <img alt="极客工具箱 GitHub Star 历史趋势图" src="https://api.star-history.com/chart?repos=yuchen0x1/Base64-encode-encoding&amp;type=date&amp;legend=top-left" />
+  </picture>
+</a>
