@@ -61,6 +61,7 @@
       "differentialPackage": false
     },
     "mac": {
+      "icon": "build/icon-1024.png",
       "target": [
         "dmg",
         "zip"
