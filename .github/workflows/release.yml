@@ -99,6 +99,16 @@ jobs:
             $all = Get-Content "release-notes.json" -Raw | ConvertFrom-Json -AsHashtable
             if ($all.ContainsKey($version) -and $all[$version].notes) { ($all[$version].notes | ForEach-Object { "- $_" }) -join "`n" } else { "自动发布 v$version" }
           } else { "自动发布 v$version" }
+          # Prefer the full, user-facing history (including upgrade guidance).
+          # Keep the JSON fallback for tags without the canonical Markdown file.
+          if (Test-Path "docs/releases/release-notes.md") {
+            $history = Get-Content "docs/releases/release-notes.md" -Raw -Encoding UTF8
+            $pattern = '(?ms)^## v' + [regex]::Escape($version) + '(?=[\s（(]|$)[^\r\n]*\r?\n(?<body>.*?)(?=^## v\d+\.\d+\.\d+|\z)'
+            $entry = [regex]::Match($history, $pattern)
+            if ($entry.Success -and -not [string]::IsNullOrWhiteSpace($entry.Groups['body'].Value)) {
+              $notes = $entry.Groups['body'].Value.Trim()
+            }
+          }
           $notesFile = Join-Path $env:RUNNER_TEMP "release-notes.md"
           Set-Content -LiteralPath $notesFile -Value $notes -Encoding UTF8
           $assets = @(
