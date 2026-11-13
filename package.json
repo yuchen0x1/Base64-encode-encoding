@@ -1,7 +1,7 @@
 {
   "name": "geek-toolbox",
   "productName": "极客工具箱",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "极客工具箱 - 跨端响应式现代化工具箱",
   "main": "electron/main.js",
   "type": "module",
@@ -18,6 +18,7 @@
     "package:win": "vite build && electron-builder --win nsis --x64 --publish never",
     "test": "vitest run",
     "test:desktop": "vite build && electron tests/electron/batch-smoke.cjs",
+    "test:updater": "node scripts/verify-updater-runtime.mjs",
     "test:watch": "vitest",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

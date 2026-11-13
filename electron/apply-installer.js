@@ -146,14 +146,18 @@ function cleanupFile(file) {
   }
 
   if (process.platform !== 'win32') return
-  const command = process.env.ComSpec || process.env.COMSPEC || 'cmd.exe'
-  const escaped = String(file).replace(/"/g, '""')
-  const script = `ping.exe 127.0.0.1 -n 2 >nul & del /f /q "${escaped}"`
+  // Do not interpolate paths into shell commands. Wait for this runtime to exit
+  // before removing files that Windows still has mapped.
+  const script = [
+    'Wait-Process -Id ([int]$env:TOOLBOX_CLEANUP_PID) -ErrorAction SilentlyContinue',
+    'Remove-Item -LiteralPath $env:TOOLBOX_CLEANUP_FILE -Force -ErrorAction SilentlyContinue'
+  ].join('; ')
   try {
-    const child = spawn(command, ['/d', '/s', '/c', script], {
+    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', script], {
       detached: true,
       stdio: 'ignore',
-      windowsHide: true
+      windowsHide: true,
+      env: { ...process.env, TOOLBOX_CLEANUP_PID: String(process.pid), TOOLBOX_CLEANUP_FILE: path.resolve(file) }
     })
     child.unref()
   } catch {
@@ -194,6 +198,11 @@ export async function runInstallerAssistant(options, dependencies = {}) {
   if (!installer || !fs.existsSync(installer)) {
     writeLog('安装包不存在，放弃安装')
     return { ok: false, reason: 'missing-installer' }
+  }
+
+  if (options['bootstrap-ipc'] === '1') {
+    if (typeof process.send !== 'function') throw new Error('安装助手缺少启动确认通道')
+    await new Promise((resolve, reject) => process.send({ type: 'installer-helper-ready', version: expectedVersion }, error => error ? reject(error) : resolve()))
   }
 
   const exited = await waitForExitImpl(pid)
@@ -259,7 +268,12 @@ export async function runInstallerAssistant(options, dependencies = {}) {
   // 若把该变量透传给新进程，应用会被当成 Node 解释器运行并立刻退出（报 bad option）。
   const launchEnv = { ...process.env }
   delete launchEnv.ELECTRON_RUN_AS_NODE
-  spawnImpl(installed, [], { detached: true, stdio: 'ignore', env: launchEnv }).unref()
+  const restarted = spawnImpl(installed, [], { cwd: installDir, detached: true, stdio: 'ignore', env: launchEnv })
+  await new Promise((resolve, reject) => {
+    restarted.once('spawn', resolve)
+    restarted.once('error', reject)
+  })
+  restarted.unref()
 
   // 安装包已生效，删掉下载缓存，避免每升一次版本就在 userData 里留一份 100+ MB 的 exe
   try {
@@ -290,6 +304,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
       }
       if (args['cleanup-runtime']) {
         cleanupFile(args['cleanup-runtime'])
+        const runtimeDir = path.dirname(args['cleanup-runtime'])
+        if (/^toolbox-updater-runtime-\d+-\d+$/.test(path.basename(runtimeDir))) {
+          for (const name of ['icudtl.dat', 'snapshot_blob.bin', 'v8_context_snapshot.bin', 'package.json']) {
+            cleanupFile(path.join(runtimeDir, name))
+          }
+        }
       }
     })
 }

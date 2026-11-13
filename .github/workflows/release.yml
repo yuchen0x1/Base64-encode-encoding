@@ -52,9 +52,16 @@ jobs:
           npm run lint
       - name: Build frontend
         run: npm run build
+      - name: Verify standalone update helper
+        run: npm run test:updater
       - name: Build Windows installer
         shell: pwsh
         run: npx electron-builder --win nsis --x64 --publish never
+      - name: Verify packaged update helper
+        shell: pwsh
+        run: |
+          $env:TOOLBOX_SMOKE_RUNTIME = (Resolve-Path -LiteralPath 'release/win-unpacked/极客工具箱.exe').Path
+          npm run test:updater
       - name: Verify Authenticode signature when configured
         shell: pwsh
         run: |

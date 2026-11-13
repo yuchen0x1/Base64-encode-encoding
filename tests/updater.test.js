@@ -54,8 +54,8 @@ describe('Electron updater package enforcement', () => {
     const workDir = path.join('C:\\Users\\test', 'AppData', 'Roaming', '极客工具箱', 'updates')
     const runtimeCopy = getRuntimeCopyPath(workDir, 1234, 5678)
 
-    expect(runtimeCopy).toBe(path.join(workDir, 'toolbox-updater-runtime-5678-1234.exe'))
-    expect(path.dirname(runtimeCopy)).toBe(workDir)
+    expect(runtimeCopy).toBe(path.join(workDir, 'toolbox-updater-runtime-5678-1234', 'runtime.exe'))
+    expect(path.dirname(path.dirname(runtimeCopy))).toBe(workDir)
     expect(path.basename(runtimeCopy)).not.toBe('极客工具箱.exe')
   })
 

@@ -4,9 +4,9 @@
   <img src="public/icon-512.png" width="132" alt="极客工具箱应用图标" />
 </p>
 
-[![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-0.0.5-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-22-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
+[![构建状态](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-0.0.6-2f81f7) ![许可证](https://img.shields.io/badge/license-MIT-22c55e) ![Node.js](https://img.shields.io/badge/Node.js-22-339933) ![平台](https://img.shields.io/badge/platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Android%20%7C%20iOS-0f172a)
 
-**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v0.0.5 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.5)
+**仓库**：<https://github.com/yuchen0x1/Base64-encode-encoding> · **下载**：[v0.0.6 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.6)
 
 **交流群**：<https://qm.qq.com/q/bkacrv1t3G> · 点击链接直接加入 QQ 群「**冷漠网络科技交流群①**」（问题反馈 / 功能建议 / 版本更新通知）。App 内也可通过侧边栏底部「反馈 & 交流群」、工具标题栏「反馈」按钮或移动端顶栏消息图标打开加群弹窗（支持二维码扫码与复制链接）。
 
@@ -14,16 +14,13 @@
 
 ## 最新更新
 
-### v0.0.5（2026-11-13）
+### v0.0.6（2026-11-13）
 
-批量流程与数据可靠性升级：减少重复操作，保护输入与导出结果。
+- 修复安装更新后退出、没有重新打开的问题，补齐独立更新助手必需的启动数据。
+- 助手确认就绪后才退出当前应用；启动失败会显示错误并保留旧程序。
+- **已安装 v0.0.4 / v0.0.5 的用户，请手动覆盖安装 v0.0.6 一次。** 不需要卸载或删除用户配置；之后的更新使用修复后的流程。
 
-- 批量流程支持最多 8 步、常用配方和导入导出，后台运行时可立即停止并保留完成结果。
-- JSON 美化与压缩保留原始数字；危险的结构修改会提示并保留输入。
-- 修复复制失败误报成功、密码选项失效、普通 HTTP 下 UUID 不可用、精确搜索入口隐藏等问题。
-- 改进二进制转换、CSV 导出、分页与错误恢复；Windows / Web 正式资产已发布。
-
-[完整更新历史（v0.0.1–v0.0.5）](docs/releases/release-notes.md) · [批量流程指南](docs/BATCH_PROCESSING.md) · [Bug 复查记录](docs/BUG_RECHECK_2026-11-13.md)
+[完整更新历史](docs/releases/release-notes.md) · [更新故障复盘](docs/UPDATER_INCIDENT_2026-11-13.md) · [批量流程指南](docs/BATCH_PROCESSING.md)
 
 > **关于工具数量（请先读这一条）**
 > 项目实际内置 **21 款可运行工具**（`src/config/tools.js` 与 `src/config/registry.js` 一一对应，并有单元测试强制校验）。`toolhelper_directory.json` 中的 **223 项**分属 30 个分类，是「工具矩阵图谱」的静态目录数据，**仅用于展示与检索，第三方链接不在本项目内实现**。早期 `public/manifest.json` 中「187 款小工具」为过期表述，已更正。
@@ -352,7 +349,7 @@ cd Base64-encode-encoding
 npm install          # 或按 CI 使用 npm ci（需要 package-lock.json）
 ```
 
-仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.5) 下载 v0.0.4 Windows 安装包（`GeekToolbox-Setup-<版本>.exe`，每个版本仅此一个文件），无需安装 Node.js。
+仓库地址取自本项目的 `git remote origin`。若只需使用桌面版，可在 [Releases](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.6) 下载 v0.0.6 Windows 安装包（`GeekToolbox-Setup-<版本>.exe`，每个版本仅此一个文件），无需安装 Node.js。
 
 项目**不需要 `.env` 文件**，也不需要数据库初始化或密钥配置。
 

@@ -23,6 +23,7 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { isNewerVersion, normalizeVersion } from '../shared/version.js'
 import { assertSupportedInstallerPackage, normalizeSignatureMetadata } from './update-validation.js'
+import { prepareInstallerRuntime, startInstallerHelper } from './installer-bootstrap.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -35,6 +36,7 @@ const state = {
   packageInfo: null,
   installerFile: '',
   downloading: false,
+  installing: false,
   signature: null
 }
 
@@ -67,7 +69,7 @@ function appDir() {
 }
 
 export function getRuntimeCopyPath(workDir, pid = process.pid, timestamp = Date.now()) {
-  return path.join(workDir, `toolbox-updater-runtime-${timestamp}-${pid}.exe`)
+  return path.join(workDir, `toolbox-updater-runtime-${timestamp}-${pid}`, 'runtime.exe')
 }
 
 export function resolveFeed() {
@@ -449,6 +451,13 @@ export async function downloadUpdate() {
 }
 
 export async function installUpdate() {
+  if (state.installing) throw new Error('更新安装已经开始，请勿重复操作')
+  state.installing = true
+  try { return await installUpdateImpl() }
+  catch (error) { state.installing = false; throw error }
+}
+
+async function installUpdateImpl() {
   if (process.platform !== 'win32') throw new Error('Electron 自动更新仅支持 Windows NSIS 安装包')
   assertSupportedInstallerPackage(state.packageInfo, state.manifestKind)
   if (!state.latest?.version) throw new Error('更新目标版本缺失，请重新检查更新')
@@ -469,21 +478,21 @@ export async function installUpdate() {
   // 安装助手必须落在应用目录之外：安装过程会重建应用目录下的全部文件，
   // 若助手位于 app.asar 内，安装到一半就会把自己覆盖掉。
   await fs.mkdir(workDir, { recursive: true })
-  const tempScript = path.join(workDir, `apply-installer-${Date.now()}.mjs`)
   // A packaged Electron app uses its own executable as the Node runtime.
   // Running the helper from that executable would keep the installed EXE
   // mapped while NSIS tries to uninstall the old version. Use a copy outside
   // the installation directory so the helper cannot lock the live payload.
   const runtimeCopy = getRuntimeCopyPath(workDir)
+  const runtimeDir = path.dirname(runtimeCopy)
+  const tempScript = path.join(runtimeDir, 'apply-installer.mjs')
+  await prepareInstallerRuntime(process.execPath, runtimeCopy)
   await fs.copyFile(helperSource, tempScript)
-  await fs.copyFile(path.join(__dirname, 'installer-verification.js'), path.join(workDir, 'installer-verification.js'))
-  await fs.copyFile(process.execPath, runtimeCopy)
+  await fs.copyFile(path.join(__dirname, 'installer-verification.js'), path.join(runtimeDir, 'installer-verification.js'))
 
-  sendProgress(98, '正在退出并安装更新…')
+  sendProgress(97, '正在验证更新助手能否启动…')
 
-  let child
   try {
-    child = spawn(
+    await startInstallerHelper(
       runtimeCopy,
       [
         tempScript,
@@ -493,23 +502,19 @@ export async function installUpdate() {
         '--exe', exePath,
         '--product', app.getName(),
         '--version', state.latest.version,
+        '--bootstrap-ipc', '1',
         '--log', logFile,
         '--cleanup', tempScript,
-        '--cleanup-helper', path.join(workDir, 'installer-verification.js'),
+        '--cleanup-helper', path.join(runtimeDir, 'installer-verification.js'),
         '--cleanup-runtime', runtimeCopy
       ],
-      {
-        detached: true,
-        stdio: 'ignore',
-        windowsHide: true,
-        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
-      }
+      state.latest.version
     )
   } catch (error) {
-    await fs.rm(runtimeCopy, { force: true })
+    await fs.appendFile(logFile, `[${new Date().toISOString()}] 更新助手启动失败，保留当前应用：${error.message}\n`).catch(() => {})
     throw new Error(`启动安装助手失败：${error.message}`, { cause: error })
   }
-  child.unref()
+  sendProgress(98, '更新助手已就绪，正在退出并安装更新…')
 
   setTimeout(() => app.exit(0), 350)
   return { ok: true, restarting: true }
