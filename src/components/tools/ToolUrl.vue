@@ -74,26 +74,20 @@ const mode = ref('encode')
 const encodeType = ref('component')
 const input = ref('https://www.google.com/search?q=极客工具箱&from=desktop&ver=1.0#tools')
 const copied = ref(false)
-const error = ref('')
-
-const output = computed(() => {
-  error.value = ''
-  if (!input.value) return ''
+const conversion = computed(() => {
+  if (!input.value) return { value: '', error: '' }
   try {
-    if (mode.value === 'encode') {
-      return encodeType.value === 'component' 
-        ? encodeURIComponent(input.value) 
-        : encodeURI(input.value)
-    } else {
-      return encodeType.value === 'component'
-        ? decodeURIComponent(input.value)
-        : decodeURI(input.value)
-    }
+    const value = mode.value === 'encode'
+      ? (encodeType.value === 'component' ? encodeURIComponent(input.value) : encodeURI(input.value))
+      : (encodeType.value === 'component' ? decodeURIComponent(input.value) : decodeURI(input.value))
+    return { value, error: '' }
   } catch {
-    error.value = 'URL 格式解析错误'
-    return ''
+    return { value: '', error: 'URL 格式解析错误' }
   }
 })
+
+const output = computed(() => conversion.value.value)
+const error = computed(() => conversion.value.error)
 
 async function copyOutput() {
   if (!output.value) return

@@ -85,10 +85,10 @@ npm run build
 npm run test:desktop
 ```
 
-真实浏览器检查需要可用的 Python Playwright 和 Chromium，使用独立临时浏览器上下文，不读取日常浏览器资料。先启动生产构建服务，再运行：
+真实浏览器检查需要可用的 Python Playwright 和 Chromium，使用独立临时浏览器上下文，不读取日常浏览器资料。先启动仅供界面检查的本地开发服务器，再运行：
 
 ```sh
-node server/serve.js --port 4186
+npm run dev -- --port 4186
 python tests/browser/batch_smoke.py --url http://127.0.0.1:4186
 ```
 

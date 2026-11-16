@@ -26,6 +26,8 @@ const IMAGE_EXTENSIONS = {
   'image/x-icon': 'ico'
 }
 
+export const MAX_IMAGE_DATA_BYTES = 16 * 1024 * 1024
+
 function asciiAt(bytes, offset, length) {
   let value = ''
   for (let i = offset; i < offset + length && i < bytes.length; i += 1) {
@@ -57,9 +59,11 @@ function detectImageMime(bytes) {
   return ''
 }
 
-export function parseImageDataUrl(value) {
+export function parseImageDataUrl(value, options = {}) {
   const input = String(value ?? '').trim()
   if (!input) return null
+  const maxBytes = Number.isFinite(options.maxBytes) ? options.maxBytes : MAX_IMAGE_DATA_BYTES
+  if (maxBytes <= 0) return null
 
   let payload = input
   if (/^data:/i.test(input)) {
@@ -75,6 +79,10 @@ export function parseImageDataUrl(value) {
   base64 = base64.replace(/=+$/, '')
   base64 += '='.repeat((4 - (base64.length % 4)) % 4)
 
+  const paddingLength = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0
+  const decodedLength = (base64.length * 3) / 4 - paddingLength
+  if (decodedLength > maxBytes) return null
+
   let binary
   try {
     binary = atob(base64)
@@ -82,6 +90,7 @@ export function parseImageDataUrl(value) {
     return null
   }
   if (!binary.length) return null
+  if (binary.length > maxBytes) return null
 
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)

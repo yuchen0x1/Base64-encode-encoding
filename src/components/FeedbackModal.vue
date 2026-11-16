@@ -42,7 +42,7 @@
                 </p>
                 <ul class="fb-points">
                   <li>桌面端点击「一键加入」将调用系统浏览器打开加群页</li>
-                  <li>移动端可复制链接，在 QQ 内粘贴打开</li>
+                  <li>也可复制链接，在 QQ 内粘贴打开</li>
                   <li>群链接：<span class="fb-link code-font">{{ QQ_GROUP.displayUrl }}</span></li>
                 </ul>
               </div>
@@ -51,11 +51,6 @@
             <p class="fb-tip">
               <Info :size="14" />
               <span>{{ QQ_GROUP.tip }}</span>
-            </p>
-
-            <p v-if="nativeHint" class="fb-native">
-              <Smartphone :size="14" />
-              <span>当前为移动端容器：请使用上方二维码或复制群链接，在 QQ 客户端内打开加入。</span>
             </p>
           </div>
 
@@ -98,16 +93,14 @@ import {
   Check,
   Bug,
   Info,
-  UserPlus,
-  Smartphone
+  UserPlus
 } from 'lucide-vue-next'
 import QRCode from 'qrcode'
 import {
   QQ_GROUP,
   ISSUE_URL,
   openExternalLink,
-  copyToClipboard,
-  isNativeContainer
+  copyToClipboard
 } from '../config/social.js'
 import { globalToast } from '../composables/useToast.js'
 
@@ -118,7 +111,6 @@ const emit = defineEmits(['update:open', 'close'])
 
 const qrDataUrl = ref('')
 const copied = ref(false)
-const nativeHint = ref(false)
 let copyTimer = null
 
 /** 生成群二维码（深色主题下也放在白底框内，保证可扫描） */
@@ -144,13 +136,8 @@ function close() {
 function joinGroup() {
   const result = openExternalLink(QQ_GROUP.url)
   if (result === 'blocked') {
-    // 原生容器 / 跳转被拦截：引导复制链接，避免 WebView 顶掉 App 页面
-    nativeHint.value = true
+    globalToast('打开失败，请复制群链接在 QQ 内打开', 'error')
     copyLink()
-    return
-  }
-  if (result === 'fallback') {
-    globalToast('已请求打开加群页；若被浏览器拦截，请点「复制群链接」在 QQ 内打开', 'success')
     return
   }
   globalToast('已在浏览器打开 QQ 加群页，请在 QQ 内确认入群', 'success')
@@ -172,7 +159,6 @@ watch(
   () => props.open,
   (val) => {
     if (val) {
-      nativeHint.value = isNativeContainer()
       ensureQrCode()
       window.addEventListener('keydown', onKeydown)
     } else {
@@ -406,8 +392,7 @@ onUnmounted(() => {
   word-break: break-all;
 }
 
-.fb-tip,
-.fb-native {
+.fb-tip {
   display: flex;
   align-items: flex-start;
   gap: 0.4rem;
@@ -417,12 +402,7 @@ onUnmounted(() => {
   color: var(--text-sub);
 }
 
-.fb-native {
-  color: var(--accent-amber);
-}
-
-.fb-tip svg,
-.fb-native svg {
+.fb-tip svg {
   flex-shrink: 0;
   margin-top: 1px;
 }

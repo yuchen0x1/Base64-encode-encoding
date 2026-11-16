@@ -6,7 +6,7 @@
  * 重复维护与错位风险：新增/改名工具时，只要这一处与 tools.js 不一致，
  * 开发期 `assertToolRegistry()` 就会立即抛错，而不是在运行时静默打不开工具。
  */
-import { toolsList } from './tools.js'
+import { toolCategories, toolsList } from './tools.js'
 
 import ToolBatch from '../components/tools/ToolBatch.vue'
 import ToolBase64 from '../components/tools/ToolBase64.vue'
@@ -61,12 +61,68 @@ export const toolComponents = {
  * @returns {true} 一致
  * @throws {Error} 存在未接线或孤儿组件
  */
-export function assertToolRegistry() {
-  const errors = []
-  const registeredIds = new Set(Object.keys(toolComponents))
-  const metaIds = new Set(toolsList.map((t) => t.id))
+const TOOL_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const REQUIRED_TOOL_FIELDS = ['id', 'name', 'category', 'description', 'tags', 'icon', 'isCommon']
 
-  for (const tool of toolsList) {
+/**
+ * 收集工具注册表的结构与连线错误。
+ * 允许传入 fixture，便于测试坏数据而不污染生产注册表。
+ */
+export function getToolRegistryErrors({
+  metadata = toolsList,
+  components = toolComponents,
+  categories = toolCategories
+} = {}) {
+  const errors = []
+  const registeredIds = new Set(Object.keys(components))
+  const metaIds = new Set()
+  const categoryIds = new Set(categories.map((category) => category.id))
+
+  categories.forEach((category, index) => {
+    if (!category || typeof category.id !== 'string' || !category.id.trim()) {
+      errors.push(`分类 #${index + 1} 缺少有效 id`)
+    }
+    if (!category || typeof category.name !== 'string' || !category.name.trim()) {
+      errors.push(`分类 "${category?.id ?? `#${index + 1}`}" 缺少有效 name`)
+    }
+    if (!category || typeof category.icon !== 'string' || !category.icon.trim()) {
+      errors.push(`分类 "${category?.id ?? `#${index + 1}`}" 缺少有效 icon`)
+    }
+  })
+
+  metadata.forEach((tool, index) => {
+    const label = tool?.id || `#${index + 1}`
+    if (!tool || typeof tool !== 'object') {
+      errors.push(`工具 ${label} 不是对象`)
+      return
+    }
+    for (const field of REQUIRED_TOOL_FIELDS) {
+      const value = tool[field]
+      const missing = value === undefined || value === null || (typeof value === 'string' && !value.trim())
+      if (missing) {
+        errors.push(`工具 "${label}" 缺少有效字段 ${field}`)
+      }
+    }
+    if (typeof tool.id === 'string' && !TOOL_ID_PATTERN.test(tool.id)) {
+      errors.push(`工具 "${label}" 的 id 必须使用 kebab-case`)
+    }
+    if (metaIds.has(tool.id)) {
+      errors.push(`工具 "${label}" 的 id 重复`)
+    }
+    metaIds.add(tool.id)
+    if (typeof tool.category === 'string' && !categoryIds.has(tool.category)) {
+      errors.push(`工具 "${label}" 使用了未登记分类 "${tool.category}"`)
+    }
+    if (!Array.isArray(tool.tags) || tool.tags.some((tag) => typeof tag !== 'string' || !tag.trim())) {
+      errors.push(`工具 "${label}" 的 tags 必须是非空字符串数组`)
+    }
+    if (typeof tool.isCommon !== 'boolean') {
+      errors.push(`工具 "${label}" 的 isCommon 必须是布尔值`)
+    }
+  })
+
+  for (const tool of metadata) {
+    if (!tool || typeof tool !== 'object') continue
     if (!registeredIds.has(tool.id)) {
       errors.push(`工具 "${tool.id}" (${tool.name}) 已在 toolsList 登记，但缺少对应的组件实现`)
     }
@@ -77,6 +133,17 @@ export function assertToolRegistry() {
     }
   }
 
+  return errors
+}
+
+/**
+ * 交叉校验 toolsList 元数据与 toolComponents 实现是否一一对应。
+ * 用于开发期启动自检和 CI；不一致时抛出可读错误。
+ * @returns {true} 一致
+ * @throws {Error} 存在 schema、未接线或孤儿组件
+ */
+export function assertToolRegistry(options) {
+  const errors = getToolRegistryErrors(options)
   if (errors.length) {
     throw new Error('工具注册表不一致：\n- ' + errors.join('\n- '))
   }

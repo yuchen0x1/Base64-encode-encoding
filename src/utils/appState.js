@@ -1,5 +1,6 @@
 export const WORKSPACE_BACKUP_APP = 'geek-toolbox'
 export const WORKSPACE_BACKUP_SCHEMA = 1
+export const MAX_WORKSPACE_BACKUP_BYTES = 1 * 1024 * 1024
 
 export const DEFAULT_FAVORITE_IDS = ['base64', 'json-format', 'timestamp', 'url-codec', 'radix-convert']
 export const DEFAULT_OPEN_TAB_IDS = ['base64', 'json-format', 'timestamp', 'radix-convert']
@@ -76,6 +77,10 @@ export function createWorkspaceBackup(state, exportedAt = new Date()) {
 }
 
 export function parseWorkspaceBackup(raw, tools, registeredToolIds) {
+  if (typeof raw === 'string' && new TextEncoder().encode(raw).byteLength > MAX_WORKSPACE_BACKUP_BYTES) {
+    throw new Error('工作区备份超过 1 MiB 大小上限')
+  }
+
   let parsed
   try {
     parsed = typeof raw === 'string' ? JSON.parse(raw) : raw

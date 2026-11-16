@@ -2,6 +2,15 @@
 
 详细内容、升级方式及历史资产说明见 [完整发布历史](docs/releases/release-notes.md)。本文件提供每个正式版本的简要变更。日期使用北京时间。
 
+## 0.0.7 — 2026-11-16
+
+- 产品统一为 Windows x64 桌面版，保留现有工具、工作区配置、Windows 安装和自动更新功能。
+- 更新下载增加 512 MiB 包体上限、30 秒无响应超时、取消 IPC 和半包清理；生产更新源仅接受 HTTPS。
+- Windows 主进程增加单实例锁和二次启动聚焦；标签页支持键盘操作，工具目录弹窗补充基础 dialog 语义。
+- 修复 AES `NoPadding` 非整块边界、时间戳安全整数、图片与工作区输入上限；注册表增加 schema 与组件连线校验。
+- 恢复 Windows NSIS 脚本与图标生成兼容性；安装包未签名，真实旧版覆盖升级仍需隔离环境验证。
+- 本轮审计、15 项竞品研究和 EV 路线见 [PROJECT_AUDIT.md](PROJECT_AUDIT.md)、[COMPETITOR_ANALYSIS.md](COMPETITOR_ANALYSIS.md)、[UPGRADE_ROADMAP.md](UPGRADE_ROADMAP.md) 和 [UPGRADE_REPORT.md](UPGRADE_REPORT.md)。
+
 ## 0.0.6 — 2026-11-13
 
 - 修复点击安装并重启后应用退出却没有重新打开的问题：更新助手现在携带完整的 ICU 与 V8 启动数据

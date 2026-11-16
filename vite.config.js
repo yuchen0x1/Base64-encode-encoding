@@ -25,9 +25,8 @@ const currentEntry = loadEntry(pkg.version)
 
 /**
  * 构建期注入版本元数据，并产出 dist/version.json。
- * 该文件是「当前部署版本」的唯一事实来源：
- *  - 网页端静态模式与更新服务端都读取它来判断线上版本
- *  - 开发服务器同样返回它，保证 /version.json 在任何模式下可用
+ * 该文件记录 Windows 渲染界面的构建版本，供打包脚本核对。
+ * 开发服务器同样返回它，方便本地调试。
  */
 function versionManifestPlugin() {
   const payload = () => ({

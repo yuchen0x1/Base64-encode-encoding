@@ -1,9 +1,7 @@
 @echo off
 chcp 65001 >nul
-echo ========================================================
-echo   极客工具箱 - 启动 Windows PC 桌面原生版
-echo ========================================================
-echo.
-echo 正在启动桌面端独立窗口应用...
-start "" "release\win-unpacked\极客工具箱.exe"
-exit
+pushd "%~dp0"
+echo 极客工具箱 - 从当前源码构建并启动 Windows 桌面窗口
+call npm run electron:dev
+popd
+pause

@@ -1,12 +1,12 @@
 # 贡献指南
 
-感谢你为极客工具箱提交改进。
+感谢你为极客工具箱提交改进。本项目仅支持 Windows x64；Vue / Vite 用于 Electron 渲染界面，不维护独立网站或其他平台版本。
 
 ## 开始之前
 
 ```bash
-npm install
-npm run build
+npm ci
+npm run electron:dev
 ```
 
 ## 分支约定
@@ -16,7 +16,7 @@ npm run build
 - 不保留个人功能分支、临时修复分支或已合并的远程跟踪分支；临时实验完成后应回到 `main` 并清理引用。
 - 操作前先确认 `git status --short --branch`，保留工作区中已有的未提交修改，不使用强制重置覆盖它们。
 
-提交功能或修复前，请确认生产构建通过，并在浏览器中检查浅色和深色主题。
+提交功能或修复前，请确认生产构建通过，并在 Windows Electron 窗口中检查浅色和深色主题。
 
 ## 开发约定
 
@@ -30,16 +30,17 @@ npm run build
 ## 提交检查
 
 ```bash
-npm run build
-node scripts/release.mjs --skip-build --delta
+npm test
+npm run lint
+npm run test:desktop
 ```
 
 如果修改了更新流程，请同时验证：
 
 1. 更新源清单版本高于当前版本时能正确提示；
 2. SHA-256 校验失败时旧文件保持不变；
-3. 更新完成后服务器或桌面端能自动重启；
-4. 更新包中的路径不能穿越目标目录。
+3. 安装助手确认就绪后应用才退出，更新完成后能打开新版本；
+4. 安装包格式、目标路径和目标版本均经过验证；可运行 `npm run test:updater` 检查真实助手进程。
 
 ## 提交信息
 

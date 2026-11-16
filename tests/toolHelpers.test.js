@@ -3,6 +3,7 @@ import {
   createQrDataUrl,
   formatRadixValue,
   getUniqueFileReferences,
+  MAX_IMAGE_DATA_BYTES,
   imageExtensionForMime,
   parseImageDataUrl,
   parseRadixValue,
@@ -57,6 +58,24 @@ describe('image DataURL helpers', () => {
   it('rejects payloads that do not contain a recognized image format', () => {
     expect(parseImageDataUrl('data:text/plain;base64,SGVsbG8=')).toBeNull()
     expect(parseImageDataUrl('not an image')).toBeNull()
+  })
+
+  it('enforces a caller-provided decoded image size limit', () => {
+    const pngBytes = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    const payload = bytesToBase64(pngBytes)
+    expect(parseImageDataUrl(`data:image/png;base64,${payload}`, { maxBytes: 4 })).toBeNull()
+    expect(MAX_IMAGE_DATA_BYTES).toBe(16 * 1024 * 1024)
+  })
+
+  it('rejects oversized base64 from its length before decoding the payload', () => {
+    const oversizedPayload = 'A'.repeat(1024)
+    expect(parseImageDataUrl(`[image omitted]${oversizedPayload}`, { maxBytes: 16 })).toBeNull()
+  })
+
+  it('handles unpadded base64 while enforcing the decoded byte limit', () => {
+    const pngBytes = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00])
+    const payload = bytesToBase64(pngBytes).replace(/=+$/, '')
+    expect(parseImageDataUrl(payload, { maxBytes: pngBytes.length })).toMatchObject({ mimeType: 'image/png' })
   })
 
   it('maps supported image MIME types to extensions and uses img as the fallback', () => {

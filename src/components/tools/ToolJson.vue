@@ -103,9 +103,8 @@ const input = ref(`{
   "version": "1.2.0-ULTRA",
   "engine": "Local-First Sandbox",
   "architecture": {
-    "desktop": "Electron Native",
-    "mobile": "Capacitor Hybrid",
-    "web": "Vite + Vue 3 Ultra UI"
+    "desktop": "Electron Windows",
+    "renderer": "Vite + Vue 3"
   },
   "modules": {
     "totalTools": 21,

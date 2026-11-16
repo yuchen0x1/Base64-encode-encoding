@@ -104,6 +104,7 @@
 <script setup>
 import { ref, onActivated, onDeactivated, onUnmounted } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
+import { parseUnixTimestamp } from '../../utils/timestamp.js'
 
 const currentDateTimeStr = ref('')
 const nowSeconds = ref(0)
@@ -151,18 +152,12 @@ function fillCurrentStamp() {
 
 function convertStampToDate() {
   if (!inputTimestamp.value.trim()) return
-  const raw = inputTimestamp.value.trim()
-  if (!/^[+-]?\d+$/.test(raw)) {
-    outputDateResult.value = '无效的时间戳格式'
+  const result = parseUnixTimestamp(inputTimestamp.value, stampUnit.value)
+  if (!result.valid) {
+    outputDateResult.value = result.error
     return
   }
-  const value = Number(raw)
-  const d = new Date(stampUnit.value === 's' ? value * 1000 : value)
-  if (!Number.isFinite(value) || !Number.isFinite(d.getTime())) {
-    outputDateResult.value = '时间戳超出有效范围'
-    return
-  }
-  outputDateResult.value = formatDate(d)
+  outputDateResult.value = formatDate(result.date)
 }
 
 function fillCurrentDatetime() {

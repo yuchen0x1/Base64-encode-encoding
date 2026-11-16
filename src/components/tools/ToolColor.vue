@@ -52,7 +52,6 @@ import { ref, computed } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
 
 const hexValue = ref('#38bdf8')
-const error = ref('')
 const swatches = ['#38bdf8', '#34d399', '#c084fc', '#f472b6', '#fb7185', '#fbbf24', '#0f172a', '#f8fafc']
 
 function hexToRgb(hex) {
@@ -92,15 +91,16 @@ function rgbToHsl(r, g, b) {
   }
 }
 
-const rgb = computed(() => {
-  error.value = ''
+const colorState = computed(() => {
   const val = hexToRgb(hexValue.value)
   if (!val) {
-    error.value = '无效的 HEX 色值'
-    return { r: 0, g: 0, b: 0 }
+    return { rgb: { r: 0, g: 0, b: 0 }, error: '无效的 HEX 色值' }
   }
-  return val
+  return { rgb: val, error: '' }
 })
+
+const rgb = computed(() => colorState.value.rgb)
+const error = computed(() => colorState.value.error)
 
 const currentRgba = computed(() => {
   const c = rgb.value

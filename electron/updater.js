@@ -28,6 +28,9 @@ import { prepareInstallerRuntime, startInstallerHelper } from './installer-boots
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const DEFAULT_UPDATE_FEED = 'https://github.com/yuchen0x1/Base64-encode-encoding/releases/latest/download/version.json'
+export const MAX_UPDATE_PACKAGE_BYTES = 512 * 1024 * 1024
+export const UPDATE_DOWNLOAD_IDLE_TIMEOUT_MS = 30_000
+const UPDATE_DOWNLOAD_CANCELLED = 'ERR_UPDATE_DOWNLOAD_CANCELLED'
 
 const state = {
   latest: null,
@@ -36,6 +39,7 @@ const state = {
   packageInfo: null,
   installerFile: '',
   downloading: false,
+  downloadController: null,
   installing: false,
   signature: null
 }
@@ -107,9 +111,19 @@ function isHttpUrl(value) {
   }
 }
 
+export function assertSecureUpdateUrl(value, label = '更新地址') {
+  if (!isHttpUrl(value)) return true
+  const protocol = new URL(value).protocol
+  if (protocol === 'http:' && app.isPackaged && process.env.TOOLBOX_ALLOW_INSECURE_UPDATE_FEED !== '1') {
+    throw new Error(`${label}必须使用 HTTPS；仅允许在开发环境显式开启 HTTP 更新源`)
+  }
+  return true
+}
+
 async function readManifest(feed) {
   if (isHttpUrl(feed)) {
     const manifestUrl = new URL(feed)
+    assertSecureUpdateUrl(manifestUrl.href, '更新源')
     if (!/\.json$/i.test(manifestUrl.pathname)) {
       if (!manifestUrl.pathname.endsWith('/')) manifestUrl.pathname += '/'
       manifestUrl.pathname += 'version.json'
@@ -181,20 +195,49 @@ async function hashFile(file) {
   return hash.digest('hex')
 }
 
-async function downloadHttpTo(url, dest, expectedSize, onProgress, attempts = 3) {
+function createDownloadCancelledError() {
+  const error = new Error('更新包下载已取消')
+  error.code = UPDATE_DOWNLOAD_CANCELLED
+  return error
+}
+
+function assertDownloadNotCancelled(signal) {
+  if (signal?.aborted) throw createDownloadCancelledError()
+}
+
+function assertDownloadSize(size) {
+  if (Number.isFinite(size) && size > MAX_UPDATE_PACKAGE_BYTES) {
+    throw new Error(`更新包超过大小上限（最大 ${MAX_UPDATE_PACKAGE_BYTES} 字节）`)
+  }
+}
+
+async function downloadHttpTo(url, dest, expectedSize, onProgress, attempts = 3, signal) {
   const declaredSize = Number(expectedSize)
+  assertDownloadSize(declaredSize)
   let lastError
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     let start = 0
+    assertDownloadNotCancelled(signal)
+    const requestController = new AbortController()
+    let timeoutId
+    let externalAbort
+    const armTimeout = () => {
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => requestController.abort(), UPDATE_DOWNLOAD_IDLE_TIMEOUT_MS)
+    }
     try {
       const existing = await fs.stat(dest).catch(() => null)
       if (existing?.isFile() && existing.size > 0 && (!declaredSize || existing.size < declaredSize)) {
         start = existing.size
       }
+      assertDownloadSize(start)
 
       const headers = start ? { Range: `bytes=${start}-` } : undefined
-      const res = await httpFetch(url, { cache: 'no-store', headers })
+      externalAbort = () => requestController.abort()
+      signal?.addEventListener('abort', externalAbort, { once: true })
+      armTimeout()
+      const res = await httpFetch(url, { cache: 'no-store', headers, signal: requestController.signal })
       if (!res?.ok) throw new Error(`下载更新包失败：HTTP ${res?.status ?? '未知状态'}`)
       if (!res.body || typeof res.body.getReader !== 'function') {
         throw new Error('下载更新包失败：HTTP 响应缺少内容流')
@@ -209,22 +252,28 @@ async function downloadHttpTo(url, dest, expectedSize, onProgress, attempts = 3)
       const contentLength = Number(res.headers?.get?.('content-length'))
       const contentRange = res.headers?.get?.('content-range') || ''
       const rangeTotal = Number(contentRange.match(/\/([0-9]+)$/)?.[1] || 0)
+      assertDownloadSize(contentLength)
+      assertDownloadSize(rangeTotal)
       const total = rangeTotal || (Number.isFinite(declaredSize) && declaredSize > 0
         ? declaredSize
         : Number.isFinite(contentLength) && contentLength > 0
           ? start + contentLength
           : 0)
+      assertDownloadSize(total)
       const handle = await fs.open(dest, start ? 'r+' : 'w')
       const reader = res.body.getReader()
       let received = start
       let lastReport = 0
       try {
         for (;;) {
+          assertDownloadNotCancelled(signal)
+          armTimeout()
           const { done, value } = await reader.read()
           if (done) break
           if (!(value instanceof Uint8Array)) throw new Error('下载更新包失败：内容流返回了无效数据')
           await writeAll(handle, value, received)
           received += value.byteLength
+          assertDownloadSize(received)
           const now = Date.now()
           if (now - lastReport > 120) {
             lastReport = now
@@ -243,33 +292,46 @@ async function downloadHttpTo(url, dest, expectedSize, onProgress, attempts = 3)
       onProgress(1)
       return received
     } catch (error) {
-      lastError = error
+      if (signal?.aborted) throw createDownloadCancelledError()
+      if (requestController.signal.aborted) {
+        lastError = new Error(`下载更新包超时（${UPDATE_DOWNLOAD_IDLE_TIMEOUT_MS} 毫秒无响应）`)
+      } else {
+        lastError = error
+      }
       if (attempt < attempts) {
         await new Promise((resolve) => setTimeout(resolve, attempt * 700))
       }
+    } finally {
+      clearTimeout(timeoutId)
+      if (signal && externalAbort) signal.removeEventListener('abort', externalAbort)
     }
   }
 
   throw new Error(`下载更新包失败（已重试 ${attempts} 次）：${lastError?.message || '未知错误'}`, { cause: lastError })
 }
 
-async function downloadTo(url, dest, expectedSize, onProgress) {
+async function downloadTo(url, dest, expectedSize, onProgress, signal) {
   await fs.mkdir(path.dirname(dest), { recursive: true })
-  if (isHttpUrl(url)) return downloadHttpTo(url, dest, expectedSize, onProgress)
+  const declaredSize = Number(expectedSize)
+  assertDownloadSize(declaredSize)
+  if (isHttpUrl(url)) return downloadHttpTo(url, dest, expectedSize, onProgress, 3, signal)
 
   const handle = await fs.open(dest, 'w')
   try {
     const stat = await fs.stat(url)
+    assertDownloadSize(stat.size)
     const total = stat.size || 1
     const buffer = Buffer.alloc(256 * 1024)
     const source = await fs.open(url, 'r')
     let received = 0
     try {
       for (;;) {
+        assertDownloadNotCancelled(signal)
         const { bytesRead } = await source.read(buffer, 0, buffer.length, received)
         if (!bytesRead) break
         await writeAll(handle, buffer.subarray(0, bytesRead), received)
         received += bytesRead
+        assertDownloadSize(received)
         onProgress(received / total)
       }
     } finally {
@@ -359,6 +421,7 @@ export async function checkForUpdates() {
   const latestVersion = normalizeVersion(manifest.version)
   if (!latestVersion) throw new Error('更新清单 version 字段无效')
   const pkg = resolvePackage(manifest, base)
+  if (pkg.kind === 'http') assertSecureUpdateUrl(pkg.url, '更新包地址')
   const kind = manifest.kind || ''
   const hasUpdate = isNewerVersion(latestVersion, currentVersion)
   if (hasUpdate) assertSupportedInstallerPackage(pkg, kind)
@@ -414,6 +477,7 @@ export async function downloadUpdate() {
   assertSupportedInstallerPackage(pkg, state.manifestKind)
 
   state.downloading = true
+  state.downloadController = new AbortController()
   let dest = ''
   try {
     const baseDir = path.join(app.getPath('userData'), 'updates')
@@ -424,7 +488,7 @@ export async function downloadUpdate() {
     sendProgress(1, '正在下载安装包…')
     const received = await downloadTo(pkg.url, dest, pkg.size, (ratio) => {
       sendProgress(2 + ratio * 86, `正在下载安装包… ${Math.round(ratio * 100)}%`)
-    })
+    }, state.downloadController.signal)
 
     sendProgress(90, '正在校验安装包…')
     const actual = await hashFile(dest)
@@ -447,7 +511,14 @@ export async function downloadUpdate() {
     throw error
   } finally {
     state.downloading = false
+    state.downloadController = null
   }
+}
+
+export function cancelDownloadUpdate() {
+  if (!state.downloading || !state.downloadController) return { ok: false, cancelled: false }
+  state.downloadController.abort()
+  return { ok: true, cancelled: true }
 }
 
 export async function installUpdate() {
@@ -536,6 +607,7 @@ export function registerUpdaterIpc(ipcMain) {
   ipcMain.handle('update:info', () => getUpdateInfo())
   ipcMain.handle('update:check', () => checkForUpdates())
   ipcMain.handle('update:download', () => downloadUpdate())
+  ipcMain.handle('update:cancel', () => cancelDownloadUpdate())
   ipcMain.handle('update:install', () => installUpdate())
 }
 

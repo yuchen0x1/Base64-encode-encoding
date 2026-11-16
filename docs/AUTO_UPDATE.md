@@ -1,132 +1,89 @@
-# 自动更新实施说明
+# Windows 自动更新说明
 
-更新日期：2026-11-13（Asia/Shanghai）
+当前项目仅维护 Windows x64 Electron 安装版。Vue / Vite 产物是桌面应用的渲染资源；不再维护独立网站、HTTP 更新服务或其他平台版本。
 
-## 1. 当前方案
+## 版本与产物
 
-项目同时支持三种运行形态：
+版本取 `package.json` 的 `MAJOR.MINOR.PATCH`，Git 标签为 `vX.Y.Z`。本地发布脚本只生成两个文件：
 
-| 运行形态 | 更新来源 | 更新动作 |
-|---|---|---|
-| Electron Windows 安装版 | GitHub Release 的 `version.json` 与 NSIS 安装包 | 下载、断点续传重试、SHA-256、可选 Authenticode 校验、安装助手覆盖、版本核验、重启 |
-| 本地 Web 更新服务 | `updates/web/version.json` 与网页 ZIP | 下载、SHA-256、ZIP 限制与 CRC 校验、目录换位或逐文件回滚、服务器重启 |
-| 纯静态 Web | 当前部署目录的 `version.json` | 检查版本、清理缓存、刷新页面；不能由浏览器直接覆盖服务器文件 |
-
-Electron 没有引入 `electron-updater`：当前项目需要先校验 NSIS 安装包，再由独立安装助手执行覆盖和安装后 `app.asar` 版本核验。这样可以继续使用现有的回滚与损坏安装包防护逻辑。
-
-## 2. 版本与清单
-
-版本使用 `MAJOR.MINOR.PATCH`，发布标签格式为 `vX.Y.Z`。发布脚本生成：
-
-- `updates/desktop/version.json`
-- `updates/desktop/GeekToolbox-Setup-X.Y.Z.exe`
-- `updates/web/version.json`
-- `updates/web/geek-toolbox-web-X.Y.Z.zip`
-
-桌面清单示例：
-
-```json
-{
-  "version": "0.0.4",
-  "kind": "nsis",
-  "channel": "stable",
-  "package": {
-    "url": "GeekToolbox-Setup-0.0.4.exe",
-    "sha256": "真实的 64 位 SHA-256",
-    "size": 123456789,
-    "signature": {
-      "type": "authenticode",
-      "thumbprint": "真实证书指纹"
-    }
-  }
-}
+```text
+updates/desktop/version.json
+updates/desktop/GeekToolbox-Setup-X.Y.Z.exe
 ```
 
-`package.signature` 可选。存在时客户端必须验证 Authenticode 状态为 `Valid` 且证书指纹完全匹配；验证失败会拒绝安装。当前没有提交代码签名证书，因此未签名安装包只能完成 SHA-256 校验，不能宣称已完成数字签名验证。
+清单包含 `version`、`channel`、`buildTime`、`releaseDate`、`notes`、`kind: "nsis"` 以及 `package.url`、`package.sha256`、`package.size`。
 
-## 3. GitHub Actions 发布
+SHA-256 为安装包的真实摘要，缺失、格式非法或下载内容不一致时拒绝更新。`package.signature` 可选；配置时包含 `type: "authenticode"`、40 位证书 `thumbprint` 和可选 `subject`。客户端必须验证签名有效且指纹匹配。SHA-256 本身不提供发布者身份认证。
 
-工作流文件：
+## 构建与发布
 
-- `.github/workflows/quality.yml`：`main` push、面向 `main` 的 PR、手动运行；执行 `npm ci`、测试、lint 和前端构建。
-- `.github/workflows/build-all.yml`：继续构建 Web、Windows、macOS、iOS、Android 产物；已统一只监听 `main`。
-- `.github/workflows/release.yml`：只由 `vX.Y.Z` 标签或手动指定已有标签触发；构建并验证 Windows NSIS、生成 Web/桌面清单，创建或幂等更新同标签 GitHub Release。
+在 Windows 上使用 Node.js 22 或更高版本、已有 npm 依赖和 7-Zip：
 
-发布工作流使用 `GITHUB_TOKEN`，权限仅为 `contents: write`。不会在普通 push 或 PR 中创建 Release。
+```sh
+npm run release
+```
 
-### 需要配置的 Secrets
+`npm run release:desktop` 保留为同一命令的兼容入口。脚本先构建界面，再构建 Windows x64 NSIS 安装包，验证外层归档和内嵌载荷，最后写入桌面更新目录。可使用 `TOOLBOX_7Z` 指定 `7z.exe`。
 
-以下 Secrets 都是可选的，但配置后才能生成带签名的 Windows 安装包：
+可复用已构建的安装包：
 
-- `WINDOWS_CSC_LINK`：electron-builder 支持的代码签名证书内容或受保护地址。
+```sh
+npm run release -- --skip-build --installer "release/GeekToolbox-Setup-0.0.6.exe"
+```
+
+`--skip-build` 仍会核对 `dist/version.json` 与目标版本一致。`--version X.Y.Z` 或 `--bump patch` 会修改本地包版本；正式发版前还需同步 `release-notes.json` 和发布说明。清理维护范围时不应擅自发版或覆盖现有标签。
+
+云同步目录可能干扰大文件写入，可使用 `--out` 将 electron-builder 输出放到本地磁盘。安装包完整性校验不应跳过；兼容 `app-64.7z` 和 `resources/app.asar` 两种 NSIS 载荷结构。
+
+本地脚本不会上传 GitHub。GitHub Actions 配置为：
+
+- `quality.yml`：Windows 上执行 `npm ci`、测试、lint 和渲染界面构建。
+- `build-all.yml`：仅构建和保存 Windows NSIS 安装包。
+- `release.yml`：版本标签或手动触发时，测试、验证独立助手、构建并核验安装包，发布安装包及桌面清单两个文件。
+
+发布工作流检查标签与 `package.json` 版本完全一致；普通 push / PR 不会创建 Release。已发布历史版本的网页资产不由本次代码清理远程删除。
+
+## 代码签名配置
+
+以下 GitHub Secrets 为可选配置：
+
+- `WINDOWS_CSC_LINK`：electron-builder 使用的证书内容或受保护地址。
 - `WINDOWS_CSC_KEY_PASSWORD`：证书密码。
-- `WINDOWS_AUTHENTICODE_THUMBPRINT`：签名证书 SHA-1 指纹，40 位十六进制。
-- `WINDOWS_AUTHENTICODE_SUBJECT`：可选的证书主题描述。
+- `WINDOWS_AUTHENTICODE_THUMBPRINT`：40 位十六进制证书指纹。
+- `WINDOWS_AUTHENTICODE_SUBJECT`：可选证书主题。
 
-私钥、证书密码和 Token 不得写入仓库。未配置证书时，发布仍会生成安装包和 SHA-256 清单，但清单不会加入 `signature` 字段。
+未配置证书时仍可生成未签名安装包和 SHA-256 清单，但不得宣称完成了代码签名验证。私钥、密码和 Token 不得入库。
 
-## 4. 发布步骤
+## 更新源
 
-在 `main` 上完成版本与更新日志修改后：
+按以下顺序选择：
 
-```bash
+1. 环境变量 `TOOLBOX_UPDATE_FEED`。
+2. Electron 用户目录 `update-config.json` 的 `feed`。
+3. 打包应用默认使用 GitHub Releases 的 `latest/download/version.json`；开发环境默认读取项目的 `updates/desktop/`。
+
+Windows 安装版启动约 4 秒后自动检查；用户也可以点击侧边栏版本号手动检查。开发预览没有 Electron IPC，不会请求旧的 HTTP 更新接口。
+
+## 客户端流程
+
+1. 比较版本，不对更旧的版本触发更新。
+2. 下载到 `userData/updates/`；HTTP 下载最多三次重试，服务器支持 Range 时继续已有临时文件。
+3. 核验安装包大小与 SHA-256，有签名配置时再核验 Authenticode。
+4. 准备安装目录之外的独立助手运行时，包含 ICU 与 V8 启动数据。
+5. 助手通过专用 IPC 确认就绪后，当前应用才退出；崩溃、超时或缺失文件会保留当前应用并显示错误。
+6. 助手等待旧进程释放文件，执行 NSIS 覆盖安装，核验目标 EXE 和 ASAR 版本，启动新版；安装失败时重试或回退交互式安装。
+
+**v0.0.4 / v0.0.5 用户须先手动覆盖安装 v0.0.6 一次。** 已安装的旧助手无法通过替换线上安装包修复自身的启动故障。无需卸载或清除配置，详见[故障复盘](UPDATER_INCIDENT_2026-11-13.md)。
+
+## 检查与验收边界
+
+```sh
 npm test
 npm run lint
-npm run build
-git add package.json package-lock.json release-notes.json
-git commit -m "release: v0.0.4"
-git push origin main
-git tag v0.0.4
-git push origin v0.0.4
+npm run test:desktop
+npm run test:updater
 ```
 
-标签工作流会检查标签版本与 `package.json` 完全一致。不要在没有对应版本提交的情况下重复创建同名标签。
+更新检查位于 `tests/updater.test.js`、`tests/useUpdater.test.js`、`tests/update-validation.test.js`、`tests/apply-installer.test.js`、`tests/installer-verification.test.js`、`tests/installer-bootstrap.test.js` 和 `tests/updater-handshake.test.js`。
 
-本地生成更新包：
-
-```bash
-npm run release                 # Web 更新包
-npm run release:desktop         # Windows 安装包 + 桌面清单
-```
-
-Windows 安装包构建位于云同步目录时，优先使用 `--out` 指向本地磁盘，并让发布脚本执行 NSIS 外层归档与应用载荷校验（兼容 `app-64.7z` / `resources/app.asar` 两种结构）。
-
-## 5. 客户端流程
-
-1. 启动后延迟检查；用户也可以点击版本号手动检查。
-2. 版本比较使用共享的语义化版本解析，旧版本不会触发降级更新。
-3. Electron 下载先写入 `userData/updates/`，HTTP 下载支持最多三次重试，并在服务器支持 Range 时从已有临时文件继续。
-4. 下载完成后校验清单中的文件大小和 SHA-256。
-5. 如果清单提供 Authenticode 指纹，再使用 Windows `Get-AuthenticodeSignature` 校验签名和指纹。
-6. 验证通过后才启动独立安装助手；助手从安装目录外的临时运行时副本启动，等待旧进程退出，执行静默安装，检查可执行文件与 `app.asar/package.json` 版本，失败时自动重试并回退到交互式安装。
-
-## 6. Web 更新流程
-
-本地更新服务默认只监听 `127.0.0.1`，只有回环请求可以触发替换。远程触发必须显式使用 `--allow-remote-update` 或 `TOOLBOX_ALLOW_REMOTE_UPDATE=1`。
-
-```bash
-node server/serve.js --root dist --feed updates/web
-```
-
-服务器会在替换前校验 SHA-256、ZIP 条目数量/解压大小、路径安全和 CRC；目录换位失败时降级为逐文件替换，并保留回滚副本。
-
-## 7. 失败处理
-
-- 更新源不可访问：启动检查静默失败，不影响当前版本运行。
-- 下载中断：Electron HTTP 下载保留临时文件并重试；最终失败会清理未完成文件。
-- SHA-256 不匹配：拒绝安装，旧版本保持不变。
-- Authenticode 状态或指纹不匹配：拒绝安装。
-- NSIS 安装失败：安装助手验证失败并尝试重新执行安装或交互式回退；v0.0.4 对旧卸载器 code 2 做有限放行，并在新卸载器中采用直接目录清理，旧版本文件不会被客户端主动删除。
-- Web 文件替换失败：服务端恢复目录或逐文件回滚，并记录更新日志。
-
-## 8. 测试命令
-
-```bash
-npm test
-npm run lint
-npm run build
-```
-
-更新链路测试位于 `tests/updater.test.js`、`tests/update-validation.test.js`、`tests/apply-installer.test.js`、`tests/installer-verification.test.js`、`tests/serve.test.js` 和 `tests/zip-limits.test.js`。
-
-当前环境能够验证本地清单、哈希、路径防护、回滚逻辑和构建；真实 GitHub Release 发布、Windows 签名、安装后重启和 macOS/iOS 商店发布需要对应外部凭据或平台环境。
+`test:desktop` 验证 Electron 沙箱内的界面和 Worker，`test:updater` 验证独立助手真实启动与失败保护，二者均不执行安装器。必须分别报告构建、签名、实际安装和完整自动更新结果；只有旧客户端实际发现、校验、安装并启动新版本，才能标记自动更新端到端通过。

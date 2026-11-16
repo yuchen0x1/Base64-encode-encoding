@@ -1,0 +1,41 @@
+{
+  "researchedAt": "2026-11-12",
+  "scope": "开发者工具箱、离线工具集合、API/桌面开发工作台",
+  "method": "GitHub 官方仓库元数据检索、README/目录结构核对、与当前项目源码对照；未复制第三方代码",
+  "candidateCount": 15,
+  "candidates": [
+    {"name":"IT Tools","repository":"https://github.com/CorentinTh/it-tools","license":"GPL-3.0","fit":"直接竞品"},
+    {"name":"CyberChef","repository":"https://github.com/gchq/CyberChef","license":"Apache-2.0","fit":"组合式数据处理竞品"},
+    {"name":"DevToys","repository":"https://github.com/DevToys-app/DevToys","license":"MIT","fit":"桌面工具箱竞品"},
+    {"name":"Hoppscotch","repository":"https://github.com/hoppscotch/hoppscotch","license":"MIT","fit":"Web/API 工作台"},
+    {"name":"Bruno","repository":"https://github.com/usebruno/bruno","license":"MIT","fit":"本地优先 API 工作台"},
+    {"name":"He3","repository":"https://github.com/he3-app/he3","license":"待从仓库版本核实","fit":"桌面开发工具箱"},
+    {"name":"极速箱 Jisuxiang","repository":"https://github.com/star7th/jisuxiang","license":"仓库标注 Other","fit":"中文 Web 工具箱"},
+    {"name":"ut","repository":"https://github.com/ksdme/ut","license":"MIT","fit":"Rust 本地工具箱"},
+    {"name":"tools","repository":"https://github.com/mydearcc/tools","license":"待从仓库版本核实","fit":"中文 Web 工具集合"},
+    {"name":"Insomnia","repository":"https://github.com/Kong/insomnia","license":"待从仓库版本核实","fit":"API 调试工作台"},
+    {"name":"HTTPie Desktop","repository":"https://github.com/httpie/desktop","license":"待从仓库版本核实","fit":"桌面 API 客户端"},
+    {"name":"Requestly","repository":"https://github.com/requestly/requestly","license":"GPL-3.0","fit":"浏览器请求调试工具"},
+    {"name":"PowerToys","repository":"https://github.com/microsoft/PowerToys","license":"MIT","fit":"Windows 工具体验参考"},
+    {"name":"Files","repository":"https://github.com/files-community/Files","license":"MIT","fit":"Windows 桌面交互参考"},
+    {"name":"The Book of Secret Knowledge","repository":"https://github.com/trimstray/the-book-of-secret-knowledge","license":"MIT","fit":"开发者工具目录参考"}
+  ],
+  "selectedForAdaptation": [
+    {"name":"IT Tools","reason":"工具分组、路由与单工具独立边界清晰；当前项目采用相似的元数据+组件注册思路，但未直接复制 GPL 代码。"},
+    {"name":"CyberChef","reason":"recipe/步骤组合是高价值 C 类方向；当前项目先记录为未来规划，避免引入复杂执行器。"},
+    {"name":"DevToys","reason":"桌面优先发现、离线定位和工作区体验值得借鉴；本轮落地工作区备份与可访问操作入口。"},
+    {"name":"Hoppscotch","reason":"Web、桌面和本地数据边界清晰；借鉴工作台式导航，不引入远程 API 能力。"},
+    {"name":"Bruno","reason":"本地文件持久化和离线工作流适合参考；当前项目先实现轻量 JSON 工作区导出/导入。"},
+    {"name":"He3","reason":"桌面工具箱的工具发现与快捷入口可作 UI 对照，许可证与具体实现继续人工核查。"},
+    {"name":"极速箱 Jisuxiang","reason":"中文工具命名与分类可作本地化文案参考，仓库标注许可证不明，不直接移植代码。"},
+    {"name":"ut","reason":"轻量、本地、零云端依赖的工具组织方式适合性能对照。"}
+  ],
+  "deepResearch": [
+    {"name":"IT Tools","inspected":"仓库 README、工具目录、前端路由/组件组织和测试配置","adopted":"保持单工具组件边界、继续加强统一注册表","notAdopted":"GPL-3.0 源码不复制"},
+    {"name":"CyberChef","inspected":"recipe 处理模型、操作链和离线部署说明","adopted":"记录未来 recipe 管线需求","notAdopted":"本轮不引入全局步骤执行器"},
+    {"name":"DevToys","inspected":"桌面工具发现、分类导航和本地优先产品定位","adopted":"补充工作区备份入口与清晰的本地状态反馈","notAdopted":"不迁移原生 .NET 架构"},
+    {"name":"Hoppscotch","inspected":"Web/PWA/桌面/CLI 分层与工作台导航","adopted":"保留跨端共用 Vue 工作区和离线状态","notAdopted":"不增加 API 客户端范围"},
+    {"name":"Bruno","inspected":"本地优先工作流、项目文件持久化和桌面壳交互","adopted":"将工作区导出格式设计为版本化 JSON，并导入时校验注册表","notAdopted":"不引入 API 请求与集合执行器"}
+  ],
+  "researchConclusion": "当前最高价值是继续做本地优先、可迁移、可发现的工具工作台；API 客户端和 recipe 引擎属于后续独立阶段。"
+}

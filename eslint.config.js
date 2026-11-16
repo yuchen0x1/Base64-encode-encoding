@@ -4,13 +4,14 @@ import globals from 'globals'
 
 export default [
   {
-    // 构建产物、原生工程与临时目录不参与源码 lint
+    // 构建产物与临时目录不参与源码 lint
     ignores: [
       'dist',
       'release',
       'node_modules',
       '.tmp-verify',
       '.tmp-release',
+      // 退出维护的本地原生构建缓存不属于源码
       'android',
       'ios',
       'updates',

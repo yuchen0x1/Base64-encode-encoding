@@ -85,7 +85,34 @@ const selectedAlgo = ref('hex')
 const mode = ref('encode')
 const input = ref('CYBER_SECURITY_2026')
 const copied = ref(false)
-const error = ref('')
+const conversion = computed(() => {
+  if (!input.value) return { value: '', error: '' }
+  try {
+    const algo = selectedAlgo.value
+    if (algo === 'hex') {
+      return {
+        value: mode.value === 'encode' ? encodeHexText(input.value) : decodeHexText(input.value),
+        error: ''
+      }
+    }
+    if (algo === 'morse') {
+      return {
+        value: mode.value === 'encode' ? strToMorse(input.value) : morseToStr(input.value),
+        error: ''
+      }
+    }
+    if (algo === 'base32') {
+      return {
+        value: mode.value === 'encode' ? encodeBase32(input.value) : decodeBase32(input.value),
+        error: ''
+      }
+    }
+    if (algo === 'rot13') return { value: rot13(input.value), error: '' }
+    return { value: '', error: '' }
+  } catch (e) {
+    return { value: '', error: e.message || '解码格式无效' }
+  }
+})
 
 const selectedAlgoName = computed(() => {
   const a = algorithms.find(item => item.id === selectedAlgo.value)
@@ -118,26 +145,8 @@ function rot13(str) {
   })
 }
 
-const output = computed(() => {
-  error.value = ''
-  if (!input.value) return ''
-  try {
-    const algo = selectedAlgo.value
-    if (algo === 'hex') {
-      return mode.value === 'encode' ? encodeHexText(input.value) : decodeHexText(input.value)
-    } else if (algo === 'morse') {
-      return mode.value === 'encode' ? strToMorse(input.value) : morseToStr(input.value)
-    } else if (algo === 'base32') {
-      return mode.value === 'encode' ? encodeBase32(input.value) : decodeBase32(input.value)
-    } else if (algo === 'rot13') {
-      return rot13(input.value)
-    }
-    return ''
-  } catch (e) {
-    error.value = e.message || '解码格式无效'
-    return ''
-  }
-})
+const output = computed(() => conversion.value.value)
+const error = computed(() => conversion.value.error)
 
 async function copyOutput() {
   if (!output.value) return

@@ -13,6 +13,7 @@ const {
   normalizeAppState,
   filterCommonTools,
   getCommonToolsCount,
+  MAX_WORKSPACE_BACKUP_BYTES,
   createWorkspaceBackup,
   parseWorkspaceBackup
 } = await import('../src/utils/appState.js')
@@ -131,5 +132,10 @@ describe('workspace backup', () => {
       .toThrow('工作区备份版本不受支持')
     expect(() => parseWorkspaceBackup('{bad json', tools, registeredToolIds))
       .toThrow('工作区备份不是有效的 JSON 文件')
+  })
+
+  it('rejects oversized JSON before parsing it', () => {
+    expect(() => parseWorkspaceBackup('x'.repeat(MAX_WORKSPACE_BACKUP_BYTES + 1), tools, registeredToolIds))
+      .toThrow('工作区备份超过 1 MiB 大小上限')
   })
 })

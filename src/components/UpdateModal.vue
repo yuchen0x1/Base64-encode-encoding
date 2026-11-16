@@ -75,6 +75,13 @@
                 {{ isBusy ? '后台继续' : '关闭' }}
               </button>
               <button
+                v-if="state.status === 'downloading'"
+                class="btn btn-secondary btn-sm"
+                @click="cancelDownloadUpdate"
+              >
+                取消下载
+              </button>
+              <button
                 class="btn btn-primary btn-sm"
                 :disabled="isBusy"
                 @click="primaryAction"
@@ -103,15 +110,14 @@ import {
   CheckCircle2,
   AlertTriangle,
   Sparkles,
-  Server,
-  Monitor,
-  Globe
+  Monitor
 } from 'lucide-vue-next'
 import {
   useUpdater,
   closeUpdatePanel,
   checkForUpdates,
   downloadUpdate,
+  cancelDownloadUpdate,
   installUpdate
 } from '../composables/useUpdater.js'
 
@@ -136,8 +142,6 @@ const statusIcon = computed(() => {
   if (state.status === 'available') return Download
   if (state.status === 'error') return AlertTriangle
   if (state.mode === 'electron') return Monitor
-  if (state.mode === 'server') return Server
-  if (state.mode === 'static') return Globe
   return CheckCircle2
 })
 
@@ -158,9 +162,7 @@ const statusText = computed(() => {
 const modeHint = computed(() => {
   if (state.mode === 'electron' && state.portable) return '当前以解压目录方式运行：可以检查更新，但无法自动覆盖安装。请运行 GeekToolbox-Setup-<版本>.exe 完成安装。'
   if (state.mode === 'electron') return '桌面安装版：下载完成后会自动安装并重启，安装期间窗口会关闭 10–30 秒，请勿手动重新打开。'
-  if (state.mode === 'server') return '网页版（本地更新服务）：将自动下载更新包、校验 SHA-256、替换文件并重启服务器，页面随后自动刷新。'
-  if (state.mode === 'static') return '网页版（静态部署）：新版本文件已发布在服务器上，点击更新将清理缓存并刷新加载。'
-  return '正在检测运行环境…'
+  return '自动更新仅在 Windows 桌面应用中可用。'
 })
 
 const lastCheckedText = computed(() => {

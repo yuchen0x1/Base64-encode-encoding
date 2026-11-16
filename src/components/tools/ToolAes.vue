@@ -106,7 +106,7 @@
 import { copyText } from '../../utils/clipboard.js'
 import { ref, computed } from 'vue'
 import CryptoJS from 'crypto-js'
-import { parseCiphertext, validateAesParameters } from './aesTool.js'
+import { parseCiphertext, validateAesParameters, validateAesPayload } from './aesTool.js'
 
 const mode = ref('encrypt')
 const modeOpt = ref('CBC')
@@ -116,10 +116,29 @@ const secretKey = ref('0123456789abcdef')
 const iv = ref('0123456789abcdef')
 const input = ref('')
 const copied = ref(false)
-const error = ref('')
+const conversion = computed(() => {
+  if (!input.value) return { value: '', error: '' }
+  try {
+    return {
+      value: buildCipher(input.value, mode.value === 'encrypt'),
+      error: ''
+    }
+  } catch (e) {
+    return { value: '', error: e.message || '加解密失败' }
+  }
+})
 
 function buildCipher(text, isEncrypt) {
   if (!text) return ''
+
+  if (isEncrypt) {
+    const payloadValidation = validateAesPayload({
+      text,
+      mode: modeOpt.value,
+      padding: padding.value
+    })
+    if (!payloadValidation.valid) throw new Error(payloadValidation.error)
+  }
 
   const validation = validateAesParameters({
     key: secretKey.value,
@@ -149,16 +168,8 @@ function buildCipher(text, isEncrypt) {
   }
 }
 
-const output = computed(() => {
-  error.value = ''
-  if (!input.value) return ''
-  try {
-    return buildCipher(input.value, mode.value === 'encrypt')
-  } catch (e) {
-    error.value = e.message || '加解密失败'
-    return ''
-  }
-})
+const output = computed(() => conversion.value.value)
+const error = computed(() => conversion.value.error)
 
 async function copyOutput() {
   if (!output.value) return

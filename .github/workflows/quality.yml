@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   test-and-build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -28,5 +28,5 @@ jobs:
         run: npm test -- --reporter=dot
       - name: Run lint
         run: npm run lint
-      - name: Build web bundle
+      - name: Build Windows renderer
         run: npm run build

@@ -27,6 +27,19 @@ export function validateAesParameters({ key, iv = '', mode = 'CBC' }) {
   return { valid: true }
 }
 
+export function validateAesPayload({ text, mode = 'CBC', padding = 'Pkcs7' }) {
+  if (typeof text !== 'string' || text.length === 0) {
+    return { valid: false, error: '明文不能为空' }
+  }
+  if (padding === 'NoPadding' && mode !== 'CFB') {
+    const byteLength = utf8ByteLength(text)
+    if (byteLength % 16 !== 0) {
+      return { valid: false, error: 'NoPadding 模式要求 CBC/ECB 明文的 UTF-8 字节数为 16 的倍数' }
+    }
+  }
+  return { valid: true }
+}
+
 export function parseCiphertext(text, encoding, mode = 'CBC') {
   if (typeof text !== 'string' || text.length === 0) {
     throw new Error('密文不能为空')

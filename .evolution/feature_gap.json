@@ -1,0 +1,11 @@
+{
+  "updatedAt": "2026-11-12",
+  "items": [
+    {"id":"A-01","category":"A","feature":"工作区备份/恢复","before":"仅 localStorage，无法迁移收藏和标签页","after":"已实现版本化 JSON 导出/导入，导入时过滤未知工具","reference":"DevToys / Bruno","priority":"P1","status":"COMPLETED","test":"Vitest + Playwright download/upload smoke"},
+    {"id":"A-02","category":"A","feature":"工具注册一致性","before":"元数据与组件映射容易分散","after":"registry.js 单一映射并有 assertToolRegistry","reference":"IT Tools","priority":"P1","status":"COMPLETED","test":"registry tests + build"},
+    {"id":"B-01","category":"B","feature":"键盘检索与可访问操作","before":"Ctrl/Cmd+K 可用但图标按钮语义不完整","after":"移动菜单、反馈、主题按钮增加 aria-label；浏览器验证快捷检索","reference":"DevToys / Hoppscotch","priority":"P2","status":"COMPLETED","test":"Playwright smoke"},
+    {"id":"B-02","category":"B","feature":"统一错误态纯计算","before":"5 个工具保留 computed 副作用 warning","after":"尚未重构","reference":"Vue 组合式最佳实践","priority":"P2","status":"PARTIAL","test":"lint warning 计数"},
+    {"id":"C-01","category":"C","feature":"Recipe 多步骤管线","before":"工具之间不能组合处理","after":"仅完成研究记录，未实现","reference":"CyberChef","priority":"P4","status":"PENDING","test":"待设计执行模型和数据契约"},
+    {"id":"D-01","category":"D","feature":"API 客户端/云端同步","before":"项目定位为本地离线工具箱","after":"暂不引入","reference":"Hoppscotch / Bruno","priority":"P4","status":"DEFERRED","test":"需单独评估隐私、网络和账号范围"}
+  ]
+}

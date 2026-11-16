@@ -101,22 +101,20 @@ const mode = ref('encode')
 const input = ref('你好，极客工具箱！Hello, World! 🚀')
 const urlSafe = ref(false)
 const copied = ref(false)
-const error = ref('')
-
-const output = computed(() => {
-  error.value = ''
-  if (!input.value) return ''
+const conversion = computed(() => {
+  if (!input.value) return { value: '', error: '' }
   try {
-    if (mode.value === 'encode') {
-      return encodeUtf8ToBase64(input.value, urlSafe.value)
-    } else {
-      return decodeBase64ToUtf8(input.value, urlSafe.value)
-    }
+    const value = mode.value === 'encode'
+      ? encodeUtf8ToBase64(input.value, urlSafe.value)
+      : decodeBase64ToUtf8(input.value, urlSafe.value)
+    return { value, error: '' }
   } catch (e) {
-    error.value = e.message || '解码错误'
-    return ''
+    return { value: '', error: e.message || '解码错误' }
   }
 })
+
+const output = computed(() => conversion.value.value)
+const error = computed(() => conversion.value.error)
 
 async function pasteInput() {
   try {

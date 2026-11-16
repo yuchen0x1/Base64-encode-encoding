@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseCiphertext, validateAesParameters } from '../src/components/tools/aesTool.js'
+import { parseCiphertext, validateAesParameters, validateAesPayload } from '../src/components/tools/aesTool.js'
 
 describe('AES tool helpers', () => {
   it('validates AES key and IV using UTF-8 byte lengths', () => {
@@ -23,5 +23,13 @@ describe('AES tool helpers', () => {
     expect(() => parseCiphertext('YWJj*', 'Base64')).toThrow('Base64 密文格式无效')
     expect(parseCiphertext(`${'A'.repeat(22)}==`, 'Base64')).toBe(`${'A'.repeat(22)}==`)
     expect(parseCiphertext('00'.repeat(16), 'Hex')).toBe('00'.repeat(16))
+  })
+
+  it('rejects non-block-aligned plaintext for CBC/ECB without padding', () => {
+    expect(validateAesPayload({ text: 'abc', mode: 'CBC', padding: 'NoPadding' }).valid).toBe(false)
+    expect(validateAesPayload({ text: 'abc', mode: 'ECB', padding: 'NoPadding' }).error)
+      .toContain('UTF-8 字节数为 16 的倍数')
+    expect(validateAesPayload({ text: '1234567890abcdef', mode: 'CBC', padding: 'NoPadding' }).valid).toBe(true)
+    expect(validateAesPayload({ text: 'abc', mode: 'CFB', padding: 'NoPadding' }).valid).toBe(true)
   })
 })

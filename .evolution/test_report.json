@@ -1,0 +1,22 @@
+{
+  "updatedAt": "2026-11-13",
+  "checks": [
+    {"name":"Vitest","command":"npm test -- --reporter=dot","status":"PASSED","evidence":"21 files, 131 tests passed, including HTTP retry and Range resume coverage"},
+    {"name":"ESLint","command":"npm run lint","status":"PASSED_WITH_WARNINGS","evidence":"0 errors, 10 existing vue/no-side-effects-in-computed-properties warnings"},
+    {"name":"Vite build","command":"npm run build","status":"PASSED","evidence":"Vite 8.3.6 produced dist successfully"},
+    {"name":"Node syntax","command":"node --check scripts/release.mjs; node --check electron/updater.js; node --check electron/update-validation.js","status":"PASSED","evidence":"All three files parsed successfully"},
+    {"name":"GitHub Actions YAML","command":"python -c import glob,yaml; parse .github/workflows/*","status":"PASSED","evidence":"build-all.yml, quality.yml and release.yml parsed with PyYAML"},
+    {"name":"HTTP update retry/resume","command":"npm test -- tests/updater.test.js --reporter=dot","status":"PASSED","evidence":"Interrupted download retried and resumed from bytes=5-; final size and SHA-256 matched"},
+    {"name":"Browser desktop smoke","command":"with_server.py + node .tmp-verify/workspace_ui_check.mjs","status":"PASSED","evidence":"1440x900: search shortcut, batch category icon, workspace download/import, no page/console errors"},
+    {"name":"Browser mobile smoke","command":"with_server.py + node .tmp-verify/workspace_ui_check.mjs","status":"PASSED","evidence":"390x844: mobile menu opens and screenshot captured"},
+    {"name":"GitHub Actions execution and Release","command":"external GitHub run","status":"NOT_RUN","evidence":"No commit, tag, push or remote workflow execution performed in this session"},
+    {"name":"Windows Authenticode signed release","command":"external certificate and GitHub Secret","status":"BLOCKED_BY_EXTERNAL_DEPENDENCY","evidence":"Workflow verifies the configured thumbprint when WINDOWS_AUTHENTICODE_THUMBPRINT is present; no signing certificate was available locally"},
+    {"name":"Android release/debug","command":"not rerun this round","status":"NOT_RUN","evidence":"Existing audit records prior Debug build; no new native build performed"},
+    {"name":"iOS/macOS native","command":"not available on Windows","status":"BLOCKED_BY_ENVIRONMENT","evidence":"Requires Xcode/macOS"}
+  ],
+  "artifacts": [
+    ".tmp-verify/desktop-workspace.png",
+    ".tmp-verify/mobile-workspace.png",
+    ".tmp-verify/browser-workspace-backup.json"
+  ]
+}

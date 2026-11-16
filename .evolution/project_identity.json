@@ -1,0 +1,18 @@
+{
+  "projectName": "geek-toolbox",
+  "productName": "极客工具箱",
+  "root": "E:\\移动云盘同步盘\\Base64 encode encoding",
+  "repository": "https://github.com/yuchen0x1/Base64-encode-encoding.git",
+  "branch": "main",
+  "headAtAuditStart": "f4dca353154592f49d29fa3ce6bcdf8731afc8b9",
+  "taskId": "single-project-evolution-2026-11-12",
+  "projectType": ["Web 应用", "Windows Electron 桌面应用", "Capacitor Android/iOS 应用", "开发者工具箱"],
+  "stack": {
+    "frontend": "Vue 3 + Vite 8 + JavaScript ESM",
+    "desktop": "Electron 45",
+    "mobile": "Capacitor 8",
+    "server": "Node.js static/update server",
+    "tests": "Vitest 5 + Playwright smoke script"
+  },
+  "workingTreePolicy": "保留用户已有未提交修改；本轮未切换分支、未重置、未推送或发布"
+}

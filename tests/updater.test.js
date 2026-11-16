@@ -18,7 +18,14 @@ const electronMock = vi.hoisted(() => ({
 
 vi.mock('electron', () => electronMock)
 
-const { checkForUpdates, downloadUpdate, installUpdate, getRuntimeCopyPath } = await import('../electron/updater.js')
+const {
+  checkForUpdates,
+  downloadUpdate,
+  cancelDownloadUpdate,
+  installUpdate,
+  getRuntimeCopyPath,
+  MAX_UPDATE_PACKAGE_BYTES
+} = await import('../electron/updater.js')
 const validSha256 = 'a'.repeat(64)
 const windowsIt = process.platform === 'win32' ? it : it.skip
 
@@ -110,6 +117,27 @@ describe('Electron updater package enforcement', () => {
     })
   })
 
+  windowsIt('rejects an insecure HTTP update feed in packaged mode', async () => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'toolbox-updater-http-security-'))
+    const oldPackaged = electronMock.app.isPackaged
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      throw new Error('HTTP feed should be rejected before fetch')
+    })
+    electronMock.app.isPackaged = true
+    process.env.TOOLBOX_UPDATE_FEED = 'http://updates.example.test'
+    process.env.UPDATER_TEST_USER_DATA = root
+    try {
+      await expect(checkForUpdates()).rejects.toThrow(/必须使用 HTTPS/)
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      electronMock.app.isPackaged = oldPackaged
+      delete process.env.TOOLBOX_UPDATE_FEED
+      delete process.env.UPDATER_TEST_USER_DATA
+      fetchSpy.mockRestore()
+      await fs.promises.rm(root, { recursive: true, force: true })
+    }
+  })
+
   windowsIt('retries an interrupted HTTP download and resumes with Range when supported', async () => {
     await withPlatform('win32', async () => {
       const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'toolbox-updater-range-'))
@@ -168,6 +196,85 @@ describe('Electron updater package enforcement', () => {
         expect(fetchSpy).toHaveBeenCalledTimes(3)
         const installerPath = result.installer
         expect(await fs.promises.readFile(installerPath)).toEqual(payload)
+      } finally {
+        delete process.env.TOOLBOX_UPDATE_FEED
+        delete process.env.UPDATER_TEST_USER_DATA
+        fetchSpy.mockRestore()
+        await fs.promises.rm(root, { recursive: true, force: true })
+      }
+    })
+  })
+
+  windowsIt('rejects an oversized update before requesting installer bytes', async () => {
+    await withPlatform('win32', async () => {
+      const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'toolbox-updater-size-'))
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+        if (String(url).endsWith('/version.json')) {
+          return new Response(JSON.stringify({
+            version: '1.0.1',
+            kind: 'nsis',
+            package: {
+              kind: 'http',
+              url: 'installer.exe',
+              sha256: validSha256,
+              size: MAX_UPDATE_PACKAGE_BYTES + 1
+            }
+          }), { status: 200, headers: { 'content-type': 'application/json' } })
+        }
+        throw new Error('oversized package should be rejected before download')
+      })
+      process.env.TOOLBOX_UPDATE_FEED = 'https://updates.example.test'
+      process.env.UPDATER_TEST_USER_DATA = root
+      electronMock.app.getPath.mockImplementation((name) => name === 'userData' ? root : path.join(root, 'GeekToolbox.exe'))
+
+      try {
+        await checkForUpdates()
+        await expect(downloadUpdate()).rejects.toThrow(/大小上限/)
+        expect(fetchSpy).toHaveBeenCalledTimes(1)
+      } finally {
+        delete process.env.TOOLBOX_UPDATE_FEED
+        delete process.env.UPDATER_TEST_USER_DATA
+        fetchSpy.mockRestore()
+        await fs.promises.rm(root, { recursive: true, force: true })
+      }
+    })
+  })
+
+  windowsIt('cancels an in-flight HTTP download and removes the partial installer', async () => {
+    await withPlatform('win32', async () => {
+      const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'toolbox-updater-cancel-'))
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, options = {}) => {
+        if (String(url).endsWith('/version.json')) {
+          return new Response(JSON.stringify({
+            version: '1.0.1',
+            kind: 'nsis',
+            package: {
+              kind: 'http',
+              url: 'installer.exe',
+              sha256: validSha256,
+              size: 16
+            }
+          }), { status: 200, headers: { 'content-type': 'application/json' } })
+        }
+        const stream = new ReadableStream({
+          start(controller) {
+            options.signal?.addEventListener('abort', () => controller.error(new Error('aborted')), { once: true })
+          }
+        })
+        return new Response(stream, { status: 200, headers: { 'content-length': '16' } })
+      })
+      process.env.TOOLBOX_UPDATE_FEED = 'https://updates.example.test'
+      process.env.UPDATER_TEST_USER_DATA = root
+      electronMock.app.getPath.mockImplementation((name) => name === 'userData' ? root : path.join(root, 'GeekToolbox.exe'))
+
+      try {
+        await checkForUpdates()
+        const pending = downloadUpdate()
+        await new Promise((resolve) => setTimeout(resolve, 10))
+        expect(cancelDownloadUpdate()).toMatchObject({ ok: true, cancelled: true })
+        await expect(pending).rejects.toThrow(/取消/)
+        expect(fs.existsSync(path.join(root, 'updates'))).toBe(true)
+        expect((await fs.promises.readdir(path.join(root, 'updates')))).toHaveLength(0)
       } finally {
         delete process.env.TOOLBOX_UPDATE_FEED
         delete process.env.UPDATER_TEST_USER_DATA

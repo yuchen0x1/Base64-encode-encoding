@@ -1,0 +1,17 @@
+{
+  "updatedAt": "2026-11-13",
+  "changes": [
+    {"files":["electron/updater.js","electron/update-validation.js"],"change":"为 Windows NSIS 更新加入 HTTP 重试、Range 续传、文件大小与 SHA-256 校验，并支持可选 Authenticode 指纹验证；签名目标路径通过环境变量传递以兼容带空格路径","reason":"让下载中断和签名校验失败时保持旧版本可用，并避免 PowerShell 参数拆分","verification":"131 个单测通过；updater 单测覆盖中断后 Range 续传"},
+    {"files":["scripts/release.mjs",".github/workflows/release.yml"],"change":"发布清单可写入真实 Authenticode 指纹；Release 工作流在配置指纹时先验证安装包签名，未配置时明确按未签名发布","reason":"不伪造签名，同时把证书验证放在生成清单和发布之前","verification":"Node 语法检查、YAML 解析通过；真实签名发布仍需 GitHub Secret 与证书"},
+    {"files":[".github/workflows/build-all.yml",".github/workflows/quality.yml",".github/workflows/release.yml"],"change":"构建和质量门禁统一只面向 main；增加 main push/PR 质量工作流和 vX.Y.Z 标签发布工作流；同标签手动重跑可幂等更新资产","reason":"后续项目更新集中到 main，普通提交不直接创建 Release","verification":"三份工作流由 PyYAML 解析通过；未在 GitHub 上执行远程 workflow"},
+    {"files":["docs/AUTO_UPDATE.md","README.md"],"change":"补充 Electron、网页版更新源、Secrets、发布、校验、失败处理和已知限制文档","reason":"让本地实现和正式发布边界可维护、可复核","verification":"文档与当前脚本、工作流字段一致"},
+    {"files":["tests/update-validation.test.js","tests/updater.test.js"],"change":"增加签名元数据和 HTTP 重试/Range 续传测试","reason":"覆盖完整性校验和下载恢复关键路径","verification":"21 个测试文件、131 个测试通过"},
+    {"files":[".git/config"],"change":"仓库本地默认分支设为 main，push.default=current，push.autoSetupRemote=true","reason":"后续本仓库的本地分支与推送默认行为统一到 main","verification":"git branch -a 仅有 main 与 origin/main；main 跟踪 origin/main"}
+  ],
+  "notDone": [
+    "没有提交、推送或创建 GitHub Release",
+    "没有删除用户已有未提交修改，也没有 reset 或切换分支",
+    "没有执行真实 Electron 安装替换/重启、iOS/macOS 原生构建或带证书的签名发布",
+    "没有把全局 Git 的 init.defaultBranch 改成 main，只修改了当前仓库本地配置"
+  ]
+}

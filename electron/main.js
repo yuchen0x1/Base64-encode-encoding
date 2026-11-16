@@ -3,11 +3,16 @@ import { existsSync } from 'node:fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { registerUpdaterIpc, scheduleStartupCheck } from './updater.js'
+import { focusWindow, setupSingleInstance } from './single-instance.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 let mainWindow = null
+
+const isPrimaryInstance = setupSingleInstance(app, () => {
+  focusWindow(mainWindow)
+})
 
 function createWindow() {
   // 窗口图标取自构建产物 dist/（由 public/icon-512.png 复制而来）。
@@ -67,19 +72,21 @@ function createWindow() {
   })
 }
 
-app.whenReady().then(() => {
-  registerUpdaterIpc(ipcMain)
-  createWindow()
-  // 启动后自动检查更新，发现新版本会直接推送事件到界面弹窗
-  scheduleStartupCheck(4000)
+if (isPrimaryInstance) {
+  app.whenReady().then(() => {
+    registerUpdaterIpc(ipcMain)
+    createWindow()
+    // 启动后自动检查更新，发现新版本会直接推送事件到界面弹窗
+    scheduleStartupCheck(4000)
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
   })
-})
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
-})
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit()
+    }
+  })
+}

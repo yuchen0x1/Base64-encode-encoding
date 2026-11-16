@@ -3,14 +3,12 @@
  * 极客工具箱 · 发布脚本（零依赖）
  *
  * 用法：
- *   node scripts/release.mjs                      # 用 package.json 当前版本构建并生成网页更新包
+ *   node scripts/release.mjs                      # 用 package.json 当前版本构建 Windows 安装包和更新清单
  *   node scripts/release.mjs --bump patch         # 先升版本号再发布
  *   node scripts/release.mjs --version 0.0.2      # 指定版本号
- *   node scripts/release.mjs --desktop            # 额外产出 Windows 安装包并写入桌面更新源
  *   node scripts/release.mjs --skip-build         # 复用已有 dist/（调试发布流程时用）
  *
  * 产物：
- *   updates/web/version.json + geek-toolbox-web-<version>.zip           （网页版更新源）
  *   updates/desktop/version.json + GeekToolbox-Setup-<version>.exe      （桌面版更新源）
  *
  * 桌面端只发布一个 NSIS 安装包：安装包既是安装载体也是更新载体，
@@ -23,7 +21,6 @@ import crypto from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
-import { zipDirectory } from '../shared/zip.js'
 import { normalizeVersion, compareVersions } from '../shared/version.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -32,11 +29,10 @@ const require = createRequire(import.meta.url)
 const { extractFile } = require('@electron/asar')
 
 function parseArgs(argv) {
-  const args = { desktop: false, skipBuild: false, bump: '', version: '', notes: '', out: '', installer: '', skipVerify: false }
+  const args = { skipBuild: false, bump: '', version: '', notes: '', out: '', installer: '', skipVerify: false }
   for (let i = 2; i < argv.length; i += 1) {
     const key = argv[i]
-    if (key === '--desktop') args.desktop = true
-    else if (key === '--skip-build') args.skipBuild = true
+    if (key === '--skip-build') args.skipBuild = true
     else if (key === '--skip-verify') args.skipVerify = true
     else if (key === '--bump') { args.bump = argv[i + 1]; i += 1 }
     else if (key === '--version') { args.version = argv[i + 1]; i += 1 }
@@ -55,7 +51,6 @@ if (args.help) {
 发布脚本
   --bump <patch|minor|major>  自动递增版本号
   --version <x.y.z>           指定版本号
-  --desktop                   同时构建 Windows 安装包（NSIS）并写入 updates/desktop
   --skip-build                跳过 vite build（复用 dist）
   --skip-verify               跳过安装包完整性校验（不建议；需要 7-Zip）
   --installer <path>          复用已构建好的安装包，跳过 electron-builder
@@ -152,9 +147,7 @@ const SEVEN_ZIP_CANDIDATES = [
   '7z',
   '7za',
   'C:\\Program Files\\7-Zip\\7z.exe',
-  'C:\\Program Files (x86)\\7-Zip\\7z.exe',
-  '/usr/bin/7z',
-  '/usr/local/bin/7z'
+  'C:\\Program Files (x86)\\7-Zip\\7z.exe'
 ].filter(Boolean)
 
 async function resolveSevenZip() {
@@ -298,15 +291,6 @@ async function writePackage(outputDir, fileName, buffer, version) {
   return manifest
 }
 
-async function buildWeb(version) {
-  const distDir = await assertDist(version)
-  const { buffer } = await zipDirectory(distDir)
-  const fileName = `geek-toolbox-web-${version}.zip`
-  const manifest = await writePackage(path.join(ROOT, 'updates', 'web'), fileName, buffer, version)
-  console.log(`[release] 网页更新包: updates/web/${fileName} (${formatSize(buffer.length)})`)
-  return manifest
-}
-
 /**
  * 构建 Windows 安装包（NSIS）并写入桌面更新源。
  * 只产出一个安装包：它既是首次安装的载体，也是后续自动更新的载体，
@@ -357,6 +341,7 @@ async function buildDesktopInstaller(version) {
 }
 
 async function main() {
+  if (process.platform !== 'win32') throw new Error('本项目仅支持在 Windows 上生成安装包')
   console.log('==============================================')
   console.log(` 极客工具箱发布流程  ${currentVersion} -> ${nextVersion}`)
   console.log('==============================================')
@@ -373,19 +358,16 @@ async function main() {
     await run('npm', ['run', 'build'])
   }
 
-  const web = await buildWeb(nextVersion)
-  const desktop = args.desktop ? await buildDesktopInstaller(nextVersion) : null
+  await assertDist(nextVersion)
+  const desktop = await buildDesktopInstaller(nextVersion)
 
   console.log('\n==============================================')
   console.log(` 发布完成 · v${nextVersion}`)
   console.log('==============================================')
-  console.log(`更新说明: ${web.notes.length} 条`)
-  if (desktop) console.log('安装包完整性: 已通过 NSIS 外层归档与应用载荷校验')
+  console.log(`更新说明: ${desktop.notes.length} 条`)
+  if (!args.skipVerify) console.log('安装包完整性: 已通过 NSIS 外层归档与应用载荷校验')
   console.log('发布目录:')
-  console.log('  updates/web/     ← 网页版更新源（静态托管该目录或放到服务器）')
-  if (desktop) {
-    console.log('  updates/desktop/ ← 桌面版更新源（version.json + GeekToolbox-Setup-*.exe）')
-  }
+  console.log('  updates/desktop/ ← Windows 更新源（version.json + GeekToolbox-Setup-*.exe）')
   console.log('\n提示: 桌面端发布到 GitHub Release 时只需上传两个文件——Setup 安装包与 version.json。')
 }
 

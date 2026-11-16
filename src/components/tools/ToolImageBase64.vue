@@ -100,7 +100,7 @@
 import { copyText } from '../../utils/clipboard.js'
 import { ref, computed } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
-import { imageExtensionForMime, parseImageDataUrl } from '../../utils/toolHelpers.js'
+import { imageExtensionForMime, MAX_IMAGE_DATA_BYTES, parseImageDataUrl } from '../../utils/toolHelpers.js'
 
 const activeMode = ref('img2base64')
 const fileInput = ref(null)
@@ -127,6 +127,10 @@ function processFile(file) {
   clearImageState()
 
   if (!file) return
+  if (file.size > MAX_IMAGE_DATA_BYTES) {
+    globalToast(`图片超过 ${MAX_IMAGE_DATA_BYTES / 1024 / 1024} MiB 上限，未读取文件。`, 'error')
+    return
+  }
   const reader = new FileReader()
   reader.onload = (event) => {
     if (generation !== fileReadGeneration) return

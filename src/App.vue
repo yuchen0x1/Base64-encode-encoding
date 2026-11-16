@@ -1,6 +1,6 @@
 <template>
   <div :class="['app-layout', isDark ? 'dark' : 'light']">
-    <!-- 移动端顶部赛博导航栏 -->
+    <!-- 窄窗口顶部赛博导航栏 -->
     <header class="mobile-header">
       <button class="cyber-icon-btn" :aria-label="mobileMenuOpen ? '关闭工具菜单' : '打开工具菜单'" @click="mobileMenuOpen = !mobileMenuOpen">
         <Menu v-if="!mobileMenuOpen" :size="20" />
@@ -21,7 +21,7 @@
       </div>
     </header>
 
-    <!-- 侧边栏：PC常驻，移动端抽屉 -->
+    <!-- 侧边栏：宽窗口常驻，窄窗口抽屉 -->
     <aside :class="['sidebar', mobileMenuOpen ? 'mobile-show' : '']">
       <!-- 品牌区：全息流光 Logo -->
       <div class="brand">
@@ -140,23 +140,28 @@
       </div>
     </aside>
 
-    <!-- 移动端遮罩 -->
+    <!-- 窄窗口遮罩 -->
     <div v-if="mobileMenuOpen" class="mobile-backdrop" @click="mobileMenuOpen = false"></div>
 
     <!-- 主工作区 -->
     <main class="main-viewport">
       <!-- PC 端多标签页科技工作台 -->
-      <div class="workbench-tabs pc-only">
+      <div class="workbench-tabs pc-only" role="tablist" aria-label="已打开工具">
         <div class="tabs-scroll">
           <div
             v-for="tab in openTabs"
             :key="tab.id"
             :class="['tab-item', currentToolId === tab.id ? 'active' : '']"
+            :data-tab-id="tab.id"
+            role="tab"
+            :aria-selected="currentToolId === tab.id"
+            :tabindex="currentToolId === tab.id ? 0 : -1"
             @click="switchTool(tab.id)"
+            @keydown="handleTabKeydown($event, tab.id)"
           >
             <span class="tab-glow-indicator"></span>
             <span class="tab-title">{{ tab.name }}</span>
-            <button class="tab-close" @click.stop="closeTab(tab.id)" title="关闭标签">
+            <button class="tab-close" :aria-label="`关闭${tab.name}标签`" @click.stop="closeTab(tab.id)" title="关闭标签">
               <X :size="12" />
             </button>
           </div>
@@ -169,7 +174,7 @@
         </div>
       </div>
 
-      <!-- 移动端常用分类快捷横滑胶囊 -->
+      <!-- 窄窗口常用分类快捷横滑胶囊 -->
       <div class="mobile-capsules mobile-only">
         <button
           v-for="cat in toolCategories"
@@ -259,24 +264,24 @@
     <!-- 全局 Toast 通知 -->
     <ToastContainer />
 
-    <!-- 版本更新弹窗（网页版 / 桌面版共用） -->
+    <!-- Windows 版本更新弹窗 -->
     <UpdateModal />
 
     <!-- 反馈 & 交流群弹窗（QQ 群二维码 / 一键加群 / 复制链接） -->
     <FeedbackModal v-model:open="feedbackOpen" />
 
     <!-- 外部工具目录图谱 -->
-    <div v-if="showCatalogModal" class="modal-backdrop" @click="showCatalogModal = false">
-      <div class="modal-card glass-panel" @click.stop>
+    <div v-if="showCatalogModal" class="modal-backdrop" @click="showCatalogModal = false" @keydown.esc="showCatalogModal = false">
+      <div class="modal-card glass-panel" role="dialog" aria-modal="true" aria-labelledby="catalog-modal-title" @click.stop>
         <div class="modal-header">
           <div>
             <div class="modal-title-wrap">
               <Layers class="text-cyan" :size="20" />
-              <h3 class="modal-title gradient-text">{{ catalogToolCount }} 款全量工具矩阵图谱 (TOOLHELPER.CN)</h3>
+              <h3 id="catalog-modal-title" class="modal-title gradient-text">{{ catalogToolCount }} 款全量工具矩阵图谱 (TOOLHELPER.CN)</h3>
             </div>
             <p class="modal-sub">目录收录 {{ catalogToolCount }} 项；本项目实际内置 {{ toolsList.length }} 款可用工具，其余为目录索引</p>
           </div>
-          <button class="cyber-close-btn" @click="showCatalogModal = false">
+          <button class="cyber-close-btn" aria-label="关闭工具目录" @click="showCatalogModal = false">
             <X :size="20" />
           </button>
         </div>
@@ -312,7 +317,7 @@ export {
 </script>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import {
   Cpu,
   Search,
@@ -351,6 +356,7 @@ import {
   createWorkspaceBackup,
   filterCommonTools,
   getCommonToolsCount,
+  MAX_WORKSPACE_BACKUP_BYTES,
   normalizeAppState,
   parseWorkspaceBackup
 } from './utils/appState.js'
@@ -400,7 +406,7 @@ function saveState() {
 const savedState = loadState()
 const appState = normalizeAppState(savedState, toolsList, Object.keys(toolComponents))
 
-// 版本更新（网页版 / 桌面版统一状态机）
+// Windows 版本更新
 const { state: updaterState, hasUpdate } = useUpdater()
 
 // 状态管理
@@ -550,6 +556,10 @@ async function handleWorkspaceImport(event) {
   const file = event.target.files?.[0]
   event.target.value = ''
   if (!file) return
+  if (file.size > MAX_WORKSPACE_BACKUP_BYTES) {
+    globalToast('工作区备份超过 1 MiB 大小上限，未读取文件', 'error')
+    return
+  }
   try {
     const imported = parseWorkspaceBackup(await file.text(), toolsList, Object.keys(toolComponents))
     favorites.value = imported.favorites
@@ -573,6 +583,25 @@ function handleKeydown(e) {
     const input = document.querySelector('.search-input')
     if (input) input.focus()
   }
+}
+
+function handleTabKeydown(event, tabId) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    switchTool(tabId)
+    return
+  }
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+  event.preventDefault()
+  const index = openTabs.value.findIndex(tab => tab.id === tabId)
+  if (index < 0 || openTabs.value.length < 2) return
+  const direction = event.key === 'ArrowRight' ? 1 : -1
+  const nextIndex = (index + direction + openTabs.value.length) % openTabs.value.length
+  const nextTab = openTabs.value[nextIndex]
+  switchTool(nextTab.id)
+  nextTick(() => {
+    document.querySelector(`[data-tab-id="${CSS.escape(nextTab.id)}"]`)?.focus()
+  })
 }
 
 onMounted(() => {
@@ -621,7 +650,7 @@ onUnmounted(() => {
   color: var(--accent-amber);
 }
 
-/* 移动端顶部标题栏 */
+/* 窄窗口顶部标题栏 */
 .mobile-header {
   display: none;
   position: fixed;
@@ -1008,7 +1037,7 @@ onUnmounted(() => {
   50% { opacity: 0.4; transform: scale(0.8); }
 }
 
-/* 移动端顶栏右侧按钮组 */
+/* 窄窗口顶栏右侧按钮组 */
 .mobile-header-right {
   display: flex;
   align-items: center;
@@ -1349,7 +1378,7 @@ onUnmounted(() => {
   color: var(--accent-green);
 }
 
-/* 响应式媒体查询（移动端适配） */
+/* 响应式媒体查询（窄窗口适配） */
 @media (max-width: 768px) {
   .pc-only {
     display: none !important;

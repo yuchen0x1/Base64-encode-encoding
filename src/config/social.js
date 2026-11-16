@@ -23,42 +23,10 @@ export function isElectronRuntime() {
   return typeof window !== 'undefined' && window.toolboxUpdater?.platform === 'electron'
 }
 
-/** 是否运行在 Capacitor 原生容器（Android / iOS） */
-export function isNativeContainer() {
-  const cap = typeof window !== 'undefined' ? window.Capacitor : null
-  return Boolean(cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform())
-}
-
-/**
- * 统一外链打开入口。
- *
- * - Electron：window.open / target=_blank 会被主进程 setWindowOpenHandler 拦截并交给
- *   shell.openExternal，在系统默认浏览器中打开，不会把 App 自身导航走
- *   （electron/main.js 已做安全审计）。这里统一用隐藏 <a> 触发，行为与用户点击一致。
- * - 浏览器 / PWA：新标签页打开，弹窗被拦截时再用隐藏 <a> 兜底。
- * - Capacitor 原生容器：WebView 内直接跳转会把 App 页面顶掉且无法返回，
- *   因此不做跳转，返回 'blocked' 交由调用方提示「复制链接到 QQ 打开 / 扫码入群」。
- *
- * @param {string} url
- * @returns {'opened'|'fallback'|'blocked'} opened=已交给外部打开；fallback=弹窗被拦、已用 <a> 兜底；blocked=未跳转
- */
+/** 通过主进程的导航拦截，在系统默认浏览器中打开外链。 */
 export function openExternalLink(url) {
   if (!url) return 'blocked'
-  if (isNativeContainer()) return 'blocked'
-
-  if (isElectronRuntime()) {
-    clickHiddenAnchor(url)
-    return 'opened'
-  }
-
-  try {
-    const win = window.open(url, '_blank', 'noopener,noreferrer')
-    if (win) return 'opened'
-  } catch {
-    /* 弹窗被拦截 → 走 <a> 兜底 */
-  }
-
-  return clickHiddenAnchor(url) ? 'fallback' : 'blocked'
+  return clickHiddenAnchor(url) ? 'opened' : 'blocked'
 }
 
 function clickHiddenAnchor(url) {

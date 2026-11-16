@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('toolboxUpdater', {
   getInfo: () => ipcRenderer.invoke('update:info'),
   check: () => ipcRenderer.invoke('update:check'),
   download: () => ipcRenderer.invoke('update:download'),
+  cancel: () => ipcRenderer.invoke('update:cancel'),
   install: () => ipcRenderer.invoke('update:install'),
   onEvent: (listener) => {
     if (typeof listener !== 'function') return () => {}
