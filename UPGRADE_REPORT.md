@@ -3,11 +3,11 @@
 交付日期：2026-11-16（Asia/Shanghai）  
 项目版本：`0.0.7`  
 分支：`main`  
-工作树：保留用户已有未提交/暂存变更；本轮未 reset、clean、提交、推送、打标签或发布。
+工作树：保留用户已有变更；已提交为 `919e3cb`，推送到 `origin/main`，并以 `v0.0.7` 标签发布。
 
 ## 1. 结论摘要
 
-本轮完成了真实项目扫描、15 个严格开源源码项目研究、56 项升级路线、多个 P1/P2 代码修复和 Windows NSIS 打包复验。项目当前能通过本地测试、lint、Vite 构建、Electron 桌面烟测、更新助手检查和 Windows 安装包生成；真实远程 Release、代码签名、隔离安装升级、macOS/iOS 和线上安全审计仍没有被虚报为完成。He3 与 HTTPie Desktop 作为许可证/源码开放性补充对照，不计入 15 个严格开源样本。
+本轮完成了真实项目扫描、15 个严格开源源码项目研究、56 项升级路线、多个 P1/P2 代码修复和 Windows NSIS 打包复验。项目通过本地测试、lint、Vite 构建、Electron 桌面烟测、更新助手检查和官方 npm 审计；`v0.0.7` 的远程 Actions 与公开 Release 也已完成核验。代码签名、隔离安装升级、macOS/iOS 和线上安全审计仍没有被虚报为完成。He3 与 HTTPie Desktop 作为许可证/源码开放性补充对照，不计入 15 个严格开源样本。
 
 本轮实际落地的重点是：
 
@@ -139,14 +139,14 @@
 | 更新助手 | PASS | `npm run test:updater` 三项运行时检查通过 |
 | Electron 目录构建（成功构建） | PASS | `release/win-unpacked` 已生成 |
 | Electron 目录构建（最后重跑） | BLOCKED | electron-builder 外部下载阶段长时间无输出，因网络阻塞中止；已有成功目录产物保留 |
-| Windows NSIS 包（成功构建） | PASS | 2026-11-16 21:17 生成 `GeekToolbox-Setup-0.0.6.exe`；SHA-256 `C94182B05003A072EC5EE7F791ED72A8077F489BC080C41EA1D59944B3F17A3C`；未配置代码签名 |
+| Windows NSIS 包（本地成功构建） | PASS | 2026-11-16 21:17 生成 `GeekToolbox-Setup-0.0.6.exe`；SHA-256 `C94182B05003A072EC5EE7F791ED72A8077F489BC080C41EA1D59944B3F17A3C`；未配置代码签名 |
 | Windows NSIS 包（最后重跑） | BLOCKED | electron-builder 外部下载阶段 `connect ETIMEDOUT 20.205.243.166:443`；已有成功产物未被删除 |
 | npm audit（官方 registry） | PASS | `npm audit --registry=https://registry.npmjs.org --omit=optional --audit-level=moderate` 返回 `found 0 vulnerabilities` |
 | npm audit（默认镜像） | BLOCKED | `registry.npmmirror.com` security endpoint 返回 404；需修复镜像或固定官方 registry |
 | Electron 桌面烟测 | PASS | `npm run test:desktop` 完成 file:// 沙箱 renderer、批处理和无控制台错误检查 |
 | 浏览器/完整 E2E | PARTIAL | 现有浏览器 smoke 脚本仍未全部接入 CI；本轮未虚报为完整覆盖 |
 | 真实安装替换/回滚 | BLOCKED | 需要隔离安装目录和旧版客户端 |
-| 远程 Actions/Release | NOT RUN | 未提交、推送或发布 |
+| 远程 Actions/Release | PASS | 提交 `919e3cb` 的 Quality Gate `43881164180`、Build Windows Installer `43881164142` 和 v0.0.7 Publish GitHub Release `43881893716` 均成功；公开 Release 含 `GeekToolbox-Setup-0.0.7.exe`（111,447,975 bytes）与 `version.json`，清单 SHA-256 与 GitHub 资产摘要一致 |
 | iOS/macOS | BLOCKED | Windows 环境无 Xcode/macOS |
 
 ## 6. 升级前后状态
@@ -178,4 +178,4 @@
 
 ## 8. 交付边界
 
-本报告完成本地可执行范围内的修复和证据整理，但没有把“本地构建成功”写成“已经发布、签名或自动更新闭环完成”。推送、创建 Release、配置证书 Secrets、远程 Actions 观察和真实安装验收仍需要对应外部环境与维护者操作。
+本报告完成本地可执行范围内的修复、证据整理和 v0.0.7 远程发布核验。安装包仍未签名，真实旧版覆盖安装、回滚和完整自动更新闭环需要隔离环境继续验收；这些边界不因 Release 已公开而改变。
