@@ -2,7 +2,7 @@
   <div :class="['app-layout', isDark ? 'dark' : 'light']">
     <!-- 窄窗口顶部赛博导航栏 -->
     <header class="mobile-header">
-      <button class="cyber-icon-btn" :aria-label="mobileMenuOpen ? '关闭工具菜单' : '打开工具菜单'" @click="mobileMenuOpen = !mobileMenuOpen">
+      <button class="cyber-icon-btn" :aria-label="t(mobileMenuOpen ? 'closeMenu' : 'openMenu')" @click="mobileMenuOpen = !mobileMenuOpen">
         <Menu v-if="!mobileMenuOpen" :size="20" />
         <X v-else :size="20" />
       </button>
@@ -11,10 +11,10 @@
         <span class="gradient-text">TOOLBOX PRO</span>
       </div>
       <div class="mobile-header-right">
-        <button class="cyber-icon-btn" aria-label="反馈 / 加入交流群" title="反馈 / 加入交流群" @click="feedbackOpen = true">
+        <button class="cyber-icon-btn" :aria-label="t('feedback')" :title="t('feedback')" @click="feedbackOpen = true">
           <MessageCircle :size="18" />
         </button>
-        <button class="cyber-icon-btn" :aria-label="isDark ? '切换浅色模式' : '切换深色模式'" @click="toggleTheme">
+        <button class="cyber-icon-btn" :aria-label="t(isDark ? 'lightTheme' : 'darkTheme')" @click="toggleTheme">
           <Sun v-if="isDark" :size="18" class="text-amber" />
           <Moon v-else :size="18" class="text-cyan" />
         </button>
@@ -33,10 +33,10 @@
           </div>
           <div>
             <div class="brand-title-wrap">
-              <h1 class="brand-title gradient-text">极客工具箱</h1>
+              <h1 class="brand-title gradient-text">{{ t('brand') }}</h1>
               <button
                 :class="['version-chip', hasUpdate ? 'has-update' : '']"
-                :title="hasUpdate ? `发现新版本 v${updaterState.latest?.version}，点击立即更新` : '点击检查更新'"
+                :title="hasUpdate ? `${t('updateAvailable')} v${updaterState.latest?.version}` : t('checkUpdate')"
                 @click="openUpdatePanel"
               >
                 <span>v{{ updaterState.currentVersion }}</span>
@@ -49,14 +49,14 @@
             </div>
           </div>
         </div>
-        <button class="cyber-icon-btn pc-only" @click="toggleTheme" :title="isDark ? '切换浅色模式' : '切换深色模式'">
+        <button class="cyber-icon-btn pc-only" @click="toggleTheme" :title="t(isDark ? 'lightTheme' : 'darkTheme')">
           <Sun v-if="isDark" :size="16" class="text-amber" />
           <Moon v-else :size="16" class="text-cyan" />
         </button>
-        <label class="locale-picker" title="Language / 语言">
-          <span class="sr-only">Language / 语言</span>
-          <select v-model="localeSetting" aria-label="Language / 语言" @change="saveState">
-            <option value="auto">自动 / Auto</option>
+        <label class="locale-picker" :title="t('language')">
+          <span class="sr-only">{{ t('language') }}</span>
+          <select v-model="localeSetting" :aria-label="t('language')" @change="saveState">
+            <option value="auto">{{ t('auto') }}</option>
             <option value="zh-CN">简体中文</option>
             <option value="en-US">English</option>
           </select>
@@ -70,8 +70,8 @@
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="呼出命令检索 (Ctrl+K)..."
-            aria-label="搜索工具"
+            :placeholder="t('searchPlaceholder')"
+            :aria-label="t('searchAria')"
             class="search-input code-font"
             @keydown.esc="searchQuery = ''"
           />
@@ -82,7 +82,7 @@
       <!-- 分类过滤器 -->
       <div class="category-list">
         <div class="section-label">
-          <span>模块控制台 / MODULES</span>
+          <span>{{ t('modules') }}</span>
           <span class="sub-dot"></span>
         </div>
         <button
@@ -104,44 +104,44 @@
         <div class="hud-stats-card">
           <div class="hud-stat-item">
             <span class="hud-num gradient-cyan">{{ toolsList.length }}</span>
-            <span class="hud-sub">本地工具</span>
+            <span class="hud-sub">{{ t('localTools') }}</span>
           </div>
           <div class="hud-divider"></div>
           <div class="hud-stat-item">
-            <span class="hud-num gradient-green">本机</span>
-            <span class="hud-sub">计算位置</span>
+            <span class="hud-num gradient-green">{{ t('computeLocation') }}</span>
+            <span class="hud-sub">{{ t('computeLocation') }}</span>
           </div>
           <div class="hud-divider"></div>
           <div class="hud-stat-item">
-            <span class="hud-num gradient-purple">不上传</span>
-            <span class="hud-sub">工具输入</span>
+            <span class="hud-num gradient-purple">{{ t('noUpload') }}</span>
+            <span class="hud-sub">{{ t('noUpload') }}</span>
           </div>
         </div>
         <button class="btn btn-secondary btn-sm directory-btn" @click="showCatalogModal = true">
           <Layers :size="14" />
-          <span>{{ catalogToolCount }} 款全量全景图谱</span>
+          <span>{{ translate('catalog', { count: catalogToolCount }) }}</span>
         </button>
         <!-- 交流群入口：点击打开反馈弹窗（群二维码 / 一键加群 / 复制链接） -->
-        <button class="btn btn-secondary btn-sm community-btn" title="反馈 / 加入交流群" @click="feedbackOpen = true">
+        <button class="btn btn-secondary btn-sm community-btn" :title="t('feedback')" @click="feedbackOpen = true">
           <MessageCircle :size="14" />
-          <span>反馈 &amp; 交流群</span>
+          <span>{{ t('community') }}</span>
           <span class="community-dot"></span>
         </button>
-        <div class="workspace-actions" aria-label="工作区备份">
-          <button class="btn btn-secondary btn-sm workspace-action" title="导出收藏、标签页和主题设置" @click="exportWorkspace">
+        <div class="workspace-actions" :aria-label="t('workspaceAria')">
+          <button class="btn btn-secondary btn-sm workspace-action" :title="t('exportTitle')" @click="exportWorkspace">
             <Download :size="14" />
-            <span>导出工作区</span>
+            <span>{{ t('exportWorkspace') }}</span>
           </button>
-          <button class="btn btn-secondary btn-sm workspace-action" title="从 JSON 文件恢复工作区" @click="workspaceFileInput?.click()">
+          <button class="btn btn-secondary btn-sm workspace-action" :title="t('importTitle')" @click="workspaceFileInput?.click()">
             <Upload :size="14" />
-            <span>导入工作区</span>
+            <span>{{ t('importWorkspace') }}</span>
           </button>
           <input
             ref="workspaceFileInput"
             class="hidden-file-input"
             type="file"
             accept="application/json,.json"
-            aria-label="选择工作区备份文件"
+            :aria-label="t('chooseBackup')"
             @change="handleWorkspaceImport"
           />
         </div>
@@ -154,7 +154,7 @@
     <!-- 主工作区 -->
     <main class="main-viewport">
       <!-- PC 端多标签页科技工作台 -->
-      <div class="workbench-tabs pc-only" role="tablist" aria-label="已打开工具">
+      <div class="workbench-tabs pc-only" role="tablist" :aria-label="t('openTools')">
         <div class="tabs-scroll">
           <div
             v-for="tab in openTabs"
@@ -169,7 +169,7 @@
           >
             <span class="tab-glow-indicator"></span>
             <span class="tab-title">{{ tab.name }}</span>
-            <button class="tab-close" :aria-label="`关闭${tab.name}标签`" @click.stop="closeTab(tab.id)" title="关闭标签">
+            <button class="tab-close" :aria-label="`${t('close')} ${tab.name}`" @click.stop="closeTab(tab.id)" :title="t('close')">
               <X :size="12" />
             </button>
           </div>
@@ -204,15 +204,15 @@
               <span class="badge-neon">{{ getCategoryName(currentTool.category) }}</span>
               <span class="badge-green">
                 <ShieldCheck :size="12" style="margin-right: 3px;" />
-                零网络请求 · 本地内存计算
+                {{ t('localCompute') }}
               </span>
             </div>
             <p class="current-tool-desc">{{ currentTool.description }}</p>
           </div>
           <div class="tool-header-actions">
-            <button class="btn btn-secondary btn-sm pc-only" title="反馈 / 加入交流群" @click="feedbackOpen = true">
+            <button class="btn btn-secondary btn-sm pc-only" :title="t('feedback')" @click="feedbackOpen = true">
               <MessageCircle :size="14" />
-              <span>反馈</span>
+              <span>{{ t('feedbackShort') }}</span>
             </button>
             <button
               :class="['btn', isFavorite(currentTool.id) ? 'btn-primary' : 'btn-secondary', 'btn-sm']"
@@ -220,7 +220,7 @@
               @click="toggleFavorite(currentTool.id)"
             >
               <Star :size="14" :fill="isFavorite(currentTool.id) ? 'currentColor' : 'none'" />
-              <span>{{ isFavorite(currentTool.id) ? '已加常用' : '常用置顶' }}</span>
+              <span>{{ t(isFavorite(currentTool.id) ? 'favoriteAdded' : 'favorite') }}</span>
             </button>
           </div>
         </div>
@@ -231,7 +231,7 @@
             <component :is="currentToolComponent" :key="currentToolId" />
           </KeepAlive>
           <div v-else class="tool-not-found glass-panel">
-            <p>该功能正在接入中，已规划在全量离线工具库内。</p>
+            <p>{{ t('notFound') }}</p>
           </div>
         </div>
 
@@ -240,16 +240,16 @@
           <div class="section-title">
             <div class="section-title-left">
               <Sparkles :size="16" class="text-cyan" />
-              <span>同分类极速导航 ({{ activeCategoryName }})</span>
+              <span>{{ translate('quickNav', { category: activeCategoryName }) }}</span>
             </div>
-            <span class="count-tip">共 {{ filteredTools.length }} 款即时可用</span>
+            <span class="count-tip">{{ translate('availableCount', { count: filteredTools.length }) }}</span>
           </div>
           <div class="tools-grid">
             <button
               v-for="item in filteredTools"
               :key="item.id"
               type="button"
-              :aria-label="`打开${item.name}`"
+              :aria-label="`${t('open')} ${item.name}`"
               :class="['mini-tool-card', currentToolId === item.id ? 'current' : '']"
               @click="openTool(item)"
             >
@@ -263,8 +263,8 @@
           </div>
         </div>
         <div v-else class="quick-tools-section empty-search" role="status">
-          <p>未找到匹配的工具，请调整关键词或分类。</p>
-          <button class="btn btn-secondary btn-sm" @click="searchQuery = ''; activeCategory = 'all'">重置筛选</button>
+          <p>{{ t('noMatches') }}</p>
+          <button class="btn btn-secondary btn-sm" @click="searchQuery = ''; activeCategory = 'all'">{{ t('reset') }}</button>
         </div>
       </div>
     </main>
@@ -285,11 +285,11 @@
           <div>
             <div class="modal-title-wrap">
               <Layers class="text-cyan" :size="20" />
-              <h3 id="catalog-modal-title" class="modal-title gradient-text">{{ catalogToolCount }} 款全量工具矩阵图谱 (TOOLHELPER.CN)</h3>
+              <h3 id="catalog-modal-title" class="modal-title gradient-text">{{ translate('catalogTitle', { count: catalogToolCount }) }}</h3>
             </div>
-            <p class="modal-sub">目录收录 {{ catalogToolCount }} 项；本项目实际内置 {{ toolsList.length }} 款可用工具，其余为目录索引</p>
+            <p class="modal-sub">{{ translate('catalogSub', { count: catalogToolCount, tools: toolsList.length }) }}</p>
           </div>
-          <button class="cyber-close-btn" aria-label="关闭工具目录" @click="showCatalogModal = false">
+          <button class="cyber-close-btn" :aria-label="t('closeCatalog')" @click="showCatalogModal = false">
             <X :size="20" />
           </button>
         </div>
@@ -301,12 +301,12 @@
             </h4>
             <div class="catalog-items-grid">
               <div
-                v-for="t in cat.tools"
-                :key="t.name"
-                :class="['catalog-item-badge', isNativeTool(t.name) ? 'native' : '']"
+                v-for="entry in cat.tools"
+                :key="entry.name"
+                :class="['catalog-item-badge', isNativeTool(entry.name) ? 'native' : '']"
               >
-                <span>{{ t.name }}</span>
-                <span v-if="isNativeTool(t.name)" class="native-tag">● 项目内置</span>
+                <span>{{ entry.name }}</span>
+                <span v-if="isNativeTool(entry.name)" class="native-tag">{{ t('native') }}</span>
               </div>
             </div>
           </div>
@@ -325,7 +325,7 @@ export {
 </script>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import {
   Cpu,
   Search,
@@ -360,6 +360,7 @@ import FeedbackModal from './components/FeedbackModal.vue'
 import { useTheme } from './composables/useTheme.js'
 import { useUpdater, openUpdatePanel, scheduleStartupCheck } from './composables/useUpdater.js'
 import { globalToast } from './composables/useToast.js'
+import { resolveLocale, translate } from './i18n.js'
 import {
   createWorkspaceBackup,
   filterCommonTools,
@@ -404,8 +405,8 @@ function saveState() {
       isDark: isDark.value,
       favorites: favorites.value,
       openTabs: openTabs.value.map(t => t.id),
-      currentToolId: currentToolId.value
-      ,locale: localeSetting.value
+      currentToolId: currentToolId.value,
+      locale: localeSetting.value
     }))
   } catch {
     /* 忽略存储失败 */
@@ -415,6 +416,9 @@ function saveState() {
 const savedState = loadState()
 const appState = normalizeAppState(savedState, toolsList, Object.keys(toolComponents))
 const localeSetting = ref(savedState?.locale === 'zh-CN' || savedState?.locale === 'en-US' ? savedState.locale : 'auto')
+const effectiveLocale = computed(() => resolveLocale(localeSetting.value, typeof navigator === 'undefined' ? [] : navigator.languages || [navigator.language]))
+const t = (key, values) => translate(effectiveLocale.value, key, values)
+watch(effectiveLocale, value => { if (typeof document !== 'undefined') document.documentElement.lang = value }, { immediate: true })
 
 // Windows 版本更新
 const { state: updaterState, hasUpdate } = useUpdater()
@@ -464,7 +468,7 @@ if (import.meta.env.DEV) {
 
 const activeCategoryName = computed(() => {
   const c = toolCategories.find(item => item.id === activeCategory.value)
-  return c ? c.name : '全部'
+  return c ? c.name : t('all')
 })
 
 // 分类与搜索过滤
@@ -497,7 +501,7 @@ function getCategoryCount(catId) {
 
 function getCategoryName(catId) {
   const cat = toolCategories.find(c => c.id === catId)
-  return cat ? cat.name : '工具'
+  return cat ? cat.name : t('tools')
 }
 
 function selectCategory(catId) {
@@ -559,7 +563,7 @@ function exportWorkspace() {
   link.download = `geek-toolbox-workspace-${new Date().toISOString().slice(0, 10)}.json`
   link.click()
   URL.revokeObjectURL(url)
-  globalToast('工作区备份已导出')
+  globalToast(t('backupExported'))
 }
 
 async function handleWorkspaceImport(event) {
@@ -567,7 +571,7 @@ async function handleWorkspaceImport(event) {
   event.target.value = ''
   if (!file) return
   if (file.size > MAX_WORKSPACE_BACKUP_BYTES) {
-    globalToast('工作区备份超过 1 MiB 大小上限，未读取文件', 'error')
+    globalToast(t('backupTooLarge'), 'error')
     return
   }
   try {
@@ -577,9 +581,9 @@ async function handleWorkspaceImport(event) {
     currentToolId.value = imported.currentToolId
     applyTheme(imported.isDark)
     saveState()
-    globalToast('工作区已恢复')
+    globalToast(t('backupRestored'))
   } catch (error) {
-    globalToast(error instanceof Error ? error.message : '工作区备份无法读取', 'error')
+    globalToast(error instanceof Error ? error.message : t('backupUnreadable'), 'error')
   }
 }
 
