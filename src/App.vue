@@ -53,6 +53,14 @@
           <Sun v-if="isDark" :size="16" class="text-amber" />
           <Moon v-else :size="16" class="text-cyan" />
         </button>
+        <label class="locale-picker" title="Language / 语言">
+          <span class="sr-only">Language / 语言</span>
+          <select v-model="localeSetting" aria-label="Language / 语言" @change="saveState">
+            <option value="auto">自动 / Auto</option>
+            <option value="zh-CN">简体中文</option>
+            <option value="en-US">English</option>
+          </select>
+        </label>
       </div>
 
       <!-- 科技感搜索框 -->
@@ -397,6 +405,7 @@ function saveState() {
       favorites: favorites.value,
       openTabs: openTabs.value.map(t => t.id),
       currentToolId: currentToolId.value
+      ,locale: localeSetting.value
     }))
   } catch {
     /* 忽略存储失败 */
@@ -405,6 +414,7 @@ function saveState() {
 
 const savedState = loadState()
 const appState = normalizeAppState(savedState, toolsList, Object.keys(toolComponents))
+const localeSetting = ref(savedState?.locale === 'zh-CN' || savedState?.locale === 'en-US' ? savedState.locale : 'auto')
 
 // Windows 版本更新
 const { state: updaterState, hasUpdate } = useUpdater()
@@ -616,6 +626,9 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.locale-picker { margin-left: 6px; }
+.locale-picker select { max-width: 118px; min-height: 28px; border: 1px solid var(--border-color, #3a5166); border-radius: 4px; background: var(--bg-card, #111b27); color: inherit; padding: 2px 6px; font-size: 11px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .app-layout {
   display: flex;
   height: 100vh;
