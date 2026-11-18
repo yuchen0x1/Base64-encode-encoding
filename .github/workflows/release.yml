@@ -2,129 +2,214 @@ name: Publish GitHub Release
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    tags: ['v*.*.*']
   workflow_dispatch:
     inputs:
       tag:
-        description: '已有的 vX.Y.Z 标签；仅用于手动重跑发布'
+        description: Existing vMAJOR.MINOR.PATCH tag on main
         required: true
         type: string
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
-  release-windows:
-    runs-on: windows-latest
-    timeout-minutes: 30
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
     env:
-      GH_TOKEN: ${{ github.token }}
-      CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
-      CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
-      TOOLBOX_AUTHENTICODE_THUMBPRINT: ${{ secrets.WINDOWS_AUTHENTICODE_THUMBPRINT }}
-      TOOLBOX_AUTHENTICODE_SUBJECT: ${{ secrets.WINDOWS_AUTHENTICODE_SUBJECT }}
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - name: Setup Node
-        uses: actions/setup-node@v4
+          persist-credentials: false
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+      - name: Validate the tag and release record
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          git merge-base --is-ancestor HEAD origin/main
+          node scripts/verify-version.mjs "$TAG"
+          published=$(gh release list --limit 100 --json tagName,isDraft --jq '.[] | select(.isDraft == false) | .tagName')
+          if grep -Fxq "$TAG" <<< "$published"; then
+            echo "::error::A published release already exists for $TAG"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+  windows:
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: refs/tags/${{ needs.prepare.outputs.tag }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Resolve release tag
-        id: release
-        shell: pwsh
-        run: |
-          $tag = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { '${{ inputs.tag }}' } else { '${{ github.ref_name }}' }
-          if ($tag -notmatch '^v\d+\.\d+\.\d+$') { throw "Release tag must match vMAJOR.MINOR.PATCH: $tag" }
-          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          if ("v$version" -ne $tag) { throw "Tag $tag does not match package.json version $version" }
-          "tag=$tag" >> $env:GITHUB_OUTPUT
-          "version=$version" >> $env:GITHUB_OUTPUT
-      - name: Test and lint
-        run: |
-          npm test -- --reporter=dot
-          npm run lint
-      - name: Build frontend
-        run: npm run build
-      - name: Verify standalone update helper
-        run: npm run test:updater
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test -- --reporter=dot
+      - run: npm audit --registry=https://registry.npmjs.org --omit=dev --audit-level=high
+      - run: npm run test:desktop
       - name: Build Windows installer
-        shell: pwsh
-        run: npx electron-builder --win nsis --x64 --publish never
+        env:
+          CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+        run: npm run package:win
       - name: Verify packaged update helper
         shell: pwsh
         run: |
           $env:TOOLBOX_SMOKE_RUNTIME = (Resolve-Path -LiteralPath 'release/win-unpacked/极客工具箱.exe').Path
           npm run test:updater
-      - name: Verify Authenticode signature when configured
+      - name: Verify signature configuration and generate update manifest
+        env:
+          TOOLBOX_AUTHENTICODE_THUMBPRINT: ${{ secrets.WINDOWS_AUTHENTICODE_THUMBPRINT }}
+          TOOLBOX_AUTHENTICODE_SUBJECT: ${{ secrets.WINDOWS_AUTHENTICODE_SUBJECT }}
         shell: pwsh
         run: |
-          $installer = Join-Path $PWD "release/GeekToolbox-Setup-${{ steps.release.outputs.version }}.exe"
-          if (-not (Test-Path -LiteralPath $installer)) { throw "Windows installer was not produced: $installer" }
+          $installer = "release/GeekToolbox-Setup-$env:VERSION.exe"
           $expected = ($env:TOOLBOX_AUTHENTICODE_THUMBPRINT -replace '\s', '').ToUpperInvariant()
-          if ([string]::IsNullOrWhiteSpace($expected)) {
-            Write-Host 'WINDOWS_AUTHENTICODE_THUMBPRINT is not configured; unsigned release is allowed and will not claim a signature.'
-            exit 0
-          }
-          if ($expected -notmatch '^[A-F0-9]{40}$') { throw 'WINDOWS_AUTHENTICODE_THUMBPRINT must be a 40-character hexadecimal thumbprint' }
-          $sig = Get-AuthenticodeSignature -LiteralPath $installer
-          if ($sig.Status -ne 'Valid') { throw "Windows installer Authenticode status is $($sig.Status)" }
-          $actual = ($sig.SignerCertificate.Thumbprint -replace '\s', '').ToUpperInvariant()
-          if ($actual -ne $expected) { throw 'Windows installer Authenticode thumbprint does not match WINDOWS_AUTHENTICODE_THUMBPRINT' }
-          Write-Host 'Windows installer Authenticode signature and configured thumbprint verified.'
-      - name: Generate update manifests
-        shell: pwsh
-        run: npm run release:desktop -- --skip-build --installer "release/GeekToolbox-Setup-${{ steps.release.outputs.version }}.exe"
-      - name: Verify release assets
-        shell: pwsh
-        run: |
-          $version = '${{ steps.release.outputs.version }}'
-          $assets = @(
-            "updates/desktop/version.json",
-            "updates/desktop/GeekToolbox-Setup-$version.exe"
-          )
-          foreach ($asset in $assets) {
-            if (-not (Test-Path $asset)) { throw "Missing release asset: $asset" }
-          }
-          $manifest = Get-Content "updates/desktop/version.json" -Raw | ConvertFrom-Json
-          if ($manifest.version -ne $version -or $manifest.kind -ne 'nsis') { throw 'Desktop manifest version/kind mismatch' }
-          if ($manifest.package.sha256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'Desktop manifest SHA-256 is missing or invalid' }
-      - name: Publish GitHub Release
-        shell: pwsh
-        run: |
-          $tag = '${{ steps.release.outputs.tag }}'
-          $version = '${{ steps.release.outputs.version }}'
-          $notes = if (Test-Path "release-notes.json") {
-            $all = Get-Content "release-notes.json" -Raw | ConvertFrom-Json -AsHashtable
-            if ($all.ContainsKey($version) -and $all[$version].notes) { ($all[$version].notes | ForEach-Object { "- $_" }) -join "`n" } else { "自动发布 v$version" }
-          } else { "自动发布 v$version" }
-          # Prefer the full, user-facing history (including upgrade guidance).
-          # Keep the JSON fallback for tags without the canonical Markdown file.
-          if (Test-Path "docs/releases/release-notes.md") {
-            $history = Get-Content "docs/releases/release-notes.md" -Raw -Encoding UTF8
-            $pattern = '(?ms)^## v' + [regex]::Escape($version) + '(?=[\s（(]|$)[^\r\n]*\r?\n(?<body>.*?)(?=^## v\d+\.\d+\.\d+|\z)'
-            $entry = [regex]::Match($history, $pattern)
-            if ($entry.Success -and -not [string]::IsNullOrWhiteSpace($entry.Groups['body'].Value)) {
-              $notes = $entry.Groups['body'].Value.Trim()
+          $signature = Get-AuthenticodeSignature -LiteralPath $installer
+          if ($expected) {
+            if ($expected -notmatch '^[A-F0-9]{40}$' -or $signature.Status -ne 'Valid' -or $signature.SignerCertificate.Thumbprint -ne $expected) {
+              throw 'Windows installer signer does not match the configured trusted thumbprint.'
             }
-          }
-          $notesFile = Join-Path $env:RUNNER_TEMP "release-notes.md"
-          Set-Content -LiteralPath $notesFile -Value $notes -Encoding UTF8
-          $assets = @(
-            "updates/desktop/GeekToolbox-Setup-$version.exe",
-            "updates/desktop/version.json"
-          )
-          gh release view $tag *> $null
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "Release $tag already exists; updating its assets for an idempotent manual rerun."
-            gh release upload $tag @assets --clobber
-            gh release edit $tag --title "极客工具箱 v$version" --notes-file $notesFile
+          } elseif ($signature.Status -ne 'NotSigned') {
+            throw 'The installer is signed, but its trusted thumbprint is missing from release configuration.'
           } else {
-            gh release create $tag @assets --title "极客工具箱 v$version" --notes-file $notesFile
+            Write-Host 'Unsigned Windows installer. GitHub release attestation is separate from Authenticode.'
           }
+          npm run release:desktop -- --skip-build --installer $installer
+      - name: Exercise NSIS over the previous published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: ./tests/windows/install-smoke.ps1 -Version $env:VERSION
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-release
+          path: |
+            updates/desktop/version.json
+            updates/desktop/GeekToolbox-Setup-*.exe
+          if-no-files-found: error
+
+  cli:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: refs/tags/${{ needs.prepare.outputs.tag }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build:cli
+      - run: npm run test:cli
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: cli-release
+          path: dist-cli/GeekToolbox-CLI-*.mjs
+          if-no-files-found: error
+
+  publish:
+    needs: [prepare, windows, cli]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: refs/tags/${{ needs.prepare.outputs.tag }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: '*-release'
+          path: release-assets
+          merge-multiple: true
+      - name: Verify assets, upload to draft and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          installer="GeekToolbox-Setup-$VERSION.exe"
+          cli="GeekToolbox-CLI-$VERSION.mjs"
+          assets=("$installer" "$cli" version.json)
+          cd release-assets
+          test "$(jq -r .version version.json)" = "$VERSION"
+          test "$(jq -r .kind version.json)" = nsis
+          test "$(jq -r .package.url version.json)" = "$installer"
+          test "$(jq -r .package.size version.json)" = "$(stat -c %s "$installer")"
+          test "$(jq -r .package.sha256 version.json)" = "$(sha256sum "$installer" | cut -d ' ' -f 1)"
+          test "$(node "$cli" --version)" = "$VERSION"
+          sha256sum "${assets[@]}" > SHA256SUMS.txt
+          assets+=(SHA256SUMS.txt)
+          cd ..
+          node scripts/verify-version.mjs "$TAG" --notes > "$RUNNER_TEMP/notes.md"
+          if gh release view "$TAG" --json isDraft > "$RUNNER_TEMP/release.json" 2>/dev/null; then
+            test "$(jq -r .isDraft "$RUNNER_TEMP/release.json")" = true
+            for asset in "${assets[@]}"; do
+              gh release upload "$TAG" "release-assets/$asset" --clobber
+            done
+          else
+            paths=()
+            for asset in "${assets[@]}"; do paths+=("release-assets/$asset"); done
+            gh release create "$TAG" "${paths[@]}" --draft --verify-tag --title "极客工具箱 $TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+          gh release view "$TAG" --json assets --jq '.assets' > "$RUNNER_TEMP/assets.json"
+          test "$(jq length "$RUNNER_TEMP/assets.json")" = "${#assets[@]}"
+          for asset in "${assets[@]}"; do
+            digest=$(jq -er --arg name "$asset" '.[] | select(.name == $name) | .digest' "$RUNNER_TEMP/assets.json")
+            test "$digest" = "sha256:$(sha256sum "release-assets/$asset" | cut -d ' ' -f 1)"
+          done
+          gh release edit "$TAG" --draft=false --latest --title "极客工具箱 $TAG" --notes-file "$RUNNER_TEMP/notes.md"
+      - name: Verify published downloads and cryptographic release attestations
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/published"
+          gh release download "$TAG" --dir "$RUNNER_TEMP/published"
+          cd "$RUNNER_TEMP/published"
+          sha256sum -c SHA256SUMS.txt
+          for asset in *; do
+            for attempt in 1 2 3 4 5; do
+              if gh release verify-asset "$TAG" "$asset"; then break; fi
+              test "$attempt" -lt 5
+              sleep 5
+            done
+          done
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name | grep -Fx "$TAG"

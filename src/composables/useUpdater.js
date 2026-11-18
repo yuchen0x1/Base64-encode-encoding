@@ -9,6 +9,8 @@ const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : ''
 // 因此当前版本的更新日志在构建期由 vite.config.js 注入，供 Windows 界面显示。
 const RELEASE_NOTES = Array.isArray(__RELEASE_NOTES__) ? __RELEASE_NOTES__ : []
 const RELEASE_DATE = typeof __RELEASE_DATE__ === 'string' ? __RELEASE_DATE__ : ''
+const SNOOZE_KEY = 'geek-toolbox:update-snooze'
+const SNOOZE_MS = 24 * 60 * 60 * 1000
 
 const state = reactive({
   open: false,
@@ -21,6 +23,7 @@ const state = reactive({
   portable: false,
   latest: null,
   progress: 0,
+  speedText: '',
   message: '',
   error: '',
   lastCheckedAt: 0,
@@ -37,6 +40,15 @@ function formatBytes(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`
 }
 
+function canPrompt(version) {
+  try {
+    const saved = JSON.parse(window.localStorage?.getItem(SNOOZE_KEY) || 'null')
+    return saved?.version !== version || !(saved.until > Date.now())
+  } catch {
+    return true
+  }
+}
+
 function bindElectron() {
   if (electronBound) return true
   if (typeof window === 'undefined' || !window.toolboxUpdater) return false
@@ -48,15 +60,16 @@ function bindElectron() {
   window.toolboxUpdater.onEvent((event) => {
     if (!event || !event.type) return
     if (event.type === 'progress') {
-      state.status = 'downloading'
       state.progress = Math.round(event.percent || 0)
       state.message = event.message || '正在下载更新包…'
+      state.speedText = event.bytesPerSecond > 0 ? `${formatBytes(event.bytesPerSecond)}/s` : ''
     } else if (event.type === 'available') {
-      if (event.latest) state.latest = event.latest
+      if (!event.latest || ['checking', 'downloading', 'ready', 'restarting'].includes(state.status)) return
+      state.latest = { ...event.latest, sizeText: formatBytes(event.latest.size) }
       state.currentVersion = event.currentVersion || state.currentVersion
       state.status = 'available'
       state.lastCheckedAt = Date.now()
-      if (!state.autoPrompted) {
+      if (!state.autoPrompted && canPrompt(state.latest.version)) {
         state.autoPrompted = true
         state.open = true
       }
@@ -73,7 +86,7 @@ function bindElectron() {
  * @param {{manual?: boolean}} options manual=true 时给出"已是最新"的明确反馈
  */
 export function checkForUpdates(options = {}) {
-  const { manual = false, silent = false } = options
+  const { manual = false } = options
   if (checkPromise) return checkPromise
 
   state.status = 'checking'
@@ -113,12 +126,6 @@ export function checkForUpdates(options = {}) {
       }
       return { hasUpdate: false }
     } catch (error) {
-      if (silent) {
-        // 启动时的静默检查失败不打扰用户，保持待检查状态
-        state.status = 'idle'
-        state.error = ''
-        return { hasUpdate: false, error: error.message, silent: true }
-      }
       state.status = 'error'
       state.error = error.message || '检查更新失败'
       if (manual) state.open = true
@@ -134,6 +141,7 @@ export function checkForUpdates(options = {}) {
 async function applyInElectronMode() {
   state.status = 'downloading'
   state.progress = 0
+  state.speedText = ''
   state.message = '正在下载安装包…'
   const result = await window.toolboxUpdater.download()
   if (!result || result.ok === false) throw new Error(result?.error || '下载失败')
@@ -199,6 +207,17 @@ export function closeUpdatePanel() {
   state.open = false
 }
 
+export function snoozeUpdate() {
+  if (state.status !== 'available') return
+  try {
+    window.localStorage?.setItem(SNOOZE_KEY, JSON.stringify({ version: state.latest.version, until: Date.now() + SNOOZE_MS }))
+  } catch {
+    // Storage can be disabled. Closing still suppresses further prompts this launch.
+  }
+  state.autoPrompted = true
+  closeUpdatePanel()
+}
+
 export function useUpdater() {
   bindElectron()
   const hasUpdate = computed(() => state.status === 'available' || state.status === 'downloading' || state.status === 'ready')
@@ -225,19 +244,4 @@ export function useUpdater() {
     openUpdatePanel,
     closeUpdatePanel
   }
-}
-
-/** 启动后的静默检查（发现新版本才弹窗） */
-export function scheduleStartupCheck(delay = 3500) {
-  if (!bindElectron()) return
-  if (state.startupScheduled) return
-  state.startupScheduled = true
-  setTimeout(() => {
-    checkForUpdates({ manual: false, silent: true }).then((result) => {
-      if (result && result.hasUpdate) {
-        state.autoPrompted = true
-        state.open = true
-      }
-    })
-  }, delay)
 }

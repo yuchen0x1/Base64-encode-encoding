@@ -1,0 +1,23 @@
+name: 平台兼容性或更新失败
+description: 报告安装、运行、更新和卸载异常
+body:
+  - type: input
+    id: platform
+    attributes:
+      label: 操作系统、架构和运行方式
+      placeholder: Windows 11 x64 NSIS 安装版
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: 当前版本与目标版本
+    validations:
+      required: true
+  - type: textarea
+    id: failure
+    attributes:
+      label: 失败阶段、错误反馈与复现步骤
+      description: Windows 更新可附上脱敏后的用户数据目录 updates/install.log 摘要。
+    validations:
+      required: true

@@ -49,18 +49,20 @@
             </div>
           </div>
         </div>
-        <button class="cyber-icon-btn pc-only" @click="toggleTheme" :title="t(isDark ? 'lightTheme' : 'darkTheme')">
-          <Sun v-if="isDark" :size="16" class="text-amber" />
-          <Moon v-else :size="16" class="text-cyan" />
-        </button>
-        <label class="locale-picker" :title="t('language')">
-          <span class="sr-only">{{ t('language') }}</span>
-          <select v-model="localeSetting" :aria-label="t('language')" @change="saveState">
-            <option value="auto">{{ t('auto') }}</option>
-            <option value="zh-CN">简体中文</option>
-            <option value="en-US">English</option>
-          </select>
-        </label>
+        <div class="brand-actions">
+          <label class="locale-picker" :title="t('language')">
+            <span class="sr-only">{{ t('language') }}</span>
+            <select v-model="localeSetting" :aria-label="t('language')" @change="saveState">
+              <option value="auto">{{ t('auto') }}</option>
+              <option value="zh-CN">简体中文</option>
+              <option value="en-US">English</option>
+            </select>
+          </label>
+          <button class="cyber-icon-btn pc-only" @click="toggleTheme" :title="t(isDark ? 'lightTheme' : 'darkTheme')">
+            <Sun v-if="isDark" :size="16" class="text-amber" />
+            <Moon v-else :size="16" class="text-cyan" />
+          </button>
+        </div>
       </div>
 
       <!-- 科技感搜索框 -->
@@ -119,7 +121,7 @@
         </div>
         <button class="btn btn-secondary btn-sm directory-btn" @click="showCatalogModal = true">
           <Layers :size="14" />
-          <span>{{ translate('catalog', { count: catalogToolCount }) }}</span>
+          <span>{{ t('catalog', { count: catalogToolCount }) }}</span>
         </button>
         <!-- 交流群入口：点击打开反馈弹窗（群二维码 / 一键加群 / 复制链接） -->
         <button class="btn btn-secondary btn-sm community-btn" :title="t('feedback')" @click="feedbackOpen = true">
@@ -240,15 +242,16 @@
           <div class="section-title">
             <div class="section-title-left">
               <Sparkles :size="16" class="text-cyan" />
-              <span>{{ translate('quickNav', { category: activeCategoryName }) }}</span>
+              <span>{{ t('quickNav', { category: activeCategoryName }) }}</span>
             </div>
-            <span class="count-tip">{{ translate('availableCount', { count: filteredTools.length }) }}</span>
+            <span class="count-tip">{{ t('availableCount', { count: filteredTools.length }) }}</span>
           </div>
           <div class="tools-grid">
             <button
               v-for="item in filteredTools"
               :key="item.id"
               type="button"
+              :data-tool-id="item.id"
               :aria-label="`${t('open')} ${item.name}`"
               :class="['mini-tool-card', currentToolId === item.id ? 'current' : '']"
               @click="openTool(item)"
@@ -285,9 +288,9 @@
           <div>
             <div class="modal-title-wrap">
               <Layers class="text-cyan" :size="20" />
-              <h3 id="catalog-modal-title" class="modal-title gradient-text">{{ translate('catalogTitle', { count: catalogToolCount }) }}</h3>
+              <h3 id="catalog-modal-title" class="modal-title gradient-text">{{ t('catalogTitle', { count: catalogToolCount }) }}</h3>
             </div>
-            <p class="modal-sub">{{ translate('catalogSub', { count: catalogToolCount, tools: toolsList.length }) }}</p>
+            <p class="modal-sub">{{ t('catalogSub', { count: catalogToolCount, tools: toolsList.length }) }}</p>
           </div>
           <button class="cyber-close-btn" :aria-label="t('closeCatalog')" @click="showCatalogModal = false">
             <X :size="20" />
@@ -358,7 +361,7 @@ import ToastContainer from './components/ToastContainer.vue'
 import UpdateModal from './components/UpdateModal.vue'
 import FeedbackModal from './components/FeedbackModal.vue'
 import { useTheme } from './composables/useTheme.js'
-import { useUpdater, openUpdatePanel, scheduleStartupCheck } from './composables/useUpdater.js'
+import { useUpdater, openUpdatePanel } from './composables/useUpdater.js'
 import { globalToast } from './composables/useToast.js'
 import { resolveLocale, translate } from './i18n.js'
 import {
@@ -621,7 +624,6 @@ function handleTabKeydown(event, tabId) {
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
   // 启动后静默检查更新，发现新版本时自动弹窗（桌面版主进程也会主动推送）
-  scheduleStartupCheck(3500)
 })
 
 onUnmounted(() => {
@@ -630,7 +632,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.locale-picker { margin-left: 6px; }
 .locale-picker select { max-width: 118px; min-height: 28px; border: 1px solid var(--border-color, #3a5166); border-radius: 4px; background: var(--bg-card, #111b27); color: inherit; padding: 2px 6px; font-size: 11px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .app-layout {
@@ -714,11 +715,16 @@ onUnmounted(() => {
 }
 .brand {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 0.75rem;
   padding: 1.25rem 1.15rem;
   border-bottom: 1px solid var(--border-color);
   background: linear-gradient(180deg, rgba(var(--rgb-primary), 0.05) 0%, transparent 100%);
+}
+.brand-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 .brand-left {
   display: flex;
@@ -728,6 +734,7 @@ onUnmounted(() => {
 .cyber-logo-box {
   width: 40px;
   height: 40px;
+  flex-shrink: 0;
   border-radius: 0.5rem;
   background: rgba(var(--rgb-primary), 0.12);
   border: 1px solid rgba(var(--rgb-primary), 0.3);

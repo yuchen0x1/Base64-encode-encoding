@@ -2,29 +2,40 @@ name: Build Windows Installer
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-windows:
+    name: Windows installer
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
+          cache: npm
       - run: npm ci
-      - run: npm run build
-      - name: Package Windows
-        run: npx electron-builder --win nsis --publish never
-      - name: Upload Windows Installer
-        uses: actions/upload-artifact@v4
+      - run: npm run package:win
+      - name: Verify packaged update helper
+        shell: pwsh
+        run: |
+          $env:TOOLBOX_SMOKE_RUNTIME = (Resolve-Path -LiteralPath 'release/win-unpacked/极客工具箱.exe').Path
+          npm run test:updater
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Windows-Installer
-          path: release/*.exe
+          path: release/GeekToolbox-Setup-*.exe
+          if-no-files-found: error

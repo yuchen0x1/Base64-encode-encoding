@@ -7,6 +7,7 @@ export default [
     // 构建产物与临时目录不参与源码 lint
     ignores: [
       'dist',
+      'dist-cli',
       'release',
       'node_modules',
       '.tmp-verify',

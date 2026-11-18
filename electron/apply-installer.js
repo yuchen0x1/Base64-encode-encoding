@@ -13,6 +13,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { createHash } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 import { verifyPayload } from './installer-verification.js'
@@ -136,6 +137,13 @@ function writeFailureMarker(workDir, details) {
   }
 }
 
+async function verifyInstallerDigest(file, expected) {
+  if (!/^[a-f0-9]{64}$/.test(expected)) return false
+  const digest = createHash('sha256')
+  for await (const chunk of fs.createReadStream(file)) digest.update(chunk)
+  return digest.digest('hex') === expected
+}
+
 function cleanupFile(file) {
   if (!file) return
   try {
@@ -199,6 +207,9 @@ export async function runInstallerAssistant(options, dependencies = {}) {
     writeLog('安装包不存在，放弃安装')
     return { ok: false, reason: 'missing-installer' }
   }
+  if (options.sha256 && !(await verifyInstallerDigest(installer, options.sha256))) {
+    throw new Error('安装助手校验失败：安装包 SHA-256 已变化')
+  }
 
   if (options['bootstrap-ipc'] === '1') {
     if (typeof process.send !== 'function') throw new Error('安装助手缺少启动确认通道')
@@ -212,17 +223,30 @@ export async function runInstallerAssistant(options, dependencies = {}) {
   }
   writeLog('主进程已退出，等待文件句柄释放')
   await sleepImpl(800)
-  await waitForUnlockImpl([
+  const unlocked = await waitForUnlockImpl([
     path.join(installDir, exeName),
     path.join(installDir, 'resources', 'app.asar')
   ])
+  if (!unlocked) {
+    writeLog('旧版文件仍被占用，保留当前安装并中止更新')
+    writeFailureMarker(workDir, '旧版文件仍被占用。请关闭工具箱及相关进程后重试。')
+    return { ok: false, reason: 'files-locked' }
+  }
+  if (options.sha256 && !(await verifyInstallerDigest(installer, options.sha256))) {
+    writeFailureMarker(workDir, '安装包 SHA-256 已变化。请重新下载更新。')
+    return { ok: false, reason: 'installer-digest-changed' }
+  }
 
   let verified = null
   const maxAttempts = 3
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     writeLog(`开始静默安装（第 ${attempt}/${maxAttempts} 次）`)
-    const code = await runInstallerImpl(installer, installDir)
-    writeLog(`安装器退出码：${code}`)
+    try {
+      const code = await runInstallerImpl(installer, installDir)
+      writeLog(`安装器退出码：${code}`)
+    } catch (error) {
+      writeLog(`无法运行安装器：${error.message}`)
+    }
     // 解压落盘与 Uninstall 注册比进程退出稍晚，给一点缓冲再校验
     await sleepImpl(1200)
 
@@ -243,6 +267,27 @@ export async function runInstallerAssistant(options, dependencies = {}) {
         path.join(installDir, 'resources', 'app.asar')
       ], 8000)
       await sleepImpl(2000)
+    }
+  }
+
+  let rolledBack = false
+  if (!verified && options['rollback-installer'] && options['previous-version'] && options['rollback-sha256']) {
+    try {
+      const rollbackInstaller = options['rollback-installer']
+      if (!(await verifyInstallerDigest(rollbackInstaller, options['rollback-sha256']))) {
+        throw new Error('旧版安装包 SHA-256 不匹配')
+      }
+      writeLog(`开始恢复旧版：${options['previous-version']}`)
+      await runInstallerImpl(rollbackInstaller, installDir)
+      await sleepImpl(1200)
+      const restored = verifyInstalledPayload(installDir, exeName, options['previous-version'])
+      if (!restored.ok) throw new Error(restored.problems.join('，'))
+      verified = restored
+      rolledBack = true
+      writeFailureMarker(workDir, `目标版本 ${expectedVersion} 安装失败，已恢复 ${options['previous-version']}。`)
+      writeLog(`已恢复旧版：${restored.installedVersion}`)
+    } catch (error) {
+      writeLog(`自动恢复失败：${error.message}`)
     }
   }
 
@@ -283,7 +328,7 @@ export async function runInstallerAssistant(options, dependencies = {}) {
     /* 文件被占用时忽略，下次更新会覆盖 */
   }
 
-  return { ok: true, version: verified.installedVersion }
+  return { ok: true, version: verified.installedVersion, ...(rolledBack ? { rolledBack: true } : {}) }
 }
 
 async function main() {
@@ -301,6 +346,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
       }
       if (args['cleanup-helper']) {
         cleanupFile(args['cleanup-helper'])
+      }
+      if (args['rollback-installer']) {
+        cleanupFile(args['rollback-installer'])
       }
       if (args['cleanup-runtime']) {
         cleanupFile(args['cleanup-runtime'])

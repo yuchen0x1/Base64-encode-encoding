@@ -3,6 +3,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { LATEST_RELEASE_API, RELEASES_URL } from '../shared/github-release.js'
 
 const electronMock = vi.hoisted(() => ({
   app: {
@@ -57,6 +58,40 @@ async function withPlatform(platform, callback) {
 }
 
 describe('Electron updater package enforcement', () => {
+  windowsIt.each([true, false])('checks the packaged manifest against the release API (authentic: %s)', async authentic => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'toolbox-official-feed-'))
+    const oldPackaged = electronMock.app.isPackaged
+    electronMock.app.isPackaged = true
+    electronMock.app.getPath.mockImplementation(() => path.join(root, 'GeekToolbox.exe'))
+    const version = '1.0.1'
+    const base = `${RELEASES_URL}/download/v${version}/`
+    const name = `GeekToolbox-Setup-${version}.exe`
+    const manifest = JSON.stringify({ version, kind: 'nsis', package: { url: name, sha256: validSha256, size: 128 } })
+    const manifestDigest = crypto.createHash('sha256').update(manifest).digest('hex')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async url => {
+      if (url === base + 'version.json') return new Response(authentic ? manifest : manifest + ' ')
+      if (url !== LATEST_RELEASE_API) throw new Error(`Unexpected URL ${url}`)
+      return new Response(JSON.stringify({
+        tag_name: `v${version}`, draft: false, prerelease: false,
+        assets: [
+          { name, size: 128, digest: 'sha256:' + validSha256, browser_download_url: base + name },
+          { name: 'version.json', size: manifest.length, digest: 'sha256:' + manifestDigest, browser_download_url: base + 'version.json' }
+        ]
+      }))
+    })
+    try {
+      if (authentic) await expect(checkForUpdates()).resolves.toMatchObject({ hasUpdate: true, latest: { version, size: 128 } })
+      else {
+        await expect(checkForUpdates()).rejects.toThrow(/SHA-256 不一致/)
+        await expect(downloadUpdate()).rejects.toThrow(/没有可用的更新/)
+      }
+    } finally {
+      fetchSpy.mockRestore()
+      electronMock.app.isPackaged = oldPackaged
+      await fs.promises.rm(root, { recursive: true, force: true })
+    }
+  })
+
   it('places the helper runtime copy outside the installed application directory', () => {
     const workDir = path.join('C:\\Users\\test', 'AppData', 'Roaming', '极客工具箱', 'updates')
     const runtimeCopy = getRuntimeCopyPath(workDir, 1234, 5678)

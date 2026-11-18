@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 私密报告安全问题
+    url: https://github.com/yuchen0x1/Base64-encode-encoding/security/advisories/new
+    about: 用于安装器、更新源、凭据和其他安全漏洞。请勿公开披露细节。

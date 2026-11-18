@@ -333,6 +333,8 @@ async function buildDesktopInstaller(version) {
   const buffer = await fs.readFile(installerPath)
   const manifest = await writePackage(path.join(ROOT, 'updates', 'desktop'), fileName, buffer, version)
   manifest.kind = 'nsis'
+  manifest.platform = 'win32'
+  manifest.arch = 'x64'
   await writeJson(path.join(ROOT, 'updates', 'desktop', 'version.json'), manifest)
 
   console.log(`[release] Windows 安装包: ${installerPath} (${formatSize(buffer.length)})`)

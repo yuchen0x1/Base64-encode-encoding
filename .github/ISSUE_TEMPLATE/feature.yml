@@ -1,0 +1,10 @@
+name: 功能建议
+description: 提议新工具或工作流改进
+body:
+  - type: textarea
+    id: workflow
+    attributes:
+      label: 使用场景与期望行为
+      description: 说明受影响的平台、当前做法和你期望的输入与输出。
+    validations:
+      required: true

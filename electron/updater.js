@@ -22,19 +22,20 @@ import crypto from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { isNewerVersion, normalizeVersion } from '../shared/version.js'
+import { fetchLatestRelease, fetchReleaseByVersion, getReleaseAsset, RELEASES_URL } from '../shared/github-release.js'
 import { assertSupportedInstallerPackage, normalizeSignatureMetadata } from './update-validation.js'
 import { prepareInstallerRuntime, startInstallerHelper } from './installer-bootstrap.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const DEFAULT_UPDATE_FEED = 'https://github.com/yuchen0x1/Base64-encode-encoding/releases/latest/download/version.json'
+const DEFAULT_UPDATE_FEED = `${RELEASES_URL}/latest/download/version.json`
+const MAX_MANIFEST_BYTES = 64 * 1024
 export const MAX_UPDATE_PACKAGE_BYTES = 512 * 1024 * 1024
 export const UPDATE_DOWNLOAD_IDLE_TIMEOUT_MS = 30_000
 const UPDATE_DOWNLOAD_CANCELLED = 'ERR_UPDATE_DOWNLOAD_CANCELLED'
 
 const state = {
   latest: null,
-  manifestBase: '',
   manifestKind: '',
   packageInfo: null,
   installerFile: '',
@@ -43,6 +44,8 @@ const state = {
   installing: false,
   signature: null
 }
+
+let checkPromise
 
 function getWindow() {
   return BrowserWindow.getAllWindows()[0] || null
@@ -60,8 +63,8 @@ function sendEvent(payload) {
   win.webContents.send('update:event', payload)
 }
 
-function sendProgress(percent, message) {
-  sendEvent({ type: 'progress', percent: Math.max(0, Math.min(100, Math.round(percent))), message })
+function sendProgress(percent, message, bytesPerSecond = 0) {
+  sendEvent({ type: 'progress', percent: Math.max(0, Math.min(100, Math.round(percent))), message, bytesPerSecond })
 }
 
 function isPortableRuntime() {
@@ -114,13 +117,15 @@ function isHttpUrl(value) {
 export function assertSecureUpdateUrl(value, label = '更新地址') {
   if (!isHttpUrl(value)) return true
   const protocol = new URL(value).protocol
-  if (protocol === 'http:' && app.isPackaged && process.env.TOOLBOX_ALLOW_INSECURE_UPDATE_FEED !== '1') {
+  if (protocol === 'http:' && app.isPackaged) {
     throw new Error(`${label}必须使用 HTTPS；仅允许在开发环境显式开启 HTTP 更新源`)
   }
   return true
 }
 
-async function readManifest(feed) {
+async function readManifest(feed, expectedSha256) {
+  let bytes
+  let base
   if (isHttpUrl(feed)) {
     const manifestUrl = new URL(feed)
     assertSecureUpdateUrl(manifestUrl.href, '更新源')
@@ -128,18 +133,37 @@ async function readManifest(feed) {
       if (!manifestUrl.pathname.endsWith('/')) manifestUrl.pathname += '/'
       manifestUrl.pathname += 'version.json'
     }
-    const res = await httpFetch(manifestUrl.href, { cache: 'no-store' })
+    const res = await httpFetch(manifestUrl.href, { cache: 'no-store', signal: AbortSignal.timeout(15_000) })
+    if (res.url) assertSecureUpdateUrl(res.url, '更新源重定向地址')
     if (!res.ok) throw new Error(`更新源返回 HTTP ${res.status}`)
-    return { manifest: await res.json(), base: new URL('.', manifestUrl).href }
+    const chunks = []
+    let size = 0
+    if (!res.body) throw new Error('更新源未返回清单内容')
+    for await (const chunk of res.body) {
+      size += chunk.byteLength
+      if (size > MAX_MANIFEST_BYTES) throw new Error('更新清单超过 64 KiB')
+      chunks.push(chunk)
+    }
+    bytes = Buffer.concat(chunks, size)
+    base = new URL('.', manifestUrl).href
+  } else {
+    const isManifestFile = path.extname(feed).toLowerCase() === '.json'
+    base = isManifestFile ? path.dirname(feed) : feed
+    const file = isManifestFile ? feed : path.join(feed, 'version.json')
+    const handle = await fs.open(file, 'r')
+    try {
+      const buffer = Buffer.alloc(MAX_MANIFEST_BYTES + 1)
+      const { bytesRead } = await handle.read(buffer)
+      if (bytesRead > MAX_MANIFEST_BYTES) throw new Error('更新清单超过 64 KiB')
+      bytes = buffer.subarray(0, bytesRead)
+    } finally {
+      await handle.close()
+    }
   }
-  const isManifestFile = path.extname(feed).toLowerCase() === '.json'
-  const base = isManifestFile ? path.dirname(feed) : feed
-  const file = isManifestFile ? feed : path.join(feed, 'version.json')
-  if (!existsSync(file)) {
-    throw new Error(`未找到更新源清单：${file}`)
+  if (expectedSha256 && crypto.createHash('sha256').update(bytes).digest('hex') !== expectedSha256) {
+    throw new Error('更新清单与 GitHub Release SHA-256 不一致')
   }
-  const manifest = JSON.parse(readFileSync(file, 'utf8').replace(/^\uFEFF/, ''))
-  return { manifest, base }
+  return { manifest: JSON.parse(bytes.toString('utf8').replace(/^\uFEFF/, '')), base }
 }
 
 export function resolvePackage(manifest, base) {
@@ -238,6 +262,7 @@ async function downloadHttpTo(url, dest, expectedSize, onProgress, attempts = 3,
       signal?.addEventListener('abort', externalAbort, { once: true })
       armTimeout()
       const res = await httpFetch(url, { cache: 'no-store', headers, signal: requestController.signal })
+      if (res?.url) assertSecureUpdateUrl(res.url, '更新包重定向地址')
       if (!res?.ok) throw new Error(`下载更新包失败：HTTP ${res?.status ?? '未知状态'}`)
       if (!res.body || typeof res.body.getReader !== 'function') {
         throw new Error('下载更新包失败：HTTP 响应缺少内容流')
@@ -382,7 +407,39 @@ export async function verifyAuthenticodeSignature(file, signature) {
   return { status: 'valid', signed: true, thumbprint: thumbprint.toUpperCase() }
 }
 
-export async function checkForUpdates() {
+export function checkForUpdates() {
+  if (checkPromise) return checkPromise
+  if (state.downloading || state.installing) return Promise.reject(new Error('更新任务正在进行'))
+  checkPromise = checkForUpdatesImpl().finally(() => { checkPromise = null })
+  return checkPromise
+}
+
+async function readPackagedUpdate(feed, currentVersion) {
+  const release = await fetchLatestRelease(httpFetch)
+  const version = release.tag_name.slice(1)
+  if (!isNewerVersion(version, currentVersion)) return { manifest: { version } }
+  const manifestAsset = getReleaseAsset(release, 'version.json')
+  const installer = getReleaseAsset(release, `GeekToolbox-Setup-${version}.exe`)
+  const official = await readManifest(manifestAsset.url, manifestAsset.sha256)
+  const { manifest, base } = official
+  const packageInfo = resolvePackage(manifest, base)
+  if (normalizeVersion(manifest.version) !== version || packageInfo.url !== installer.url ||
+      packageInfo.sha256?.toLowerCase() !== installer.sha256 || packageInfo.size !== installer.size) {
+    throw new Error('Windows 清单与 GitHub Release 安装包记录不一致')
+  }
+  if (feed === DEFAULT_UPDATE_FEED) return official
+
+  const mirror = await readManifest(feed)
+  const mirrorPackage = resolvePackage(mirror.manifest, mirror.base)
+  if (normalizeVersion(mirror.manifest.version) !== version ||
+      mirrorPackage.sha256?.toLowerCase() !== installer.sha256 || mirrorPackage.size !== installer.size) {
+    throw new Error('备用更新源与 GitHub Release 安装包记录不一致')
+  }
+  assertSupportedInstallerPackage(mirrorPackage, mirror.manifest.kind)
+  return { manifest: { ...manifest, package: { ...manifest.package, url: mirrorPackage.url } }, base: mirror.base }
+}
+
+async function checkForUpdatesImpl() {
   const currentVersion = normalizeVersion(app.getVersion())
   state.latest = null
   state.packageInfo = null
@@ -409,7 +466,10 @@ export async function checkForUpdates() {
   let manifest
   let base
   try {
-    const result = await readManifest(feed)
+    assertSecureUpdateUrl(feed, '更新源')
+    const result = app.isPackaged
+      ? await readPackagedUpdate(feed, currentVersion)
+      : await readManifest(feed)
     manifest = result.manifest
     base = result.base
   } catch (error) {
@@ -420,17 +480,17 @@ export async function checkForUpdates() {
 
   const latestVersion = normalizeVersion(manifest.version)
   if (!latestVersion) throw new Error('更新清单 version 字段无效')
-  const pkg = resolvePackage(manifest, base)
-  if (pkg.kind === 'http') assertSecureUpdateUrl(pkg.url, '更新包地址')
   const kind = manifest.kind || ''
   const hasUpdate = isNewerVersion(latestVersion, currentVersion)
-  if (hasUpdate) assertSupportedInstallerPackage(pkg, kind)
-
-  state.manifestBase = base
-  state.packageInfo = pkg
-  state.manifestKind = kind
 
   if (hasUpdate) {
+    const pkg = resolvePackage(manifest, base)
+    if (pkg.kind === 'http') assertSecureUpdateUrl(pkg.url, '更新包地址')
+    assertSupportedInstallerPackage(pkg, kind)
+    if (manifest.platform !== undefined && manifest.platform !== process.platform) throw new Error('更新包平台不兼容')
+    if (manifest.arch !== undefined && manifest.arch !== process.arch) throw new Error('更新包架构不兼容')
+    state.packageInfo = pkg
+    state.manifestKind = kind
     state.latest = {
       version: latestVersion,
       buildTime: manifest.buildTime || null,
@@ -438,7 +498,8 @@ export async function checkForUpdates() {
       releaseDate: manifest.releaseDate || null,
       size: pkg.size || null,
       force: Boolean(manifest.force),
-      signed: Boolean(pkg.signature)
+      signed: Boolean(pkg.signature),
+      detailsUrl: `${RELEASES_URL}/tag/v${latestVersion}`
     }
   } else {
     state.latest = null
@@ -470,7 +531,7 @@ function installerFileName(pkg, version) {
 export async function downloadUpdate() {
   if (process.platform !== 'win32') throw new Error('Electron 自动更新仅支持 Windows NSIS 安装包')
   if (!state.latest) throw new Error('没有可用的更新')
-  if (state.downloading) throw new Error('更新包正在下载中')
+  if (state.downloading || state.installing || checkPromise) throw new Error('更新任务正在进行')
 
   const pkg = state.packageInfo
   if (!pkg) throw new Error('更新包信息缺失，请重新检查更新')
@@ -484,10 +545,17 @@ export async function downloadUpdate() {
     dest = path.join(baseDir, installerFileName(pkg, state.latest.version))
     await fs.mkdir(baseDir, { recursive: true })
     await fs.rm(dest, { force: true })
+    state.installerFile = ''
+    if (Number.isSafeInteger(pkg.size) && pkg.size > 0) {
+      const { bavail, bsize } = await fs.statfs(baseDir)
+      if (bavail * bsize < pkg.size) throw new Error('磁盘空间不足，无法下载安装包')
+    }
 
     sendProgress(1, '正在下载安装包…')
+    const started = Date.now()
     const received = await downloadTo(pkg.url, dest, pkg.size, (ratio) => {
-      sendProgress(2 + ratio * 86, `正在下载安装包… ${Math.round(ratio * 100)}%`)
+      const bytesPerSecond = Math.floor((pkg.size || 0) * ratio * 1000 / Math.max(1000, Date.now() - started))
+      sendProgress(2 + ratio * 86, `正在下载安装包… ${Math.round(ratio * 100)}%`, bytesPerSecond)
     }, state.downloadController.signal)
 
     sendProgress(90, '正在校验安装包…')
@@ -497,6 +565,7 @@ export async function downloadUpdate() {
     }
 
     state.signature = await verifyAuthenticodeSignature(dest, pkg.signature)
+    assertDownloadNotCancelled(state.downloadController.signal)
 
     state.installerFile = dest
     sendProgress(96, state.signature.signed ? 'SHA-256 与数字签名校验通过' : 'SHA-256 校验通过（清单未提供数字签名）')
@@ -523,9 +592,30 @@ export function cancelDownloadUpdate() {
 
 export async function installUpdate() {
   if (state.installing) throw new Error('更新安装已经开始，请勿重复操作')
+  if (state.downloading || checkPromise) throw new Error('更新任务正在进行')
   state.installing = true
   try { return await installUpdateImpl() }
   catch (error) { state.installing = false; throw error }
+}
+
+async function prepareRollback(workDir, version) {
+  if (!app.isPackaged) return []
+  const installer = path.join(workDir, 'rollback-installer.exe')
+  try {
+    await fs.rm(installer, { force: true })
+    const release = await fetchReleaseByVersion(version, httpFetch)
+    const asset = getReleaseAsset(release, `GeekToolbox-Setup-${version}.exe`)
+    const { bavail, bsize } = await fs.statfs(workDir)
+    if (bavail * bsize < asset.size * 2) throw new Error('磁盘剩余空间不足')
+    sendProgress(96, '正在准备可验证的旧版安装包，以便安装失败时恢复…')
+    await downloadHttpTo(asset.url, installer, asset.size, () => {}, 1, AbortSignal.timeout(45_000))
+    if (await hashFile(installer) !== asset.sha256) throw new Error('旧版安装包 SHA-256 不匹配')
+    return ['--rollback-installer', installer, '--rollback-sha256', asset.sha256, '--previous-version', version]
+  } catch (error) {
+    await fs.rm(installer, { force: true }).catch(() => {})
+    console.warn('[updater] 未能准备旧版安装包，将使用交互式修复：', error.message)
+    return []
+  }
 }
 
 async function installUpdateImpl() {
@@ -534,6 +624,9 @@ async function installUpdateImpl() {
   if (!state.latest?.version) throw new Error('更新目标版本缺失，请重新检查更新')
   if (!state.installerFile || !existsSync(state.installerFile)) {
     throw new Error('安装包尚未下载完成，请重新检查更新')
+  }
+  if (await hashFile(state.installerFile) !== state.packageInfo.sha256.toLowerCase()) {
+    throw new Error('安装包在下载后发生变化，请重新检查并下载更新')
   }
   const target = appDir()
   if (!target) {
@@ -559,6 +652,7 @@ async function installUpdateImpl() {
   await prepareInstallerRuntime(process.execPath, runtimeCopy)
   await fs.copyFile(helperSource, tempScript)
   await fs.copyFile(path.join(__dirname, 'installer-verification.js'), path.join(runtimeDir, 'installer-verification.js'))
+  const rollbackArgs = await prepareRollback(runtimeDir, normalizeVersion(app.getVersion()))
 
   sendProgress(97, '正在验证更新助手能否启动…')
 
@@ -569,6 +663,8 @@ async function installUpdateImpl() {
         tempScript,
         '--pid', String(process.pid),
         '--installer', state.installerFile,
+        '--sha256', state.packageInfo.sha256.toLowerCase(),
+        ...rollbackArgs,
         '--target', target,
         '--exe', exePath,
         '--product', app.getName(),
@@ -582,6 +678,7 @@ async function installUpdateImpl() {
       state.latest.version
     )
   } catch (error) {
+    if (rollbackArgs.length) await fs.rm(rollbackArgs[1], { force: true }).catch(() => {})
     await fs.appendFile(logFile, `[${new Date().toISOString()}] 更新助手启动失败，保留当前应用：${error.message}\n`).catch(() => {})
     throw new Error(`启动安装助手失败：${error.message}`, { cause: error })
   }

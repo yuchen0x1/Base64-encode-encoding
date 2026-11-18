@@ -1,0 +1,59 @@
+name: Maintenance checks
+
+on:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Check both npm dependency trees
+        shell: bash
+        run: |
+          npm audit --registry=https://registry.npmjs.org --omit=dev --audit-level=high
+          npm audit --registry=https://registry.npmjs.org --audit-level=high
+      - name: Verify latest release and README
+        if: success() || failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          grep -F "releases/tag/$latest)" README.md
+          mkdir "$RUNNER_TEMP/latest"
+          gh release download "$latest" --dir "$RUNNER_TEMP/latest" --pattern 'version.json' --pattern 'SHA256SUMS.txt' --pattern '*.mjs' --pattern '*.exe'
+          cd "$RUNNER_TEMP/latest"
+          sha256sum -c SHA256SUMS.txt
+          test "$(jq -r '.version' version.json)" = "${latest#v}"
+          test "$(node "GeekToolbox-CLI-${latest#v}.mjs" --version)" = "${latest#v}"
+      - name: Scan reference projects for recent changes
+        if: success() || failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo '### Reference repositories'
+            echo
+            echo '| Repository | Last push | Latest stable release |'
+            echo '|---|---|---|'
+            for repo in DevToys-app/DevToys CorentinTh/it-tools gchq/CyberChef jqlang/jq panva/jose electron-userland/electron-builder; do
+              pushed=$(gh api "repos/$repo" --jq .pushed_at)
+              release=$(gh api "repos/$repo/releases/latest" --jq .tag_name)
+              echo "| $repo | $pushed | $release |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"

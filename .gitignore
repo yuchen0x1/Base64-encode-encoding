@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-cli/
 release/
 out/
 *.log
@@ -8,6 +9,9 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+*.pfx
+*.p12
+*.key
 
 # 已退出维护范围的原生工程缓存，避免本地旧产物重新入库
 /android/

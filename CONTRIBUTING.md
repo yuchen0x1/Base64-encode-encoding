@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢你为极客工具箱提交改进。本项目仅支持 Windows x64；Vue / Vite 用于 Electron 渲染界面，不维护独立网站或其他平台版本。
+感谢你为极客工具箱提交改进。桌面界面维护 Windows x64，命令行版维护通过 Node.js 22+ 运行的 Windows、Linux 和 macOS。
 
 ## 开始之前
 
@@ -12,8 +12,9 @@ npm run electron:dev
 ## 分支约定
 
 - 本仓库统一使用 `main` 作为开发、集成和发布基线。
-- 后续代码更新直接提交到本地 `main`，并推送到 `origin/main`。
-- 不保留个人功能分支、临时修复分支或已合并的远程跟踪分支；临时实验完成后应回到 `main` 并清理引用。
+- 功能、修复和紧急修复从 `main` 创建短期分支，经 Pull Request 与 Windows、CLI、依赖检查后合并。
+- 冲突在工作分支中与最新 `main` 合并后解决，并重新跑检查。
+- 只为已合并并通过检查的提交打 `vMAJOR.MINOR.PATCH` 标签。版本号、锁文件、CHANGELOG、发布历史与 README 同步维护。已发布版本的修正通过新版本交付。
 - 操作前先确认 `git status --short --branch`，保留工作区中已有的未提交修改，不使用强制重置覆盖它们。
 
 提交功能或修复前，请确认生产构建通过，并在 Windows Electron 窗口中检查浅色和深色主题。
@@ -33,6 +34,8 @@ npm run electron:dev
 npm test
 npm run lint
 npm run test:desktop
+npm run build:cli
+npm run test:cli
 ```
 
 如果修改了更新流程，请同时验证：
