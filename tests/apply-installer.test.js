@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { EventEmitter } from 'node:events'
+import { createHash } from 'node:crypto'
 import { runInstallerAssistant } from '../electron/apply-installer.js'
 
 const require = createRequire(import.meta.url)
@@ -56,7 +57,7 @@ describe('installer assistant version gating', () => {
     }
   })
 
-  it('does not treat a present stale installation as a successful update', async () => {
+  it.each(['none', 'valid', 'changed'])('handles a failed upgrade with %s rollback media', async rollback => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'toolbox-installer-assistant-'))
     const installer = path.join(root, 'installer.exe')
     const exe = path.join(root, 'GeekToolbox.exe')
@@ -69,7 +70,15 @@ describe('installer assistant version gating', () => {
     await createPackage(root, path.join(resources, 'app.asar'))
 
     const runInstallerImpl = vi.fn(async () => 0)
-    const spawnImpl = vi.fn(() => ({ unref: vi.fn() }))
+    const spawnImpl = vi.fn(() => {
+      const child = new EventEmitter()
+      child.unref = vi.fn()
+      queueMicrotask(() => child.emit('spawn'))
+      return child
+    })
+    const rollbackInstaller = path.join(root, 'rollback.exe')
+    const oldBytes = 'official old-version installer'
+    fs.writeFileSync(rollbackInstaller, rollback === 'changed' ? 'modified bytes' : oldBytes)
 
     try {
       const result = await runInstallerAssistant({
@@ -78,7 +87,12 @@ describe('installer assistant version gating', () => {
         exe,
         target: root,
         version: '1.2.3',
-        log
+        log,
+        ...(rollback !== 'none' && {
+          'rollback-installer': rollbackInstaller,
+          'rollback-sha256': createHash('sha256').update(oldBytes).digest('hex'),
+          'previous-version': '1.2.2'
+        })
       }, {
         waitForExitImpl: vi.fn(async () => true),
         waitForUnlockImpl: vi.fn(async () => true),
@@ -87,11 +101,18 @@ describe('installer assistant version gating', () => {
         spawnImpl
       })
 
-      expect(result).toEqual({ ok: false, reason: 'payload-verification-failed' })
-      expect(runInstallerImpl).toHaveBeenCalledTimes(4) // three silent attempts and interactive fallback
-      expect(runInstallerImpl).toHaveBeenLastCalledWith(installer, root, { silent: false })
-      expect(spawnImpl).not.toHaveBeenCalled()
-      expect(fs.existsSync(installer)).toBe(true)
+      expect(runInstallerImpl).toHaveBeenCalledTimes(4)
+      if (rollback === 'valid') {
+        expect(result).toEqual({ ok: true, version: '1.2.2', rolledBack: true })
+        expect(runInstallerImpl).toHaveBeenLastCalledWith(rollbackInstaller, root)
+        expect(spawnImpl).toHaveBeenCalledOnce()
+        expect(fs.readFileSync(path.join(root, 'install-failed.txt'), 'utf8')).toContain('已恢复 1.2.2')
+      } else {
+        expect(result).toEqual({ ok: false, reason: 'payload-verification-failed' })
+        expect(runInstallerImpl).toHaveBeenLastCalledWith(installer, root, { silent: false })
+        expect(spawnImpl).not.toHaveBeenCalled()
+        expect(fs.existsSync(installer)).toBe(true)
+      }
     } finally {
       fs.rmSync(root, { recursive: true, force: true })
     }

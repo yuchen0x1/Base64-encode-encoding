@@ -6,7 +6,7 @@
 
 [![Windows 构建](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/github/v/release/yuchen0x1/Base64-encode-encoding?display_name=tag&sort=date) ![平台](https://img.shields.io/badge/platform-Windows-0078d4) ![许可证](https://img.shields.io/badge/license-MIT-22c55e)
 
-**仅支持 Windows x64。** 基于 Electron、Vue 3 和 Vite 的本地开发者工具箱，内置 21 款编解码、哈希、格式化及批量处理工具。工具计算在本机完成，无业务后端、账号或云同步。
+极客工具箱是离线开发者工具集。Windows x64 桌面版使用 Electron、Vue 3 和 Vite，内置 21 款工具。命令行版可在 Windows、Linux 和 macOS 的 Node.js 22+ 环境中复用桌面配方。工具输入在本机处理。
 
 **下载**：[最新 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/latest) · **仓库**：[GitHub](https://github.com/yuchen0x1/Base64-encode-encoding) · **交流群**：[冷漠网络科技交流群①](https://qm.qq.com/q/bkacrv1t3G)
 
@@ -14,17 +14,31 @@
 
 <!-- github-release:start -->
 
-**[v0.0.8](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.8)** · 2026-11-17
+**[v0.0.9](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.9)** · 2026-11-18
 
-本版为工具箱核心导航、工作区操作和语言选择器加入自动跟随系统/浏览器语言，也可手动选择中文或 English 并持久化。工具输入、编码数据和导出协议保持原样。
+本版修复 Windows 启动空白，新增跨平台命令行版，并为桌面更新加入下载速度、发行详情与 24 小时稍后提醒。
 
 [全部发行记录](https://github.com/yuchen0x1/Base64-encode-encoding/releases)
 
 <!-- github-release:end -->
 
 从 v0.0.4 / v0.0.5 升级时，请先手动覆盖安装 v0.0.7 一次，无需卸载或删除用户配置。
+若 v0.0.8 启动后空白，请直接下载 v0.0.9 安装包覆盖安装。
 
 [完整更新历史](docs/releases/release-notes.md) · [更新故障复盘](docs/UPDATER_INCIDENT_2026-11-13.md) · [批量处理指南](docs/BATCH_PROCESSING.md)
+
+![Windows 桌面版运行 Base64 工具](docs/screenshots/desktop-base64-windows.png)
+
+## 平台与安装
+
+| 能力 | Windows x64 桌面 | Windows / Linux / macOS 命令行 |
+|---|---|---|
+| 安装 / 运行 | 下载 `GeekToolbox-Setup-<版本>.exe` 并安装 | 下载 `GeekToolbox-CLI-<版本>.mjs`，用 Node.js 22+ 执行 |
+| 21 款交互式工具、收藏、主题、标签和工作区 | 支持 | — |
+| Base64、URL、哈希和 JSON 的配方 | 多行文本、多文件、后台运行和结果导出 | 单个文件或标准输入，结果写入标准输出 |
+| 版本检查 | 应用内检查、下载和覆盖安装 | `--check-update` 查询版本和摘要，手动替换文件 |
+
+在发布页下载后，可用 `gh release verify-asset v0.0.9 <文件>` 验证 GitHub 的发布证明，或用 `SHA256SUMS.txt` 核对文件摘要。[命令行使用说明](docs/CLI.md) · [平台兼容性与路线图](docs/PLATFORMS.md)
 
 ## 功能
 
@@ -124,9 +138,9 @@ npm run release -- --skip-build --installer "release/GeekToolbox-Setup-0.0.7.exe
 
 - `.github/workflows/quality.yml`：在 Windows 上运行测试、lint 和界面构建。
 - `.github/workflows/build-all.yml`：仅构建并保存 Windows 安装包。
-- `.github/workflows/release.yml`：在版本标签或手动触发时，验证并发布 Windows 安装包和桌面更新清单。
+- `.github/workflows/release.yml`：验证主线版本标签，构建 Windows 安装包和命令行版，上传资产至草稿并校验后发布。
 
-更新源依次取 `TOOLBOX_UPDATE_FEED`、用户目录 `update-config.json` 的 `feed`、打包应用默认 GitHub Releases；开发环境默认读取 `updates/desktop/`。
+Windows 更新以官方 GitHub Releases 为准。可通过 `TOOLBOX_UPDATE_FEED` 或安装目录的 `update-config.json` 配置匹配官方摘要的备用源。开发环境默认读取 `updates/desktop/`。
 
 下载必须通过 SHA-256 与大小校验；清单配置 Authenticode 指纹时还会验证安装包签名。SHA-256 本身不提供发布者身份认证。独立助手确认就绪后应用才退出，安装后核验目标版本并重新启动。完整配置及证书 Secrets 见[自动更新说明](docs/AUTO_UPDATE.md)。
 
@@ -137,7 +151,8 @@ src/                 Vue 桌面界面、21 款工具、Worker、工作区和更�
 public/              窗口图标和界面 favicon
 build/               Windows 安装图标及 NSIS 脚本
 electron/            主进程、preload IPC、安装更新器和独立助手
-shared/version.js    语义化版本比较
+shared/              版本比较与官方 GitHub Release 资产校验
+cli/                 独立命令行入口和单文件构建
 scripts/             Windows 发布、图标生成、清理和助手验证脚本
 tests/               工具逻辑、Windows 更新和渲染界面验证
 docs/                使用指南、发布历史和历史审计记录
@@ -146,11 +161,13 @@ docs/                使用指南、发布历史和历史审计记录
 
 `dist/` 是 Electron 的必要渲染资源。Electron 使用 `file://` 加载它，并开启沙箱、上下文隔离和 webSecurity，关闭渲染器 Node 集成。`preload.cjs` 只暴露更新接口，外链交由系统浏览器打开。
 
-没有独立网站服务器或 HTTP 更新 API。开发预览没有桌面 IPC 桥，无法执行安装更新，也不会轮询网页更新服务。
+网页预览用于开发桌面界面。GitHub Releases 为桌面和命令行版提供版本及下载资产。
 
 ## 验证与已知边界
 
 修改后按[贡献指南](CONTRIBUTING.md)执行适当检查。自动化构建不等于真实安装、代码签名或客户端完整自动升级验收；每次交付应分别记录结果。
+
+[维护与发布](docs/MAINTENANCE.md) · [竞品研究](docs/ECOSYSTEM_RESEARCH.md) · [安全问题私密报告](SECURITY.md)
 
 本轮已清除五个工具的 computed 副作用 lint warning，当前 `npm run lint` 为 0 error、0 warning。JWT 解析不校验签名、二维码工具仅生成、颜色工具仅接受 HEX 且 Alpha 固定为 1。敏感数据处理和大输入性能边界详见对应工具说明。
 

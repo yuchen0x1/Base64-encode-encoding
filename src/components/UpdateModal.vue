@@ -41,7 +41,7 @@
               </div>
               <div class="bar-meta">
                 <span>{{ state.message || '处理中…' }}</span>
-                <span class="code-font">{{ state.progress }}%</span>
+                <span class="code-font">{{ state.speedText ? `${state.speedText} · ` : '' }}{{ state.progress }}%</span>
               </div>
             </div>
 
@@ -69,10 +69,11 @@
           </div>
 
           <footer class="upd-footer">
-            <span class="upd-meta-text">{{ lastCheckedText }}</span>
+            <a v-if="state.latest?.detailsUrl" class="upd-meta-text" :href="state.latest.detailsUrl" target="_blank" rel="noopener noreferrer">查看发行详情</a>
+            <span v-else class="upd-meta-text">{{ lastCheckedText }}</span>
             <div class="upd-actions">
-              <button class="btn btn-secondary btn-sm" @click="closeUpdatePanel">
-                {{ isBusy ? '后台继续' : '关闭' }}
+              <button class="btn btn-secondary btn-sm" @click="state.status === 'available' ? snoozeUpdate() : closeUpdatePanel()">
+                {{ state.status === 'available' ? '24 小时后提醒' : (isBusy ? '后台继续' : '关闭') }}
               </button>
               <button
                 v-if="state.status === 'downloading'"
@@ -115,6 +116,7 @@ import {
 import {
   useUpdater,
   closeUpdatePanel,
+  snoozeUpdate,
   checkForUpdates,
   downloadUpdate,
   cancelDownloadUpdate,

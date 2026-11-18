@@ -3,24 +3,63 @@
 const { app, BrowserWindow } = require('electron')
 const path = require('node:path')
 const { createHash } = require('node:crypto')
+const { mkdirSync, writeFileSync } = require('node:fs')
 
 const root = path.resolve(__dirname, '../..')
 const appRoot = process.env.TOOLBOX_SMOKE_ROOT || root
+const captureScreenshot = process.env.TOOLBOX_CAPTURE_SCREENSHOT === '1'
 app.setPath('userData', path.join(root, '.tmp-verify', 'electron-smoke-profile'))
-const watchdog = setTimeout(() => { console.error('FAIL: Electron smoke timed out'); app.exit(1) }, 30000)
+const watchdog = setTimeout(() => { console.error('FAIL: Electron smoke timed out'); app.exit(1) }, 60000)
 
 app.whenReady().then(async () => {
   const win = new BrowserWindow({
     show: false,
-    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true }
+    width: 1280,
+    height: 820,
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true },
+    offscreen: captureScreenshot
   })
   const errors = []
   win.webContents.on('console-message', event => { if (event.level === 'error') errors.push(event.message) })
   let exitCode = 0
   try {
     await win.loadFile(path.join(appRoot, 'dist', 'index.html'))
+    const brandLayout = await win.webContents.executeJavaScript(`(async () => {
+      let locale;
+      for (let attempt = 0; !locale && attempt < 100; attempt++) {
+        locale = document.querySelector('.locale-picker select');
+        if (!locale) await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      if (!locale) throw new Error('Workspace did not render before visual checks');
+      locale.value = 'zh-CN'; locale.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const title = document.querySelector('.brand-title');
+      const bounds = title.getBoundingClientRect();
+      return { width: bounds.width, height: bounds.height, lineHeight: Number.parseFloat(getComputedStyle(title).lineHeight) };
+    })()`)
+    if (brandLayout.height > brandLayout.lineHeight * 1.5) {
+      throw new Error(`Sidebar brand title wrapped vertically: ${JSON.stringify(brandLayout)}`)
+    }
+    if (captureScreenshot) {
+      await new Promise(resolve => setTimeout(resolve, 250))
+      const screenshot = await win.webContents.capturePage()
+      const screenshotPath = path.join(root, 'docs', 'screenshots', 'desktop-base64-windows.png')
+      mkdirSync(path.dirname(screenshotPath), { recursive: true })
+      writeFileSync(screenshotPath, screenshot.toPNG())
+      console.log(`Screenshot captured: ${screenshotPath}`)
+    }
     const result = await win.webContents.executeJavaScript(`(async () => {
-      document.querySelector('[aria-label="打开批量处理模式"]').click();
+      let locale;
+      for (let attempt = 0; !locale && attempt < 100; attempt++) {
+        locale = document.querySelector('.locale-picker select');
+        if (!locale) await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      if (!locale) throw new Error('Workspace did not render: ' + document.body.innerText.slice(0, 240));
+      locale.value = 'en-US'; locale.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+      const tool = document.querySelector('[data-tool-id="batch-processor"]');
+      if (!tool?.getAttribute('aria-label')?.startsWith('Open ')) throw new Error('English tool navigation missing');
+      tool.click();
       await new Promise(resolve => setTimeout(resolve, 50));
       const preset = document.querySelector('[aria-label="选择常用配方"]');
       preset.value = 'binary-hash'; preset.dispatchEvent(new Event('change', { bubbles: true }));
@@ -40,7 +79,7 @@ app.whenReady().then(async () => {
     if (!result.results.includes(expected) || errors.length) throw new Error(JSON.stringify({ result, errors }))
     console.log('PASS: Electron file:// sandboxed renderer; Base64 decode -> binary SHA-256; no console errors')
   } catch (error) {
-    console.error('FAIL: Electron batch smoke', error)
+    console.error('FAIL: Electron batch smoke', error, errors)
     exitCode = 1
   } finally {
     clearTimeout(watchdog)

@@ -1,0 +1,17 @@
+name: 错误报告
+description: 报告工具或工作区的异常
+body:
+  - type: input
+    id: environment
+    attributes:
+      label: 工具箱版本及系统
+      placeholder: v0.0.9 / Windows 11 x64 或 Node.js 22 / macOS
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤、预期结果和实际结果
+      description: 请使用不含令牌、密钥和个人数据的示例。
+    validations:
+      required: true

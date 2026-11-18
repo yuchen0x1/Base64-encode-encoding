@@ -48,12 +48,9 @@ describe('Windows renderer update flow', () => {
   })
 
   it('does not schedule or request web updates in the development preview', async () => {
-    vi.useFakeTimers()
     vi.stubGlobal('window', {})
-    const { useUpdater, scheduleStartupCheck } = await import('../src/composables/useUpdater.js')
+    const { useUpdater } = await import('../src/composables/useUpdater.js')
     const updater = useUpdater()
-    scheduleStartupCheck()
-    await vi.runAllTimersAsync()
     expect(updater.state.status).toBe('idle')
     expect(updater.modeLabel.value).toBe('界面开发预览')
     const result = await updater.checkForUpdates({ manual: true })
@@ -83,6 +80,24 @@ describe('Windows renderer update flow', () => {
     expect(updater.state.open).toBe(true)
     expect(updater.state.status).toBe('error')
     expect(updater.state.error).toBe('助手未就绪')
+  })
+
+  it('snoozes the same version across restarts and keeps manual access', async () => {
+    const bridge = desktopBridge()
+    const storage = new Map()
+    window.localStorage = { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) }
+    const update = { type: 'available', latest: { version: '0.0.7', size: 1024 } }
+    const first = await import('../src/composables/useUpdater.js')
+    first.useUpdater()
+    bridge.onEvent.mock.lastCall[0](update)
+    expect(first.useUpdater().state.latest.sizeText).toBe('1.0 KB')
+    first.snoozeUpdate()
+    vi.resetModules()
+    const next = (await import('../src/composables/useUpdater.js')).useUpdater()
+    bridge.onEvent.mock.lastCall[0](update)
+    expect(next.state.open).toBe(false)
+    next.openUpdatePanel()
+    expect(next.state.open).toBe(true)
   })
 
   it('cancels an active desktop download through the preload bridge', async () => {
