@@ -730,6 +730,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.85rem;
+  min-width: 0;
 }
 .cyber-logo-box {
   width: 40px;
@@ -767,11 +768,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  white-space: nowrap;
 }
 .brand-title {
   font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 .version-chip {
   display: inline-flex;

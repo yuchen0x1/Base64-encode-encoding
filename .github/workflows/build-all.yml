@@ -34,6 +34,19 @@ jobs:
         run: |
           $env:TOOLBOX_SMOKE_RUNTIME = (Resolve-Path -LiteralPath 'release/win-unpacked/极客工具箱.exe').Path
           npm run test:updater
+      - name: Exercise installer lifecycle for a release candidate
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
+          $latest = gh api "repos/$env:GITHUB_REPOSITORY/releases/latest" --jq .tag_name
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot check the latest release version.' }
+          if ([version]$version -le [version]$latest.TrimStart('v')) { exit 0 }
+          npm run release:desktop -- --skip-build --installer "release/GeekToolbox-Setup-$version.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./tests/windows/install-smoke.ps1 -Version $version
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Windows-Installer
