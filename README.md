@@ -4,25 +4,23 @@
   <img src="public/icon-512.png" width="132" alt="极客工具箱应用图标" />
 </p>
 
-[![Windows 构建](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/badge/version-0.0.7-2f81f7) ![平台](https://img.shields.io/badge/platform-Windows-0078d4) ![许可证](https://img.shields.io/badge/license-MIT-22c55e)
+[![Windows 构建](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml/badge.svg)](https://github.com/yuchen0x1/Base64-encode-encoding/actions/workflows/build-all.yml) ![版本](https://img.shields.io/github/v/release/yuchen0x1/Base64-encode-encoding?display_name=tag&sort=date) ![平台](https://img.shields.io/badge/platform-Windows-0078d4) ![许可证](https://img.shields.io/badge/license-MIT-22c55e)
 
 **仅支持 Windows x64。** 基于 Electron、Vue 3 和 Vite 的本地开发者工具箱，内置 21 款编解码、哈希、格式化及批量处理工具。工具计算在本机完成，无业务后端、账号或云同步。
 
-**下载**：[v0.0.7 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.7) · **仓库**：[GitHub](https://github.com/yuchen0x1/Base64-encode-encoding) · **交流群**：[冷漠网络科技交流群①](https://qm.qq.com/q/bkacrv1t3G)
+**下载**：[最新 Windows 安装包](https://github.com/yuchen0x1/Base64-encode-encoding/releases/latest) · **仓库**：[GitHub](https://github.com/yuchen0x1/Base64-encode-encoding) · **交流群**：[冷漠网络科技交流群①](https://qm.qq.com/q/bkacrv1t3G)
 
 ## 最新更新
 
-### v0.0.8 · 2026-11-17
+<!-- github-release:start -->
 
-- 工具箱核心导航、工作区操作和语言选择器支持自动跟随系统或浏览器语言，并可手动选择简体中文或 English；选择会持久化，工具输入和编码数据保持原样。
+**[v0.0.8](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.8)** · 2026-11-17
 
-### v0.0.7 — 2026-11-16
+本版为工具箱核心导航、工作区操作和语言选择器加入自动跟随系统/浏览器语言，也可手动选择中文或 English 并持久化。工具输入、编码数据和导出协议保持原样。
 
-- 产品统一为 Windows x64 桌面版，保留现有工具、工作区收藏、主题、标签页、安装和自动更新功能。
-- 更新下载增加 512 MiB 包体上限、30 秒无响应超时、主动取消和失败半包清理；生产更新源仅接受 HTTPS。
-- Windows 主进程增加单实例锁，重复启动时恢复并聚焦已有窗口；标签页支持键盘切换，工具目录弹窗补充基础可访问性语义。
-- 修复 AES `NoPadding` 非整块明文、Unix 时间戳安全整数、图片与工作区输入大小边界，并补充工具注册表校验。
-- 恢复 Windows NSIS 脚本与图标资源；安装包未签名，真实旧版覆盖升级仍需隔离环境验证。
+[全部发行记录](https://github.com/yuchen0x1/Base64-encode-encoding/releases)
+
+<!-- github-release:end -->
 
 从 v0.0.4 / v0.0.5 升级时，请先手动覆盖安装 v0.0.7 一次，无需卸载或删除用户配置。
 
@@ -77,7 +75,7 @@
 
 应用启动约 4 秒后检查更新，也可点击侧边栏版本号手动检查。下载完成后，点击「立即安装并重启」。`version.json` 是自动更新清单，无需普通用户手动下载。
 
-当前 v0.0.7 安装包未签名。关于安装更新故障和已有验收边界，见[故障复盘](docs/UPDATER_INCIDENT_2026-11-13.md)。
+历史版本 v0.0.7 的安装包未签名。最新包的签名状态见[当版发行说明](https://github.com/yuchen0x1/Base64-encode-encoding/releases/latest)。关于安装更新故障和已有验收边界，见[故障复盘](docs/UPDATER_INCIDENT_2026-11-13.md)。
 
 ## 开发与构建
 
