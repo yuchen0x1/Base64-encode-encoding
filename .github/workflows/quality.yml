@@ -27,6 +27,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - run: node scripts/verify-version.mjs
       - run: npm ci
       - run: npm run lint
       - run: npm test -- --reporter=dot
