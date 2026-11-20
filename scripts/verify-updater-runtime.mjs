@@ -59,7 +59,7 @@ try {
   })
   let stdout = ''
   probe.stdout.on('data', data => { stdout += data })
-  const [code] = await once(probe, 'exit')
+  const [code] = await once(probe, 'close')
   if (code !== 0 || stdout !== 'runtime-ok') throw new Error(`Standalone runtime probe failed: ${code}`)
   console.log('PASS: standalone runtime executes Node code successfully')
 } finally {
@@ -69,6 +69,7 @@ try {
     child.kill()
     await exited
   }
+  // Windows can briefly retain executable handles after the child exits.
   // job was created under the verified project-local temporary root above.
-  await fs.rm(job, { recursive: true, force: true })
+  await fs.rm(job, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
 }
