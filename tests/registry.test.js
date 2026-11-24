@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getToolRegistryErrors, toolComponents, assertToolRegistry } from '../src/config/registry.js'
+import { getToolRegistryErrors, toolComponents, toolComponentLoaders, assertToolRegistry } from '../src/config/registry.js'
 import { toolsList } from '../src/config/tools.js'
 
 describe('tool registry', () => {
@@ -50,5 +50,14 @@ describe('tool registry', () => {
   })
   it('registers the expected number of tools', () => {
     expect(Object.keys(toolComponents).length).toBe(21)
+  })
+
+  it('keeps every tool component lazy-loadable and wired to a module', async () => {
+    expect(Object.keys(toolComponentLoaders)).toHaveLength(21)
+    for (const [id, loader] of Object.entries(toolComponentLoaders)) {
+      expect(typeof loader, `loader for ${id}`).toBe('function')
+      const module = await loader()
+      expect(module.default, `default export for ${id}`).toBeTruthy()
+    }
   })
 })
