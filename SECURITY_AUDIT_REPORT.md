@@ -39,7 +39,7 @@
 - `npm run lint`：0 error、0 warning。
 - `npm audit --registry=https://registry.npmjs.org --audit-level=low`：0 vulnerabilities（含开发依赖）。
 - `npm run test:desktop`：Electron `file://` renderer 的批处理 Worker、首次扫描 2048 × 2048 二维码、取消竞态、5 MiB 多行 JSON Worker 成功与失败边界、JSON 操作互斥和 KeepAlive 资源释放均通过，无渲染器 console error。最新多行 JSON 校验/美化为 176/77 ms，Renderer private memory 为 128.5/261.9 MiB，working-set peak 369.8 MiB。独立 JSON-only 单行压力烟测通过，但观察到 private memory 50.1/504/616.8 MiB、peak working set 692.1 MiB；这些单次采样不是稳定性能基准。详见升级报告。
-- `npm run package:win`：本地 Windows x64 NSIS 安装包构建通过；候选版隔离覆盖安装、回滚和卸载待远端 PR CI。
+- `npm run package:win`：本地 Windows x64 NSIS 安装包构建通过；候选版隔离覆盖安装、回滚和卸载由 PR #21 的 Windows installer run 45427734119 实际验证。
 - `npm run test:updater`：真实助手运行时、缺少运行文件失败保护通过。
 - 既有 [Release run 45391803298](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45391803298) 与 [PR run 45393215151](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45393215151) 已实际验证 v0.1.0→v0.1.1 覆盖升级、配置保留、故障恢复、启动和卸载；这属于 v0.1.1 生命周期证据，不替代本候选自己的 PR / Release run。
-- 候选 PR #21 仍为 Draft；[Quality Gate run 45426008800](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45426008800) 的 Windows quality、三系统 CLI 和 dependency review 全部通过。[Windows installer run 45426008641](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45426008641) 完成 NSIS 构建、CRC 校验、v0.1.1→v0.1.2 覆盖安装、profile 保留、强制版本不匹配回滚至 v0.1.1、启动和卸载。尚无正式 Release、Tag 或发布资产证明；EV-057 的长行内存风险仍阻止合并发布。
+- 候选 PR #21 仍为 Draft；当前 head 的 [Quality Gate run 45427734124](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45427734124) 中 Windows quality、三系统 CLI 和 dependency review 全部通过。[Windows installer run 45427734119](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45427734119) 完成 NSIS 构建、CRC 校验、v0.1.1→v0.1.2 覆盖安装、profile 保留、强制版本不匹配回滚至 v0.1.1、启动和卸载。尚无正式 Release、Tag 或发布资产证明；EV-057 的长行内存风险仍阻止合并发布。

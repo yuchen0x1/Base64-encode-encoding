@@ -24,7 +24,7 @@
 
 - 本地：310 项 Vitest、ESLint、Electron `file://` 烟测（Worker 成功、取消、故障边界及 KeepAlive 释放/重试）、CLI、更新助手、官方 npm audit、文档和版本门禁通过。
 - 本地 Windows x64 NSIS 安装包构建及打包助手烟测通过；归档完整性和真实安装结果以对应 Actions 运行记录为准。
-- Draft PR #21 的质量、依赖审查、三系统 CLI 与 Windows installer jobs 全部通过；Windows runner 已实际覆盖安装 v0.1.1→v0.1.2、保留 profile、故障回滚、启动和卸载。见 [Quality Gate run 45426008800](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45426008800) 与 [Windows installer run 45426008641](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45426008641)。
+- Draft PR #21 当前 head 的质量、依赖审查、三系统 CLI 与 Windows installer jobs 全部通过；Windows runner 已实际覆盖安装 v0.1.1→v0.1.2、保留 profile、故障回滚、启动和卸载。见 [Quality Gate run 45427734124](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45427734124) 与 [Windows installer run 45427734119](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45427734119)。
 - 已知 P1 候选风险：独立 JSON-only 烟测中 5.25 MiB 单行数字数组校验/美化后观察到约 504/617 MiB Renderer private memory、692 MiB 峰值 working set。未确认持续泄漏或完整成因；EV-057 尚未闭环，该资源预算问题解决前不发布候选。
 
 ## v0.1.1（2026-11-24，已发布）

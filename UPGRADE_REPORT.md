@@ -5,7 +5,7 @@
 ### A. 基线与项目盘点
 
 - 起始 `main` / `origin/main`：`9dbf979dfbc4fc7105e4f6e438ce56e5bfa0c9d3`；起始正式版 `v0.1.1`，Tag 指向 `d62116b684eddaa87d9171e24bc692bf6ffc0bb5`。
-- 候选分支：`codex/upgrade-v0.1.2`；应用与锁文件版本统一到 `0.1.2`。PR、最终 Commit 和正式 Release 待后续工作流确认后补录。
+- 候选分支：`codex/upgrade-v0.1.2`；当前 head `d2cd37b6634ef6249a1cf5b6c2018c2e15d6fb86`；Draft PR #21。应用与锁文件版本统一到 `0.1.2`；正式合并、Tag 和 Release 暂缓。
 - 全部 21 款工具已与组件注册表和现有测试核对；本版不增加重复工具，改进现有二维码、JSON、工作区、搜索和复制流程。
 - 远端 `main` 最新 Release 仍是 `v0.1.1`；无 `v0.1.2` Tag / Release 冲突。
 
@@ -65,7 +65,7 @@
 
 - 本地安全测试覆盖损坏/未来版本状态保护、生产 CSP、Worker 故障与取消、Blob 下载 URL 和既有 IPC 信任边界。
 - npm 官方 registry 全依赖审计无已知漏洞；不等同于第三方渗透或模糊测试。
-- 候选 PR #21 仍为 Draft。其 Windows 质量、Windows 安装器、三系统 CLI 和依赖审查全部通过；Windows runner 实际安装 v0.1.1、覆盖升级至 v0.1.2、保留 profile、注入版本不匹配并恢复 v0.1.1、启动两个版本及卸载均通过（[Windows installer run 45426008641](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45426008641)，[Quality Gate run 45426008800](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45426008800)）。这不是正式 Release 资产；尚无 v0.1.2 Tag、Release、SHA-256 清单或 Attestation。
+- 候选 PR #21 仍为 Draft。当前 head 的 Windows 质量、Windows 安装器、三系统 CLI 和依赖审查全部通过；Windows runner 实际安装 v0.1.1、覆盖升级至 v0.1.2、保留 profile、注入版本不匹配并恢复 v0.1.1、启动两个版本及卸载均通过（[Windows installer run 45427734119](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45427734119)，[Quality Gate run 45427734124](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45427734124)）。这不是正式 Release 资产；尚无 v0.1.2 Tag、Release、SHA-256 清单或 Attestation。
 - 5 MiB 级多行 JSON Worker 流程通过；新增隔离 JSON-only 单行压力烟测复现高 Renderer 内存（见性能表）。原因尚未确证，不称为泄漏或通用上限；EV-057 仍未闭环，解决策略和内存预算确定前不应发布候选。
 - macOS/iOS 不在当前 Windows 产品交付范围；第三方安全测试与多机 CPU/内存基准未执行。
 
