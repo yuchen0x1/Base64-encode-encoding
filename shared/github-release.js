@@ -12,7 +12,12 @@ async function fetchStableRelease(url, fetchImpl) {
     redirect: 'error',
     signal: AbortSignal.timeout(15_000)
   })
-  if (!response.ok) throw new Error(`GitHub Releases HTTP ${response.status}`)
+  if (!response.ok) {
+    const error = new Error(`GitHub Releases HTTP ${response.status}`)
+    error.status = response.status
+    error.code = 'ERR_GITHUB_RELEASE_HTTP'
+    throw error
+  }
   const release = await response.json()
   if (!STABLE_TAG.test(release?.tag_name) || release.draft !== false || release.prerelease !== false ||
       !Array.isArray(release.assets)) {

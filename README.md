@@ -14,9 +14,9 @@
 
 <!-- github-release:start -->
 
-**[v0.0.9](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.9)** · 2026-11-18
+**[v0.0.12](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.12)** · 2026-11-24
 
-本版修复 Windows 启动空白，新增跨平台命令行版，并为桌面更新加入下载速度、发行详情与 24 小时稍后提醒。
+本版修复 Windows 版本更新检测在 GitHub Releases API 匿名限流时失败的问题，回退到官方更新清单并继续校验安装包完整性。
 
 [全部发行记录](https://github.com/yuchen0x1/Base64-encode-encoding/releases)
 
@@ -38,7 +38,7 @@
 | Base64、URL、哈希和 JSON 的配方 | 多行文本、多文件、后台运行和结果导出 | 单个文件或标准输入，结果写入标准输出 |
 | 版本检查 | 应用内检查、下载和覆盖安装 | `--check-update` 查询版本和摘要，手动替换文件 |
 
-在发布页下载后，可用 `gh release verify-asset v0.0.9 <文件>` 验证 GitHub 的发布证明，或用 `SHA256SUMS.txt` 核对文件摘要。[命令行使用说明](docs/CLI.md) · [平台兼容性与路线图](docs/PLATFORMS.md)
+在发布页下载后，可用 `gh release verify-asset v0.0.12 <文件>` 验证 GitHub 的发布证明，或用 `SHA256SUMS.txt` 核对文件摘要。[命令行使用说明](docs/CLI.md) · [平台兼容性与路线图](docs/PLATFORMS.md)
 
 ## 功能
 

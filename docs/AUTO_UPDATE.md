@@ -62,6 +62,8 @@ npm run release -- --skip-build --installer "release/GeekToolbox-Setup-0.0.6.exe
 2. 安装目录 `update-config.json` 的 `feed`。
 3. 打包应用默认使用 GitHub Releases API 和该稳定标签的下载清单。开发环境默认读取项目的 `updates/desktop/`。
 
+GitHub API 遇到匿名请求限流（HTTP 403 或 429）时，打包版回退到同一 Release 的 `latest/download/version.json`，避免限流导致无法检查更新。回退路径仍使用 HTTPS，并继续执行清单、安装包类型、大小和 SHA-256 校验；API 恢复后会自动回到带 Release 资产摘要核对的路径。
+
 Windows 安装版启动约 4 秒后检查一次，用户也可以点击侧边栏版本号手动检查。选择 24 小时后提醒时，当前候选版本的自动弹窗会延后。打包应用先核对官方清单摘要、稳定版本、资产名、字节数和安装包摘要。备用源的安装包必须匹配这些记录，已配置的签名仍以官方清单为准。
 
 ## 客户端流程

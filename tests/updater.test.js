@@ -92,6 +92,33 @@ describe('Electron updater package enforcement', () => {
     }
   })
 
+  windowsIt.each([403, 429])('falls back to the latest manifest when the release API is rate-limited (%s)', async status => {
+    const oldPackaged = electronMock.app.isPackaged
+    electronMock.app.isPackaged = true
+    const version = '1.0.1'
+    const name = `GeekToolbox-Setup-${version}.exe`
+    const manifestUrl = `${RELEASES_URL}/latest/download/version.json`
+    const manifest = JSON.stringify({
+      version,
+      kind: 'nsis',
+      package: { url: name, sha256: validSha256, size: 128 }
+    })
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async url => {
+      if (url === LATEST_RELEASE_API) return new Response('', { status })
+      if (url === manifestUrl) return new Response(manifest, { status: 200 })
+      throw new Error(`Unexpected URL ${url}`)
+    })
+
+    try {
+      await expect(checkForUpdates()).resolves.toMatchObject({ hasUpdate: true, latest: { version, size: 128 } })
+      expect(fetchSpy).toHaveBeenCalledTimes(2)
+      expect(fetchSpy.mock.calls.map(([url]) => url)).toEqual([LATEST_RELEASE_API, manifestUrl])
+    } finally {
+      fetchSpy.mockRestore()
+      electronMock.app.isPackaged = oldPackaged
+    }
+  })
+
   it('places the helper runtime copy outside the installed application directory', () => {
     const workDir = path.join('C:\\Users\\test', 'AppData', 'Roaming', '极客工具箱', 'updates')
     const runtimeCopy = getRuntimeCopyPath(workDir, 1234, 5678)

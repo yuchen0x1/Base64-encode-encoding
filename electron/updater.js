@@ -414,8 +414,18 @@ export function checkForUpdates() {
   return checkPromise
 }
 
+function isReleaseApiRateLimited(error) {
+  return error?.code === 'ERR_GITHUB_RELEASE_HTTP' && (error.status === 403 || error.status === 429)
+}
+
 async function readPackagedUpdate(feed, currentVersion) {
-  const release = await fetchLatestRelease(httpFetch)
+  let release
+  try {
+    release = await fetchLatestRelease(httpFetch)
+  } catch (error) {
+    if (!isReleaseApiRateLimited(error) || feed !== DEFAULT_UPDATE_FEED) throw error
+    return readManifest(DEFAULT_UPDATE_FEED)
+  }
   const version = release.tag_name.slice(1)
   if (!isNewerVersion(version, currentVersion)) return { manifest: { version } }
   const manifestAsset = getReleaseAsset(release, 'version.json')
