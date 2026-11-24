@@ -15,7 +15,7 @@ ipcRenderer.on('update:event', (_event, payload) => {
   }
 })
 
-contextBridge.exposeInMainWorld('toolboxUpdater', {
+contextBridge.exposeInMainWorld('toolboxUpdater', Object.freeze({
   platform: 'electron',
   getInfo: () => ipcRenderer.invoke('update:info'),
   check: () => ipcRenderer.invoke('update:check'),
@@ -27,4 +27,4 @@ contextBridge.exposeInMainWorld('toolboxUpdater', {
     listeners.add(listener)
     return () => listeners.delete(listener)
   }
-})
+}))
