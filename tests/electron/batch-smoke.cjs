@@ -59,12 +59,18 @@ app.whenReady().then(async () => {
       await Promise.resolve();
       const tool = document.querySelector('[data-tool-id="batch-processor"]');
       if (!tool?.getAttribute('aria-label')?.startsWith('Open ')) throw new Error('English tool navigation missing');
+      const waitForSelector = async selector => {
+        for (let attempt = 0; attempt < 100; attempt++) {
+          const element = document.querySelector(selector);
+          if (element) return element;
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        throw new Error('Missing rendered control: ' + selector);
+      };
       tool.click();
-      await new Promise(resolve => setTimeout(resolve, 50));
-      const preset = document.querySelector('[aria-label="选择常用配方"]');
+      const preset = await waitForSelector('[aria-label="选择常用配方"]');
       preset.value = 'binary-hash'; preset.dispatchEvent(new Event('change', { bubbles: true }));
-      await new Promise(resolve => setTimeout(resolve, 50));
-      const input = document.querySelector('[aria-label="待处理文本，每行一条"]');
+      const input = await waitForSelector('[aria-label="待处理文本，每行一条"]');
       input.value = '/wD+gA=='; input.dispatchEvent(new Event('input', { bubbles: true }));
       [...document.querySelectorAll('button')].find(button => button.textContent.trim() === '开始处理').click();
       const startedAt = Date.now();

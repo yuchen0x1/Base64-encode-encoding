@@ -1,5 +1,20 @@
 import { assertJsonDepth, assertJsonNumbersRoundTrip, formatJsonText } from '../../utils/jsonText.js'
 
+export const JSON_ADVANCED_MAX_BYTES = 16 * 1024 * 1024
+export const JSON_LARGE_DOCUMENT_BYTES = 5 * 1024 * 1024
+
+export function jsonByteLength(text) {
+  return new TextEncoder().encode(String(text ?? '')).byteLength
+}
+
+export function assertJsonDocumentSize(text, maxBytes = JSON_ADVANCED_MAX_BYTES) {
+  const size = jsonByteLength(text)
+  if (size > maxBytes) {
+    throw new Error(`JSON 文件超过 ${(maxBytes / 1024 / 1024).toFixed(0)} MiB 上限`)
+  }
+  return size
+}
+
 export function parseJson(text) {
   try {
     return { ok: true, value: JSON.parse(text) }
@@ -28,6 +43,57 @@ export function parseJsonForStructure(text) {
   try { assertJsonDepth(text) }
   catch (error) { return { ok: false, error } }
   return parseJson(text)
+}
+
+/** 从 V8/浏览器 JSON 错误中提取行列，并给出可读位置描述。 */
+export function locateJsonError(text, error) {
+  const source = String(text ?? '')
+  const message = String(error?.message || error || 'JSON 解析失败')
+  let position = Number(message.match(/position\s+(\d+)/i)?.[1])
+  let line = Number(message.match(/line\s+(\d+)/i)?.[1])
+  let column = Number(message.match(/column\s+(\d+)/i)?.[1])
+
+  if (!Number.isSafeInteger(position) && Number.isSafeInteger(line) && Number.isSafeInteger(column)) {
+    const lines = source.split(/\r?\n/)
+    position = lines.slice(0, Math.max(0, line - 1)).reduce((total, value) => total + value.length + 1, 0) + Math.max(0, column - 1)
+  }
+  if (!Number.isSafeInteger(line) && Number.isSafeInteger(position)) {
+    position = Math.min(Math.max(0, position), source.length)
+    const before = source.slice(0, position)
+    const matches = [...before.matchAll(/\n/g)]
+    line = matches.length + 1
+    column = position - (matches.length ? matches.at(-1).index + 1 : 0) + 1
+  }
+  if (!Number.isSafeInteger(line) || !Number.isSafeInteger(column)) {
+    // End-of-input errors on valid non-empty prefixes point at the end.
+    if (source.length && /end of json input|unexpected end/i.test(message)) {
+      const lines = source.split(/\r?\n/)
+      const lastLineIndex = lines.length - 1
+      const lastLine = lines[lastLineIndex]
+      return {
+        message,
+        line: lastLineIndex + 1,
+        column: lastLine.length + 1,
+        position: source.length,
+        lineText: lastLine
+      }
+    }
+    return { message, line: null, column: null, position: null, lineText: '' }
+  }
+  const lineText = source.split(/\r?\n/)[line - 1] || ''
+  return { message, line, column, position, lineText }
+}
+
+export function formatJsonError(text, error) {
+  const location = locateJsonError(text, error)
+  if (!location.line) return location.message
+  return `${location.message}（第 ${location.line} 行，第 ${location.column} 列）`
+}
+
+export function formatJsonValuePreview(value, maxChars = 240) {
+  const serialized = typeof value === 'string' ? JSON.stringify(value) : JSON.stringify(value, null, 2)
+  if (serialized === undefined) return String(value)
+  return serialized.length > maxChars ? `${serialized.slice(0, maxChars)}…` : serialized
 }
 
 export function unescapeJsonString(text) {

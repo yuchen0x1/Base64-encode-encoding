@@ -6,54 +6,53 @@
  * 重复维护与错位风险：新增/改名工具时，只要这一处与 tools.js 不一致，
  * 开发期 `assertToolRegistry()` 就会立即抛错，而不是在运行时静默打不开工具。
  */
+import { defineAsyncComponent } from 'vue'
 import { toolCategories, toolsList } from './tools.js'
+import ToolLoading from '../components/ToolLoading.vue'
+import ToolLoadError from '../components/ToolLoadError.vue'
 
-import ToolBatch from '../components/tools/ToolBatch.vue'
-import ToolBase64 from '../components/tools/ToolBase64.vue'
-import ToolJwt from '../components/tools/ToolJwt.vue'
-import ToolUnicode from '../components/tools/ToolUnicode.vue'
-import ToolCipher from '../components/tools/ToolCipher.vue'
-import ToolImageBase64 from '../components/tools/ToolImageBase64.vue'
-import ToolUrl from '../components/tools/ToolUrl.vue'
-import ToolJson from '../components/tools/ToolJson.vue'
-import ToolHash from '../components/tools/ToolHash.vue'
-import ToolTimestamp from '../components/tools/ToolTimestamp.vue'
-import ToolQrcode from '../components/tools/ToolQrcode.vue'
-import ToolRadix from '../components/tools/ToolRadix.vue'
-import ToolDiff from '../components/tools/ToolDiff.vue'
-import ToolRegex from '../components/tools/ToolRegex.vue'
-import ToolPassword from '../components/tools/ToolPassword.vue'
-import ToolAes from '../components/tools/ToolAes.vue'
-import ToolTextTools from '../components/tools/ToolTextTools.vue'
-import ToolJwtGenerator from '../components/tools/ToolJwtGenerator.vue'
-import ToolColor from '../components/tools/ToolColor.vue'
-import ToolEscape from '../components/tools/ToolEscape.vue'
-import ToolSql from '../components/tools/ToolSql.vue'
-
-/** id -> 组件实现 */
-export const toolComponents = {
-  'batch-processor': ToolBatch,
-  'base64': ToolBase64,
-  'jwt-decoder': ToolJwt,
-  'unicode-codec': ToolUnicode,
-  'cipher-toolbox': ToolCipher,
-  'image-base64': ToolImageBase64,
-  'url-codec': ToolUrl,
-  'json-format': ToolJson,
-  'hash-crypto': ToolHash,
-  'timestamp': ToolTimestamp,
-  'qrcode-generator': ToolQrcode,
-  'radix-convert': ToolRadix,
-  'text-diff': ToolDiff,
-  'regex-tester': ToolRegex,
-  'random-password': ToolPassword,
-  'aes-crypto': ToolAes,
-  'text-toolbox': ToolTextTools,
-  'jwt-generator': ToolJwtGenerator,
-  'color-converter': ToolColor,
-  'escape-toolbox': ToolEscape,
-  'sql-formatter': ToolSql
+/**
+ * 工具 id -> 动态加载器。Vite 会把每个工具拆成独立 chunk，首屏不再加载
+ * 全部 21 个工具；命令面板/标签切换时才载入对应模块。
+ */
+export const toolComponentLoaders = {
+  'batch-processor': () => import('../components/tools/ToolBatch.vue'),
+  base64: () => import('../components/tools/ToolBase64.vue'),
+  'jwt-decoder': () => import('../components/tools/ToolJwt.vue'),
+  'unicode-codec': () => import('../components/tools/ToolUnicode.vue'),
+  'cipher-toolbox': () => import('../components/tools/ToolCipher.vue'),
+  'image-base64': () => import('../components/tools/ToolImageBase64.vue'),
+  'url-codec': () => import('../components/tools/ToolUrl.vue'),
+  'json-format': () => import('../components/tools/ToolJson.vue'),
+  'hash-crypto': () => import('../components/tools/ToolHash.vue'),
+  timestamp: () => import('../components/tools/ToolTimestamp.vue'),
+  'qrcode-generator': () => import('../components/tools/ToolQrcode.vue'),
+  'radix-convert': () => import('../components/tools/ToolRadix.vue'),
+  'text-diff': () => import('../components/tools/ToolDiff.vue'),
+  'regex-tester': () => import('../components/tools/ToolRegex.vue'),
+  'random-password': () => import('../components/tools/ToolPassword.vue'),
+  'aes-crypto': () => import('../components/tools/ToolAes.vue'),
+  'text-toolbox': () => import('../components/tools/ToolTextTools.vue'),
+  'jwt-generator': () => import('../components/tools/ToolJwtGenerator.vue'),
+  'color-converter': () => import('../components/tools/ToolColor.vue'),
+  'escape-toolbox': () => import('../components/tools/ToolEscape.vue'),
+  'sql-formatter': () => import('../components/tools/ToolSql.vue')
 }
+
+function lazyTool(loader) {
+  return defineAsyncComponent({
+    loader,
+    loadingComponent: ToolLoading,
+    errorComponent: ToolLoadError,
+    delay: 120,
+    timeout: 15000
+  })
+}
+
+/** id -> 异步组件实现（shape 与原静态映射保持兼容） */
+export const toolComponents = Object.fromEntries(
+  Object.entries(toolComponentLoaders).map(([id, loader]) => [id, lazyTool(loader)])
+)
 
 /**
  * 交叉校验 toolsList 元数据与 toolComponents 实现是否一一对应。

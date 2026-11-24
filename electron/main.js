@@ -2,13 +2,24 @@ import { app, BrowserWindow, Menu, shell, ipcMain } from 'electron'
 import { existsSync } from 'node:fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { registerUpdaterIpc, scheduleStartupCheck } from './updater.js'
+import { registerUpdaterIpc, scheduleStartupCheck, shutdownUpdater } from './updater.js'
 import { focusWindow, setupSingleInstance } from './single-instance.js'
+import { isTrustedRendererUrl, resolveSafeExternalUrl } from './ipc-security.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 let mainWindow = null
+const devServerUrl = 'http://localhost:5173'
+
+function openExternalSafely(rawUrl) {
+  const safeUrl = resolveSafeExternalUrl(rawUrl)
+  if (!safeUrl) return false
+  shell.openExternal(safeUrl).catch((error) => {
+    console.warn('[security] 打开外链失败:', error.message)
+  })
+  return true
+}
 
 const isPrimaryInstance = setupSingleInstance(app, () => {
   focusWindow(mainWindow)
@@ -33,7 +44,9 @@ function createWindow() {
       contextIsolation: true,
       sandbox: true,
       webSecurity: true,
-      allowRunningInsecureContent: false
+      allowRunningInsecureContent: false,
+      webviewTag: false,
+      navigateOnDragDrop: false
     },
     autoHideMenuBar: true
   })
@@ -41,41 +54,55 @@ function createWindow() {
   // 移除非必要系统菜单以获得整洁极简窗口
   Menu.setApplicationMenu(null)
 
-  // 安全审计：拦截所有试图在主窗口中打开外部 HTTP/HTTPS 链接的危险跳转，改为调用系统默认浏览器打开
+  // 外部链接只交给系统浏览器，并且必须是官方 HTTPS 域名。
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http:') || url.startsWith('https:')) {
-      shell.openExternal(url)
-    }
+    openExternalSafely(url)
     return { action: 'deny' }
   })
 
-  // 阻止导航离开本地 App
+  // 阻止导航离开受信主文档；即使同源子路径也不允许。
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (url !== mainWindow.webContents.getURL()) {
-      event.preventDefault()
-      if (url.startsWith('http:') || url.startsWith('https:')) {
-        shell.openExternal(url)
-      }
-    }
+    const trusted = isTrustedRendererUrl(url, {
+      isPackaged: app.isPackaged,
+      indexFile: path.join(__dirname, '../dist/index.html'),
+      devServerUrl
+    })
+    if (trusted) return
+    event.preventDefault()
+    openExternalSafely(url)
+  })
+
+  mainWindow.webContents.on('will-attach-webview', (event) => {
+    event.preventDefault()
+  })
+
+  // The toolbox does not require camera, microphone, geolocation or device access.
+  mainWindow.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false)
   })
 
   // 生产环境加载 dist/index.html，开发环境支持 localhost
   const isDev = process.env.NODE_ENV === 'development'
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173')
+    mainWindow.loadURL(devServerUrl)
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
+  mainWindow.webContents.on('render-process-gone', () => {
+    shutdownUpdater()
+  })
+
   mainWindow.on('closed', () => {
+    shutdownUpdater()
     mainWindow = null
   })
 }
 
 if (isPrimaryInstance) {
   app.whenReady().then(() => {
-    registerUpdaterIpc(ipcMain)
     createWindow()
+    registerUpdaterIpc(ipcMain, { getMainWindow: () => mainWindow })
     // 启动后自动检查更新，发现新版本会直接推送事件到界面弹窗
     scheduleStartupCheck(4000)
 
@@ -88,5 +115,9 @@ if (isPrimaryInstance) {
     if (process.platform !== 'darwin') {
       app.quit()
     }
+  })
+
+  app.on('before-quit', () => {
+    shutdownUpdater()
   })
 }

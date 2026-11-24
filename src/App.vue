@@ -74,10 +74,11 @@
             type="text"
             :placeholder="t('searchPlaceholder')"
             :aria-label="t('searchAria')"
+            aria-keyshortcuts="Control+K Meta+K"
             class="search-input code-font"
             @keydown.esc="searchQuery = ''"
           />
-          <kbd class="cyber-kbd pc-only">⌘K</kbd>
+          <button class="cyber-kbd pc-only" type="button" title="Ctrl+K / Cmd+K" aria-label="Ctrl+K / Cmd+K" @click="openCommandPalette">Ctrl K</button>
         </div>
       </div>
 
@@ -110,12 +111,12 @@
           </div>
           <div class="hud-divider"></div>
           <div class="hud-stat-item">
-            <span class="hud-num gradient-green">{{ t('computeLocation') }}</span>
+            <span class="hud-num gradient-green">{{ t('localComputeShort') }}</span>
             <span class="hud-sub">{{ t('computeLocation') }}</span>
           </div>
           <div class="hud-divider"></div>
           <div class="hud-stat-item">
-            <span class="hud-num gradient-purple">{{ t('noUpload') }}</span>
+            <span class="hud-num gradient-purple">{{ t('noUploadShort') }}</span>
             <span class="hud-sub">{{ t('noUpload') }}</span>
           </div>
         </div>
@@ -281,6 +282,42 @@
     <!-- 反馈 & 交流群弹窗（QQ 群二维码 / 一键加群 / 复制链接） -->
     <FeedbackModal v-model:open="feedbackOpen" />
 
+    <!-- 全局命令面板：Ctrl/Cmd+K -->
+    <CommandPalette
+      :open="commandPaletteOpen"
+      :commands="commandPaletteCommands"
+      :labels="commandPaletteLabels"
+      @close="closeCommandPalette"
+      @select="executeCommand"
+    />
+
+    <!-- 快捷键帮助 -->
+    <div v-if="shortcutsOpen" class="modal-backdrop shortcuts-backdrop" @click="closeShortcuts" @keydown.esc="closeShortcuts" @keydown.tab="trapShortcutsFocus">
+      <div class="modal-card glass-panel shortcuts-card" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title" @click.stop>
+        <div class="modal-header">
+          <div>
+            <div class="modal-title-wrap">
+              <Keyboard class="text-cyan" :size="20" />
+              <h3 id="shortcuts-title" class="modal-title gradient-text">{{ t('shortcutsTitle') }}</h3>
+            </div>
+            <p class="modal-sub">{{ t('shortcutsSubtitle') }}</p>
+          </div>
+          <button ref="shortcutsCloseButton" class="cyber-close-btn" :aria-label="t('shortcutsClose')" @click="closeShortcuts">
+            <X :size="20" />
+          </button>
+        </div>
+        <div class="modal-body shortcuts-body">
+          <div class="shortcut-row"><span>{{ t('shortcutCommandPalette') }}</span><kbd>Ctrl / ⌘</kbd><kbd>K</kbd></div>
+          <div class="shortcut-row"><span>{{ t('shortcutPaletteNavigate') }}</span><kbd>↑</kbd><kbd>↓</kbd></div>
+          <div class="shortcut-row"><span>{{ t('shortcutPaletteRun') }}</span><kbd>Enter</kbd></div>
+          <div class="shortcut-row"><span>{{ t('shortcutTheme') }}</span><kbd>Ctrl / ⌘</kbd><kbd>Shift</kbd><kbd>T</kbd></div>
+          <div class="shortcut-row"><span>{{ t('shortcutTabs') }}</span><kbd>←</kbd><kbd>→</kbd></div>
+          <div class="shortcut-row"><span>{{ t('shortcutsClose') }}</span><kbd>Esc</kbd></div>
+          <p class="shortcuts-hint">{{ t('shortcutsHint') }}</p>
+        </div>
+      </div>
+    </div>
+
     <!-- 外部工具目录图谱 -->
     <div v-if="showCatalogModal" class="modal-backdrop" @click="showCatalogModal = false" @keydown.esc="showCatalogModal = false">
       <div class="modal-card glass-panel" role="dialog" aria-modal="true" aria-labelledby="catalog-modal-title" @click.stop>
@@ -352,7 +389,8 @@ import {
   Database,
   MessageCircle,
   Download,
-  Upload
+  Upload,
+  Keyboard
 } from 'lucide-vue-next'
 
 import { toolCategories, toolsList } from './config/tools.js'
@@ -360,6 +398,7 @@ import catalogJson from '../toolhelper_directory.json'
 import ToastContainer from './components/ToastContainer.vue'
 import UpdateModal from './components/UpdateModal.vue'
 import FeedbackModal from './components/FeedbackModal.vue'
+import CommandPalette from './components/CommandPalette.vue'
 import { useTheme } from './composables/useTheme.js'
 import { useUpdater, openUpdatePanel } from './composables/useUpdater.js'
 import { globalToast } from './composables/useToast.js'
@@ -370,8 +409,11 @@ import {
   getCommonToolsCount,
   MAX_WORKSPACE_BACKUP_BYTES,
   normalizeAppState,
-  parseWorkspaceBackup
+  parseWorkspaceBackup,
+  recordRecentTool,
+  sortToolsByPreference
 } from './utils/appState.js'
+import { buildCommandCatalog, flattenCommandCatalog } from './utils/commandPalette.js'
 
 // 工具组件注册表：组件与元数据的单一映射，新增工具只需在 registry.js 登记
 import { toolComponents, assertToolRegistry } from './config/registry.js'
@@ -407,6 +449,7 @@ function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       isDark: isDark.value,
       favorites: favorites.value,
+      recentToolIds: recentToolIds.value,
       openTabs: openTabs.value.map(t => t.id),
       currentToolId: currentToolId.value,
       locale: localeSetting.value
@@ -424,7 +467,7 @@ const t = (key, values) => translate(effectiveLocale.value, key, values)
 watch(effectiveLocale, value => { if (typeof document !== 'undefined') document.documentElement.lang = value }, { immediate: true })
 
 // Windows 版本更新
-const { state: updaterState, hasUpdate } = useUpdater()
+const { state: updaterState, hasUpdate, checkForUpdates } = useUpdater()
 
 // 状态管理
 const { isDark, applyTheme, toggleTheme: switchTheme } = useTheme()
@@ -433,17 +476,106 @@ applyTheme(savedState && typeof savedState.isDark === 'boolean' ? savedState.isD
 const mobileMenuOpen = ref(false)
 const showCatalogModal = ref(false)
 const feedbackOpen = ref(false)
+const commandPaletteOpen = ref(false)
+const shortcutsOpen = ref(false)
+const shortcutsCloseButton = ref(null)
 const workspaceFileInput = ref(null)
 const searchQuery = ref('')
 const activeCategory = ref('all')
 const currentToolId = ref(appState.currentToolId)
 const favorites = ref(appState.favorites)
+const recentToolIds = ref(appState.recentToolIds)
 
 // 多标签管理
 const openTabs = ref(appState.openTabs)
 
 const allCatalog = ref(catalogJson)
 const catalogToolCount = computed(() => allCatalog.value.reduce((total, category) => total + category.tools.length, 0))
+
+const commandActions = computed(() => [
+  {
+    id: 'toggle-theme',
+    title: t('actionToggleTheme'),
+    subtitle: t('actionToggleThemeDesc'),
+    icon: isDark.value ? 'Sun' : 'Moon',
+    keywords: ['theme', 'dark', 'light', '外观', '深色', '浅色', '主题']
+  },
+  {
+    id: 'check-updates',
+    title: t('actionCheckUpdate'),
+    subtitle: t('actionCheckUpdateDesc'),
+    icon: 'Sparkles',
+    keywords: ['update', 'release', 'version', 'github', '更新', '版本']
+  },
+  {
+    id: 'export-workspace',
+    title: t('actionExportWorkspace'),
+    subtitle: t('actionExportWorkspaceDesc'),
+    icon: 'Download',
+    keywords: ['export', 'backup', 'workspace', 'json', '导出', '备份']
+  },
+  {
+    id: 'import-workspace',
+    title: t('actionImportWorkspace'),
+    subtitle: t('actionImportWorkspaceDesc'),
+    icon: 'Upload',
+    keywords: ['import', 'restore', 'workspace', 'json', '导入', '恢复']
+  },
+  {
+    id: 'open-catalog',
+    title: t('actionOpenCatalog'),
+    subtitle: t('actionOpenCatalogDesc'),
+    icon: 'Layers',
+    keywords: ['catalog', 'directory', 'tools', '目录', '图谱']
+  },
+  {
+    id: 'feedback',
+    title: t('actionFeedback'),
+    subtitle: t('actionFeedbackDesc'),
+    icon: 'MessageCircle',
+    keywords: ['feedback', 'community', 'qq', '反馈', '交流群']
+  },
+  {
+    id: 'shortcuts',
+    title: t('actionShortcuts'),
+    subtitle: t('actionShortcutsDesc'),
+    icon: 'Keyboard',
+    keywords: ['keyboard', 'shortcut', 'hotkey', '快捷键', '帮助']
+  }
+])
+
+const commandCatalog = computed(() => buildCommandCatalog({
+  tools: toolsList,
+  favorites: favorites.value,
+  recentToolIds: recentToolIds.value,
+  actions: commandActions.value
+}))
+
+const commandPaletteCommands = computed(() => flattenCommandCatalog(commandCatalog.value))
+
+const commandPaletteLabels = computed(() => ({
+  title: t('commandTitle'),
+  placeholder: t('commandPlaceholder'),
+  inputLabel: t('commandInputLabel'),
+  resultLabel: t('commandResultLabel'),
+  close: t('commandClose'),
+  empty: t('commandEmpty'),
+  navigate: t('commandNavigate'),
+  select: t('commandSelect'),
+  dismiss: t('commandDismiss'),
+  localOnly: t('commandLocalOnly'),
+  pinned: t('commandPinned'),
+  recent: t('commandRecent'),
+  action: t('commandAction'),
+  tool: t('commandTool'),
+  sections: {
+    pinned: t('commandSectionPinned'),
+    recent: t('commandSectionRecent'),
+    actions: t('commandSectionActions'),
+    tools: t('commandSectionTools'),
+    results: t('commandSectionResults')
+  }
+}))
 
 // 主题切换（统一走 useTheme，切换后持久化）
 function toggleTheme() {
@@ -477,7 +609,11 @@ const activeCategoryName = computed(() => {
 // 分类与搜索过滤
 const filteredTools = computed(() => {
   if (activeCategory.value === 'common') {
-    return filterCommonTools(toolsList, favorites.value, searchQuery.value)
+    return sortToolsByPreference(
+      filterCommonTools(toolsList, favorites.value, searchQuery.value),
+      favorites.value,
+      recentToolIds.value
+    )
   }
 
   let list = toolsList
@@ -512,17 +648,23 @@ function selectCategory(catId) {
   mobileMenuOpen.value = false
 }
 
+function rememberTool(toolId) {
+  recentToolIds.value = recordRecentTool(recentToolIds.value, toolId)
+}
+
 function openTool(tool) {
   currentToolId.value = tool.id
   if (!openTabs.value.some(t => t.id === tool.id)) {
     openTabs.value.push(tool)
   }
+  rememberTool(tool.id)
   mobileMenuOpen.value = false
   saveState()
 }
 
 function switchTool(toolId) {
   currentToolId.value = toolId
+  rememberTool(toolId)
   saveState()
 }
 
@@ -535,6 +677,10 @@ function closeTab(toolId) {
       currentToolId.value = openTabs.value[Math.max(0, idx - 1)].id
     }
     saveState()
+    const focusToolId = currentToolId.value
+    nextTick(() => {
+      document.querySelector(`[data-tab-id="${CSS.escape(focusToolId)}"]`)?.focus()
+    })
   }
 }
 
@@ -556,6 +702,7 @@ function exportWorkspace() {
   const payload = JSON.stringify(createWorkspaceBackup({
     isDark: isDark.value,
     favorites: favorites.value,
+    recentToolIds: recentToolIds.value,
     openTabs: openTabs.value,
     currentToolId: currentToolId.value
   }), null, 2)
@@ -580,6 +727,7 @@ async function handleWorkspaceImport(event) {
   try {
     const imported = parseWorkspaceBackup(await file.text(), toolsList, Object.keys(toolComponents))
     favorites.value = imported.favorites
+    recentToolIds.value = imported.recentToolIds
     openTabs.value = imported.openTabs
     currentToolId.value = imported.currentToolId
     applyTheme(imported.isDark)
@@ -594,11 +742,105 @@ function isNativeTool(name) {
   return toolsList.some(tool => tool.name === name)
 }
 
+function openCommandPalette() {
+  mobileMenuOpen.value = false
+  commandPaletteOpen.value = true
+}
+
+function closeCommandPalette() {
+  commandPaletteOpen.value = false
+}
+
+function closeShortcuts() {
+  shortcutsOpen.value = false
+}
+
+function trapShortcutsFocus(event) {
+  event.preventDefault()
+  shortcutsCloseButton.value?.focus()
+}
+
+async function openShortcuts() {
+  commandPaletteOpen.value = false
+  await nextTick()
+  shortcutsOpen.value = true
+}
+
+let shortcutsRestoreFocus = null
+watch(shortcutsOpen, async open => {
+  if (open) {
+    shortcutsRestoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    await nextTick()
+    shortcutsCloseButton.value?.focus()
+  } else if (shortcutsRestoreFocus?.isConnected) {
+    const target = shortcutsRestoreFocus
+    shortcutsRestoreFocus = null
+    await nextTick()
+    target.focus()
+  }
+})
+
+async function executeCommand(command) {
+  if (!command) return
+  commandPaletteOpen.value = false
+  if (command.type === 'tool') {
+    const tool = toolsList.find(item => item.id === command.toolId)
+    if (tool) openTool(tool)
+    return
+  }
+
+  await nextTick()
+  switch (command.actionId) {
+    case 'toggle-theme':
+      toggleTheme()
+      break
+    case 'check-updates':
+      await checkForUpdates({ manual: true })
+      break
+    case 'export-workspace':
+      exportWorkspace()
+      break
+    case 'import-workspace':
+      workspaceFileInput.value?.click()
+      break
+    case 'open-catalog':
+      showCatalogModal.value = true
+      break
+    case 'feedback':
+      feedbackOpen.value = true
+      break
+    case 'shortcuts':
+      await openShortcuts()
+      break
+  }
+}
+
+function isEditableTarget(target) {
+  return target instanceof HTMLElement &&
+    (target.matches('input, textarea, select') || target.isContentEditable)
+}
+
 function handleKeydown(e) {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+  const moduleKey = e.ctrlKey || e.metaKey
+  if (moduleKey && !e.altKey && e.key.toLowerCase() === 'k') {
     e.preventDefault()
-    const input = document.querySelector('.search-input')
-    if (input) input.focus()
+    if (commandPaletteOpen.value) closeCommandPalette()
+    else openCommandPalette()
+    return
+  }
+  if (moduleKey && e.shiftKey && !e.altKey && e.key.toLowerCase() === 't') {
+    e.preventDefault()
+    toggleTheme()
+    return
+  }
+  if (e.key === 'Escape' && shortcutsOpen.value) {
+    e.preventDefault()
+    closeShortcuts()
+    return
+  }
+  if (e.key === '?' && !moduleKey && !e.altKey && !isEditableTarget(e.target)) {
+    e.preventDefault()
+    openShortcuts()
   }
 }
 
@@ -892,11 +1134,21 @@ onUnmounted(() => {
   right: 0.6rem;
   font-size: 0.65rem;
   font-family: var(--font-mono);
+  line-height: 1.4;
   background: rgba(var(--rgb-primary), 0.1);
   border: 1px solid rgba(var(--rgb-primary), 0.25);
   border-radius: 4px;
   padding: 0.15rem 0.35rem;
   color: var(--accent-cyan);
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+.cyber-kbd:hover,
+.cyber-kbd:focus-visible {
+  background: rgba(var(--rgb-primary), 0.16);
+  border-color: rgba(var(--rgb-primary), 0.5);
+  box-shadow: 0 0 10px rgba(var(--rgb-primary), 0.18);
+  outline: none;
 }
 
 /* 分类列表 */
@@ -1404,6 +1656,48 @@ onUnmounted(() => {
   font-weight: 600;
   color: var(--accent-green);
 }
+.shortcuts-card {
+  max-width: 620px;
+}
+.shortcuts-body {
+  gap: 0.55rem;
+}
+.shortcut-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(3, auto);
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background: var(--surface-inset);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+.shortcut-row > span {
+  min-width: 0;
+}
+.shortcut-row kbd {
+  min-width: 24px;
+  padding: 0.14rem 0.4rem;
+  border: 1px solid var(--border-color);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-align: center;
+}
+.shortcuts-hint {
+  margin-top: 0.45rem;
+  padding: 0.75rem 0.85rem;
+  border-left: 2px solid var(--accent-cyan);
+  background: rgba(var(--rgb-primary), 0.06);
+  color: var(--text-sub);
+  font-size: 0.78rem;
+  line-height: 1.65;
+}
 
 /* 响应式媒体查询（窄窗口适配） */
 @media (max-width: 768px) {
@@ -1442,6 +1736,9 @@ onUnmounted(() => {
   .workspace-body {
     padding: 1rem;
     gap: 1.25rem;
+  }
+  .shortcut-row {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
   }
   .mobile-capsules {
     display: flex;

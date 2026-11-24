@@ -32,7 +32,15 @@
         <button class="btn btn-primary btn-sm" :disabled="processing" @click="start">
           <Play v-if="!processing" :size="14" />
           <Loader2 v-else :size="14" class="spin" />
-          <span>{{ processing ? '处理中…' : '开始处理' }}</span>
+          <span>{{ processing ? (paused ? '已暂停' : '处理中…') : '开始处理' }}</span>
+        </button>
+        <button v-if="processing && !paused" class="btn btn-secondary btn-sm" @click="pauseProcessing">
+          <Pause :size="13" />
+          <span>暂停</span>
+        </button>
+        <button v-if="processing && paused" class="btn btn-secondary btn-sm" @click="resumeProcessing">
+          <Play :size="13" />
+          <span>继续</span>
         </button>
         <button v-if="processing" class="btn btn-secondary btn-sm" @click="cancel">
           <Square :size="13" />
@@ -248,7 +256,7 @@ import {
   createBatchRecipe, parseBatchRecipe, batchResultsCsv, createBatchExport
 } from '../../utils/batchProcessing.js'
 import { createBatchRunner } from '../../utils/batchRunner.js'
-import { Play, Square, Trash2, Copy, ListChecks, UploadCloud, FileText as FileIcon, X, AlertTriangle, Loader2 } from 'lucide-vue-next'
+import { Play, Pause, Square, Trash2, Copy, ListChecks, UploadCloud, FileText as FileIcon, X, AlertTriangle, Loader2 } from 'lucide-vue-next'
 
 const MAX_LINES = BATCH_LIMITS.rows
 const MAX_FILE_BYTES = BATCH_LIMITS.fileBytes
@@ -264,6 +272,7 @@ const search = ref('')
 const page = ref(1)
 const expandedId = ref(null)
 const processing = ref(false)
+const paused = ref(false)
 const progress = ref(0)
 const processedCount = ref(0)
 const totalCount = ref(0)
@@ -275,6 +284,8 @@ const runStatus = ref('idle')
 const runError = ref('')
 const options = reactive({ urlSafeBase64: false, upperHash: false, skipEmpty: true })
 let cancelRequested = false
+let pauseRequested = false
+let runList = []
 let runner = null
 let activeReader = null
 let seed = 0
@@ -308,7 +319,7 @@ watch([filter, search], () => { page.value = 1; expandedId.value = null })
 watch(pageCount, count => { page.value = Math.min(page.value, count) })
 const recipeChanged = computed(() => runSnapshot.value && JSON.stringify(createBatchRecipe(steps.value, options)) !== JSON.stringify(runSnapshot.value.recipe))
 const runStatusLabel = computed(() => ({
-  running: '处理中', stopped: '已停止，保留已完成结果', failed: '处理中断',
+  running: '处理中', paused: '已暂停，可继续或停止', stopped: '已停止，保留已完成结果', failed: '处理中断',
   complete: errorCount.value ? '处理完成，部分条目失败' : '处理完成'
 })[runStatus.value] || '')
 
@@ -441,8 +452,30 @@ function exportAs(format) {
 }
 function cancel() {
   cancelRequested = true
+  pauseRequested = false
   runner?.dispose()
   activeReader?.abort()
+  if (paused.value) {
+    paused.value = false
+    processing.value = false
+    runStatus.value = 'stopped'
+    runner = null
+  }
+}
+function pauseProcessing() {
+  if (!processing.value || paused.value) return
+  pauseRequested = true
+  paused.value = true
+  runStatus.value = 'paused'
+  runner?.pause()
+  activeReader?.abort()
+}
+async function resumeProcessing() {
+  if (!processing.value || !paused.value) return
+  paused.value = false
+  pauseRequested = false
+  runStatus.value = 'running'
+  await processPending()
 }
 function readFileAsBytes(file) {
   return new Promise((resolve, reject) => {
@@ -456,6 +489,56 @@ function readFileAsBytes(file) {
     reader.readAsArrayBuffer(file)
   })
 }
+async function processPending() {
+  const list = runList
+  const mode = runSnapshot.value.sourceMode
+  // A recipe read through the Vue ref is a reactive Proxy. Workers require a
+  // structured-cloneable plain object, so rebuild it from the versioned contract.
+  const recipe = createBatchRecipe(runSnapshot.value.recipe.steps, runSnapshot.value.recipe.options)
+  runner = createBatchRunner()
+  let outputBytes = results.value.reduce((sum, row) => sum + (row.ok ? new TextEncoder().encode(row.output).length : 0), 0)
+  try {
+    for (let offset = processedCount.value; offset < list.length; offset++) {
+      if (cancelRequested || pauseRequested) break
+      const item = list[offset]
+      const source = mode === 'text' ? item : item.name
+      const row = { id: nextId(), index: offset + 1, source, label: source.length > 60 ? `${source.slice(0, 60)}…` : source, output: '', error: '', ok: false, sizeText: '—', ms: 0 }
+      const startedAt = performance.now()
+      try {
+        const size = mode === 'text' ? new TextEncoder().encode(item).length : item.size
+        const max = mode === 'text' ? BATCH_LIMITS.lineBytes : MAX_FILE_BYTES
+        if (size > max) throw new Error(`单条 ${formatSize(size)} 超过 ${formatSize(max)} 限制`)
+        const bytes = mode === 'text' ? new TextEncoder().encode(item) : await readFileAsBytes(item.file)
+        if (cancelRequested || pauseRequested) break
+        const output = await runner.run(bytes, recipe)
+        const byteLength = new TextEncoder().encode(output).length
+        if (outputBytes + byteLength > BATCH_LIMITS.totalOutputBytes) {
+          runError.value = '结果合计达到 128 MB 上限，已停止；请拆分批次'
+          runStatus.value = 'failed'
+          break
+        }
+        outputBytes += byteLength
+        Object.assign(row, { output, ok: true, sizeText: formatSize(byteLength), ms: Math.round(performance.now() - startedAt) })
+      } catch (error) {
+        if (cancelRequested || pauseRequested) break
+        row.error = error.message || '处理失败'
+      }
+      results.value.push(row)
+      processedCount.value = offset + 1
+      progress.value = Math.round(processedCount.value / list.length * 100)
+    }
+    if (runStatus.value !== 'failed') {
+      runStatus.value = pauseRequested ? 'paused' : cancelRequested ? 'stopped' : 'complete'
+    }
+  } catch (error) {
+    runError.value = error.message || '批量处理失败'
+    runStatus.value = 'failed'
+  } finally {
+    runner?.dispose()
+    runner = null
+    if (!pauseRequested) processing.value = false
+  }
+}
 async function start() {
   if (processing.value) return
   const mode = sourceMode.value
@@ -468,8 +551,11 @@ async function start() {
   }
   const recipe = createBatchRecipe(steps.value, options)
   runSnapshot.value = { recipe, sourceMode: mode, total: list.length, startedAt: new Date().toISOString() }
+  runList = list
   runStatus.value = 'running'
   processing.value = true
+  paused.value = false
+  pauseRequested = false
   cancelRequested = false
   results.value = []
   expandedId.value = null
@@ -478,46 +564,7 @@ async function start() {
   search.value = ''
   progress.value = processedCount.value = 0
   totalCount.value = list.length
-  runner = createBatchRunner()
-  let outputBytes = 0
-  try {
-    for (const [offset, item] of list.entries()) {
-      if (cancelRequested) break
-      const source = mode === 'text' ? item : item.name
-      const row = { id: nextId(), index: offset + 1, source, label: source.length > 60 ? `${source.slice(0, 60)}…` : source, output: '', error: '', ok: false, sizeText: '—', ms: 0 }
-      const startedAt = performance.now()
-      try {
-        const size = mode === 'text' ? new TextEncoder().encode(item).length : item.size
-        const max = mode === 'text' ? BATCH_LIMITS.lineBytes : MAX_FILE_BYTES
-        if (size > max) throw new Error(`单条 ${formatSize(size)} 超过 ${formatSize(max)} 限制`)
-        const bytes = mode === 'text' ? new TextEncoder().encode(item) : await readFileAsBytes(item.file)
-        if (cancelRequested) break
-        const output = await runner.run(bytes, recipe)
-        const byteLength = new TextEncoder().encode(output).length
-        if (outputBytes + byteLength > BATCH_LIMITS.totalOutputBytes) {
-          runError.value = '结果合计达到 128 MB 上限，已停止；请拆分批次'
-          runStatus.value = 'failed'
-          break
-        }
-        outputBytes += byteLength
-        Object.assign(row, { output, ok: true, sizeText: formatSize(byteLength), ms: Math.round(performance.now() - startedAt) })
-      } catch (error) {
-        if (cancelRequested) break
-        row.error = error.message || '处理失败'
-      }
-      results.value.push(row)
-      processedCount.value = offset + 1
-      progress.value = Math.round(processedCount.value / list.length * 100)
-    }
-    if (runStatus.value !== 'failed') runStatus.value = cancelRequested ? 'stopped' : 'complete'
-  } catch (error) {
-    runError.value = error.message || '批量处理失败'
-    runStatus.value = 'failed'
-  } finally {
-    runner?.dispose()
-    runner = null
-    processing.value = false
-  }
+  await processPending()
 }
 onUnmounted(cancel)
 </script>

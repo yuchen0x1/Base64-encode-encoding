@@ -14,8 +14,11 @@ const {
   filterCommonTools,
   getCommonToolsCount,
   MAX_WORKSPACE_BACKUP_BYTES,
+  MAX_RECENT_TOOLS,
   createWorkspaceBackup,
-  parseWorkspaceBackup
+  parseWorkspaceBackup,
+  recordRecentTool,
+  sortToolsByPreference
 } = await import('../src/utils/appState.js')
 
 const tools = [
@@ -74,6 +77,29 @@ describe('App state restoration', () => {
     expect(state.openTabs.map(tool => tool.id)).toEqual(['base64', 'json-format'])
     expect(state.currentToolId).toBe('base64')
   })
+
+  it('migrates, validates, deduplicates, and bounds recent tools', () => {
+    const migrated = normalizeAppState({
+      favorites: ['base64'],
+      openTabs: ['base64'],
+      currentToolId: 'base64',
+      recentToolIds: ['aes-crypto', 'missing', 'aes-crypto', 'json-format']
+    }, tools, registeredToolIds)
+
+    expect(migrated.recentToolIds).toEqual(['aes-crypto', 'json-format'])
+    expect(normalizeAppState({ openTabs: ['base64'] }, tools, registeredToolIds).recentToolIds).toEqual([])
+
+    expect(recordRecentTool(['aes-crypto', 'base64'], 'json-format'))
+      .toEqual(['json-format', 'aes-crypto', 'base64'])
+    expect(recordRecentTool(['aes-crypto', 'base64'], 'base64'))
+      .toEqual(['base64', 'aes-crypto'])
+
+    let recent = []
+    for (let index = 0; index < 12; index += 1) recent = recordRecentTool(recent, `tool-${index}`)
+    expect(recent).toHaveLength(MAX_RECENT_TOOLS)
+    expect(recent[0]).toBe('tool-11')
+    expect(recent.at(-1)).toBe('tool-4')
+  })
 })
 
 describe('common tools', () => {
@@ -88,6 +114,14 @@ describe('common tools', () => {
   it('applies search to the same common-tools result set', () => {
     expect(filterCommonTools(tools, ['aes-crypto'], 'crypto').map(tool => tool.id)).toEqual(['aes-crypto'])
   })
+
+  it('pins favorites, then recent tools, without mutating the source list', () => {
+    const source = [...registeredTools]
+    const ordered = sortToolsByPreference(source, ['aes-crypto', 'base64'], ['json-format'])
+
+    expect(ordered.map(tool => tool.id)).toEqual(['aes-crypto', 'base64', 'json-format'])
+    expect(source.map(tool => tool.id)).toEqual(['base64', 'json-format', 'aes-crypto'])
+  })
 })
 
 describe('workspace backup', () => {
@@ -95,6 +129,7 @@ describe('workspace backup', () => {
     const backup = createWorkspaceBackup({
       isDark: false,
       favorites: ['aes-crypto'],
+      recentToolIds: ['base64'],
       openTabs: [{ id: 'base64' }, { id: 'aes-crypto' }],
       currentToolId: 'aes-crypto'
     }, new Date('2026-11-12T00:00:00.000Z'))
@@ -106,6 +141,7 @@ describe('workspace backup', () => {
       state: {
         isDark: false,
         favorites: ['aes-crypto'],
+        recentToolIds: ['base64'],
         openTabs: ['base64', 'aes-crypto'],
         currentToolId: 'aes-crypto'
       }
@@ -116,6 +152,7 @@ describe('workspace backup', () => {
     const backup = createWorkspaceBackup({
       isDark: true,
       favorites: ['aes-crypto', 'missing'],
+      recentToolIds: ['base64', 'missing'],
       openTabs: ['json-format', 'json-format'],
       currentToolId: 'aes-crypto'
     })
@@ -123,6 +160,7 @@ describe('workspace backup', () => {
 
     expect(state.isDark).toBe(true)
     expect(state.favorites).toEqual(['aes-crypto'])
+    expect(state.recentToolIds).toEqual(['base64'])
     expect(state.openTabs.map(tool => tool.id)).toEqual(['json-format', 'aes-crypto'])
     expect(state.currentToolId).toBe('aes-crypto')
   })

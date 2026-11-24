@@ -14,9 +14,9 @@
 
 <!-- github-release:start -->
 
-**[v0.0.12](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.0.12)** · 2026-11-24
+**[v0.1.0](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.0)** · 2026-11-24
 
-本版修复 Windows 版本更新检测在 GitHub Releases API 匿名限流时失败的问题，回退到官方更新清单并继续校验安装包完整性。
+本版升级二维码离线识别、JWT HS256 本地验签、JSON 树/路径/差异/类型、颜色多格式转换、全局命令面板与工具懒加载，并加固 Electron IPC、导航和 CSP。
 
 [全部发行记录](https://github.com/yuchen0x1/Base64-encode-encoding/releases)
 
@@ -38,7 +38,7 @@
 | Base64、URL、哈希和 JSON 的配方 | 多行文本、多文件、后台运行和结果导出 | 单个文件或标准输入，结果写入标准输出 |
 | 版本检查 | 应用内检查、下载和覆盖安装 | `--check-update` 查询版本和摘要，手动替换文件 |
 
-在发布页下载后，可用 `gh release verify-asset v0.0.12 <文件>` 验证 GitHub 的发布证明，或用 `SHA256SUMS.txt` 核对文件摘要。[命令行使用说明](docs/CLI.md) · [平台兼容性与路线图](docs/PLATFORMS.md)
+在发布页下载后，可用 `gh release verify-asset v0.1.0 <文件>` 验证 GitHub 的发布证明，或用 `SHA256SUMS.txt` 核对文件摘要。[命令行使用说明](docs/CLI.md) · [平台兼容性与路线图](docs/PLATFORMS.md)
 
 ## 功能
 
@@ -50,7 +50,7 @@
 |---|---|---|---|---|---|
 | 1 | 批量处理模式 | `batch-processor` | 批量 | 文本 / 文件后台批处理、最多 8 步配方、流程导入导出、停止、分页与 TXT / CSV / JSON 导出 | 已实现 |
 | 2 | Base64 编解码 | `base64` | 编码 | 文本与 URL 安全模式的实时编解码 | 已实现 |
-| 3 | JWT 令牌解析 & 时效诊断 | `jwt-decoder` | 编码 | Header / Payload 解析，`iat` / `nbf` / `exp` 时效检查 | 部分实现（仅解析，**不校验签名**） |
+| 3 | JWT 令牌解析 & 时效诊断 | `jwt-decoder` | 编码 | Header / Payload 解析、时效检查与显式 HS256 本地验签 | 已实现（仅解析模式不证明签名有效） |
 | 4 | Unicode & HTML 实体互转 | `unicode-codec` | 编码 | `\uXXXX` 转义与 HTML 字符实体编解码 | 已实现 |
 | 5 | 全系 Base 族与黑客密码 | `cipher-toolbox` | 编码 | Hex、Base32、摩斯电码、ROT13 互转 | 已实现 |
 | 6 | 图片与 Base64 互转 | `image-base64` | 媒体 | 本地图片转 DataURL，Base64 还原预览与下载 | 已实现 |
@@ -62,19 +62,20 @@
 | 12 | 正则表达式测试器 | `regex-tester` | 文本 | 常用正则、匹配测试、捕获组提取与高亮 | 已实现（Worker 隔离，超时终止） |
 | 13 | 文本代码对比 | `text-diff` | 文本 | 逐行差异高亮（基于 `diff`） | 已实现 |
 | 14 | 多进制转换 | `radix-convert` | 进制 | 二 / 八 / 十 / 十六进制实时互转 | 已实现 |
-| 15 | 二维码生成器 | `qrcode-generator` | 媒体 | 生成二维码、容错率调整、PNG 导出、容量错误提示 | 已实现（仅生成，不含二维码解析） |
+| 15 | 二维码生成与识别 | `qrcode-generator` | 媒体 | 生成二维码、离线本地图片识别、容错率调整、PNG 导出与结果导出 | 已实现（识别使用内联 ZXing WASM） |
 | 16 | 随机密码 & UUID | `random-password` | 加密 | 强密码、随机串、UUID v4、批量生成 | 已实现 |
 | 17 | 文本去重 & 统计 | `text-toolbox` | 文本 | 行去重、转小写、字数 / 行数统计、空行清除 | 已实现 |
 | 18 | JWT 生成器 | `jwt-generator` | 编码 | 自定义 Header / Payload，注入 `iat` / `exp`，HS256 签名 | 已实现 |
-| 19 | 颜色格式转换 | `color-converter` | 媒体 | HEX 输入 / 取色，输出 RGB、RGBA、HSL、HSLA；Alpha 固定为 1 | 已实现（不含 RGB/HSL 反向输入） |
+| 19 | 颜色格式转换 | `color-converter` | 媒体 | HEX/RGB/RGBA/HSL/HSLA/HSV/HSVA 双向输入、Alpha 与历史记录 | 已实现 |
 | 20 | 转义字符工具 | `escape-toolbox` | 编码 | C 风格、`\uXXXX`、`\x41` 转义与还原 | 已实现 |
 | 21 | SQL 格式化 | `sql-formatter` | JSON | SQL 美化与压缩，**仅处理文本，不连接数据库** | 已实现 |
 
-> 工具能力依据组件和相关逻辑模块核实。JWT 解析不验签；二维码工具只生成，不提供识别功能。
+> 工具能力依据组件和相关逻辑模块核实。JWT “仅解析”模式不验签；HS256 验签仅证明使用用户提供密钥的本地签名匹配。二维码识别不上传图片、不访问 CDN。
 
 ### 工作区与批量处理
 
 - 深浅主题、工具搜索、分类筛选、收藏、多标签，以及工作区 JSON 导入导出。
+- 全局命令面板（Ctrl/Cmd+K）、快捷键帮助、最近使用记录和收藏/最近优先排序。
 - 用户偏好保存在 Electron 用户目录中的 localStorage，键为 `geek-toolbox-state`；不自动保存工具输入。
 - 批量处理支持文本 / 文件、1–8 步有序配方、后台 Worker、停止、分页和 TXT / CSV / JSON 导出。
 - 每批最多 1000 条；文本每条 2 MiB、文件每个 64 MiB、输入合计 128 MiB。详细限制见[批量处理指南](docs/BATCH_PROCESSING.md)。
@@ -169,7 +170,7 @@ docs/                使用指南、发布历史和历史审计记录
 
 [维护与发布](docs/MAINTENANCE.md) · [竞品研究](docs/ECOSYSTEM_RESEARCH.md) · [安全问题私密报告](SECURITY.md)
 
-本轮已清除五个工具的 computed 副作用 lint warning，当前 `npm run lint` 为 0 error、0 warning。JWT 解析不校验签名、二维码工具仅生成、颜色工具仅接受 HEX 且 Alpha 固定为 1。敏感数据处理和大输入性能边界详见对应工具说明。
+当前 `npm run lint` 为 0 error、0 warning。JWT 的解析模式不校验签名；二维码识别使用本地 WASM；颜色工具支持多种格式和 Alpha。敏感数据处理和大输入性能边界详见对应工具说明。
 
 历史审计文档记录的是当时的版本与范围，其中的平台、服务器和 ZIP 更新描述不再代表当前产品。不要按历史报告恢复已移除的运行形态。
 
@@ -177,7 +178,7 @@ docs/                使用指南、发布历史和历史审计记录
 
 源图为 `assets/icon-source.jpg`。安装 Pillow 后运行 `python scripts/generate-icons.py`，只生成 Windows 安装 / 窗口图标和界面 favicon，再运行 `npm run build` 同步资源。
 
-项目采用 [MIT License](LICENSE)。依赖包括 Vue、Vite、Electron、crypto-js、qrcode、diff、lucide、Vitest 和 ESLint；各依赖遵循自身许可证。
+项目采用 [MIT License](LICENSE)。依赖包括 Vue、Vite、Electron、crypto-js、qrcode、zxing-wasm、diff、lucide、Vitest 和 ESLint；各依赖遵循自身许可证。
 
 ## Star History 星图
 

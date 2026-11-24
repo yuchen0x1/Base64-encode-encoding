@@ -1,6 +1,7 @@
 export const WORKSPACE_BACKUP_APP = 'geek-toolbox'
 export const WORKSPACE_BACKUP_SCHEMA = 1
 export const MAX_WORKSPACE_BACKUP_BYTES = 1 * 1024 * 1024
+export const MAX_RECENT_TOOLS = 8
 
 export const DEFAULT_FAVORITE_IDS = ['base64', 'json-format', 'timestamp', 'url-codec', 'radix-convert']
 export const DEFAULT_OPEN_TAB_IDS = ['base64', 'json-format', 'timestamp', 'radix-convert']
@@ -25,6 +26,7 @@ export function normalizeAppState(savedState, tools, registeredToolIds) {
   const favorites = Array.isArray(savedState?.favorites)
     ? normalizeIds(savedState.favorites)
     : normalizeIds(DEFAULT_FAVORITE_IDS)
+  const recentToolIds = normalizeIds(savedState?.recentToolIds).slice(0, MAX_RECENT_TOOLS)
   let tabIds = normalizeIds(savedState?.openTabs)
   if (tabIds.length === 0) tabIds = normalizeIds(DEFAULT_OPEN_TAB_IDS)
 
@@ -38,9 +40,39 @@ export function normalizeAppState(savedState, tools, registeredToolIds) {
 
   return {
     favorites,
+    recentToolIds,
     openTabs: tabIds.map(id => toolById.get(id)),
     currentToolId
   }
+}
+
+/** 记录最近使用工具；同一工具只保留最新位置，并限制条目数。 */
+export function recordRecentTool(recentToolIds, toolId, limit = MAX_RECENT_TOOLS) {
+  if (typeof toolId !== 'string' || !toolId || limit <= 0) return []
+  const source = Array.isArray(recentToolIds) ? recentToolIds : []
+  return [toolId, ...source.filter(id => typeof id === 'string' && id !== toolId)]
+    .slice(0, limit)
+}
+
+/** 收藏优先、最近使用其次，其余保持调用方原有顺序。 */
+export function sortToolsByPreference(tools, favoriteIds = [], recentToolIds = []) {
+  const favoriteOrder = new Map(
+    (Array.isArray(favoriteIds) ? favoriteIds : []).map((id, index) => [id, index])
+  )
+  const recent = new Map((Array.isArray(recentToolIds) ? recentToolIds : [])
+    .map((id, index) => [id, index]))
+  return tools
+    .map((tool, index) => ({ tool, index }))
+    .sort((left, right) => {
+      const leftFavorite = favoriteOrder.get(left.tool.id) ?? Number.MAX_SAFE_INTEGER
+      const rightFavorite = favoriteOrder.get(right.tool.id) ?? Number.MAX_SAFE_INTEGER
+      if (leftFavorite !== rightFavorite) return leftFavorite - rightFavorite
+      const leftRecent = recent.get(left.tool.id) ?? Number.MAX_SAFE_INTEGER
+      const rightRecent = recent.get(right.tool.id) ?? Number.MAX_SAFE_INTEGER
+      if (leftRecent !== rightRecent) return leftRecent - rightRecent
+      return left.index - right.index
+    })
+    .map(({ tool }) => tool)
 }
 
 /** 常用工具 = 内置常用 ∪ 用户收藏，搜索与展示使用同一结果集。 */
@@ -68,6 +100,7 @@ export function createWorkspaceBackup(state, exportedAt = new Date()) {
     state: {
       isDark: Boolean(state?.isDark),
       favorites: Array.isArray(state?.favorites) ? [...state.favorites] : [],
+      recentToolIds: Array.isArray(state?.recentToolIds) ? [...state.recentToolIds].slice(0, MAX_RECENT_TOOLS) : [],
       openTabs: Array.isArray(state?.openTabs)
         ? state.openTabs.map(tool => typeof tool === 'string' ? tool : tool?.id).filter(Boolean)
         : [],

@@ -14,7 +14,7 @@
  *   3. 打包版默认使用 GitHub Releases latest/download/version.json
  *      开发环境使用项目根 updates/desktop 目录
  */
-import { app, net, BrowserWindow } from 'electron'
+import { app, net } from 'electron'
 import fs from 'node:fs/promises'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -25,6 +25,7 @@ import { isNewerVersion, normalizeVersion } from '../shared/version.js'
 import { fetchLatestRelease, fetchReleaseByVersion, getReleaseAsset, RELEASES_URL } from '../shared/github-release.js'
 import { assertSupportedInstallerPackage, normalizeSignatureMetadata } from './update-validation.js'
 import { prepareInstallerRuntime, startInstallerHelper } from './installer-bootstrap.js'
+import { registerTrustedIpcHandlers } from './ipc-security.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -46,21 +47,57 @@ const state = {
 }
 
 let checkPromise
+let mainWindowProvider = () => null
+let pendingEvent = null
+let pendingLoadCleanup = null
+let startupCheckTimer = null
 
 function getWindow() {
-  return BrowserWindow.getAllWindows()[0] || null
+  const window = mainWindowProvider()
+  if (!window || window.isDestroyed?.() === true || window.webContents?.isDestroyed?.()) return null
+  return window
+}
+
+function clearPendingEvent() {
+  pendingEvent = null
+  if (pendingLoadCleanup) {
+    pendingLoadCleanup()
+    pendingLoadCleanup = null
+  }
 }
 
 function sendEvent(payload) {
   const win = getWindow()
   if (!win || win.isDestroyed()) return
-  if (win.webContents.isLoading()) {
-    win.webContents.once('did-finish-load', () => {
-      if (!win.isDestroyed()) win.webContents.send('update:event', payload)
-    })
+  const contents = win.webContents
+  if (contents.isDestroyed()) return
+  if (contents.isLoading()) {
+    // Coalesce updates while the document is loading, and keep exactly one
+    // listener so download progress cannot accumulate event listeners.
+    pendingEvent = payload
+    if (pendingLoadCleanup) return
+    const onLoaded = () => {
+      pendingLoadCleanup = null
+      const current = getWindow()
+      const next = pendingEvent
+      pendingEvent = null
+      if (!current || current.webContents !== contents || contents.isDestroyed() || !next) return
+      try {
+        contents.send('update:event', next)
+      } catch {
+        /* renderer disappeared between the liveness check and send */
+      }
+    }
+    pendingLoadCleanup = () => contents.removeListener('did-finish-load', onLoaded)
+    contents.once('did-finish-load', onLoaded)
     return
   }
-  win.webContents.send('update:event', payload)
+  clearPendingEvent()
+  try {
+    contents.send('update:event', payload)
+  } catch {
+    /* renderer disappeared between the liveness check and send */
+  }
 }
 
 function sendProgress(percent, message, bytesPerSecond = 0) {
@@ -466,7 +503,6 @@ async function checkForUpdatesImpl() {
       latest: null,
       mode: 'electron',
       packaged: app.isPackaged,
-      appDir: appDir() || null,
       portable: isPortableRuntime()
     }
   }
@@ -522,7 +558,6 @@ async function checkForUpdatesImpl() {
     latest: state.latest,
     mode: 'electron',
     packaged: app.isPackaged,
-    appDir: appDir() || null,
     portable: isPortableRuntime()
   }
 }
@@ -703,24 +738,44 @@ export function getUpdateInfo() {
     mode: 'electron',
     currentVersion: normalizeVersion(app.getVersion()),
     packaged: app.isPackaged,
-    feed: resolveFeed(),
-    appDir: appDir() || null,
     platform: process.platform,
-    signature: state.signature
+    signature: state.signature,
+    portable: isPortableRuntime()
   }
 }
 
-export function registerUpdaterIpc(ipcMain) {
-  ipcMain.handle('update:info', () => getUpdateInfo())
-  ipcMain.handle('update:check', () => checkForUpdates())
-  ipcMain.handle('update:download', () => downloadUpdate())
-  ipcMain.handle('update:cancel', () => cancelDownloadUpdate())
-  ipcMain.handle('update:install', () => installUpdate())
+export function registerUpdaterIpc(ipcMain, { getMainWindow } = {}) {
+  if (typeof getMainWindow !== 'function') throw new TypeError('registerUpdaterIpc 需要主窗口访问函数')
+  mainWindowProvider = getMainWindow
+  return registerTrustedIpcHandlers(ipcMain, {
+    'update:info': () => getUpdateInfo(),
+    'update:check': () => checkForUpdates(),
+    'update:download': () => downloadUpdate(),
+    'update:cancel': () => cancelDownloadUpdate(),
+    'update:install': () => installUpdate()
+  }, {
+    getMainWindow,
+    isPackaged: app.isPackaged,
+    indexFile: path.join(__dirname, '..', 'dist', 'index.html'),
+    devServerUrl: 'http://localhost:5173'
+  })
+}
+
+/** Abort in-flight network work when the window or application goes away. */
+export function shutdownUpdater() {
+  if (startupCheckTimer) {
+    clearTimeout(startupCheckTimer)
+    startupCheckTimer = null
+  }
+  state.downloadController?.abort()
+  clearPendingEvent()
 }
 
 /** 启动后自动检查一次，发现新版本立即推送事件让渲染进程弹窗 */
 export function scheduleStartupCheck(delay = 4000) {
-  setTimeout(async () => {
+  if (startupCheckTimer) clearTimeout(startupCheckTimer)
+  startupCheckTimer = setTimeout(async () => {
+    startupCheckTimer = null
     try {
       const result = await checkForUpdates()
       if (result.hasUpdate) {

@@ -8,13 +8,15 @@ on:
 permissions:
   contents: read
 
+env:
+  GH_TOKEN: ${{ github.token }}
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
 jobs:
-  release-health:
+  dependency-audit:
+    name: Dependency audit
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      GH_TOKEN: ${{ github.token }}
-      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -23,37 +25,212 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Check both npm dependency trees
-        shell: bash
-        run: |
-          npm audit --registry=https://registry.npmjs.org --omit=dev --audit-level=high
-          npm audit --registry=https://registry.npmjs.org --audit-level=high
-      - name: Verify latest release and README
-        if: success() || failure()
+      - name: Audit production dependencies
+        run: npm audit --registry=https://registry.npmjs.org --omit=dev --audit-level=high
+      - name: Audit the complete dependency tree
+        run: npm audit --registry=https://registry.npmjs.org --audit-level=high
+
+  release-health:
+    name: Release assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Resolve latest published release
+        id: release
         shell: bash
         run: |
           set -euo pipefail
-          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
-          grep -F "releases/tag/$latest)" README.md
-          mkdir "$RUNNER_TEMP/latest"
-          gh release download "$latest" --dir "$RUNNER_TEMP/latest" --pattern 'version.json' --pattern 'SHA256SUMS.txt' --pattern '*.mjs' --pattern '*.exe'
+          response="$RUNNER_TEMP/latest-release.json"
+          : > "$response"
+          for attempt in 1 2 3 4 5; do
+            if gh api "repos/$GITHUB_REPOSITORY/releases/latest" > "$response" 2> "$RUNNER_TEMP/gh-error.log"; then
+              break
+            fi
+            echo "::warning::GitHub API attempt $attempt/5 failed: $(cat "$RUNNER_TEMP/gh-error.log")"
+            if [ "$attempt" = 5 ]; then
+              echo "::error::Unable to resolve the latest release after five attempts. See the API error above."
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
+          tag=$(jq -er '.tag_name' "$response")
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Unexpected latest release tag: $tag"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Latest published release: $tag"
+
+      - name: Verify README and project version consistency
+        shell: bash
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          release_version="${TAG#v}"
+          expected="https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
+          if ! grep -Fq "$expected" README.md; then
+            echo "::error file=README.md::README does not link to the latest published release $TAG"
+            echo "Expected link: $expected"
+            echo "Recent README release references:"
+            grep -nE 'releases/tag/v[0-9]+\.[0-9]+\.[0-9]+' README.md | head -20 || true
+            exit 1
+          fi
+          project_version=$(node -p "require('./package.json').version")
+          relation=$(node scripts/compare-version.mjs "$project_version" "$release_version")
+          if [ "$relation" -lt 0 ]; then
+            echo "::error::package.json ($project_version) is older than the latest release ($release_version)"
+            exit 1
+          fi
+          if [ "$relation" -gt 0 ]; then
+            echo "::notice::package.json ($project_version) is ahead of the latest release ($release_version); a release is pending"
+          fi
+          echo "README and package version checks passed for $TAG"
+
+      - name: Download latest release assets
+        shell: bash
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          assets="$RUNNER_TEMP/latest"
+          rm -rf "$assets"
+          mkdir -p "$assets"
+          for attempt in 1 2 3 4 5; do
+            if gh release download "$TAG" --dir "$assets" \
+              --pattern 'version.json' --pattern 'SHA256SUMS.txt' \
+              --pattern '*.mjs' --pattern '*.exe' 2> "$RUNNER_TEMP/download-error.log"; then
+              break
+            fi
+            echo "::warning::Asset download attempt $attempt/5 failed: $(cat "$RUNNER_TEMP/download-error.log")"
+            rm -rf "$assets"
+            mkdir -p "$assets"
+            if [ "$attempt" = 5 ]; then
+              echo "::error::Unable to download release assets for $TAG after five attempts."
+              gh release view "$TAG" --json assets --jq '.assets[] | "\(.name) \(.size) bytes"'
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
+          echo "Downloaded assets:"
+          find "$assets" -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
+
+      - name: Verify manifest, checksums and CLI version
+        shell: bash
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
           cd "$RUNNER_TEMP/latest"
-          sha256sum -c SHA256SUMS.txt
-          test "$(jq -r '.version' version.json)" = "${latest#v}"
-          test "$(node "GeekToolbox-CLI-${latest#v}.mjs" --version)" = "${latest#v}"
-      - name: Scan reference projects for recent changes
-        if: success() || failure()
+          version="${TAG#v}"
+          for required in version.json SHA256SUMS.txt "GeekToolbox-CLI-$version.mjs" "GeekToolbox-Setup-$version.exe"; do
+            if [ ! -f "$required" ]; then
+              echo "::error::Missing required release asset: $required"
+              exit 1
+            fi
+          done
+          echo "SHA256SUMS.txt:"
+          cat SHA256SUMS.txt
+          if ! sha256sum -c --strict SHA256SUMS.txt; then
+            echo "::error::Release checksums do not match the downloaded assets."
+            exit 1
+          fi
+          manifest_version=$(jq -er '.version' version.json)
+          if [ "$manifest_version" != "$version" ]; then
+            echo "::error::version.json declares $manifest_version, expected $version"
+            exit 1
+          fi
+          cli_version=$(node "GeekToolbox-CLI-$version.mjs" --version)
+          if [ "$cli_version" != "$version" ]; then
+            echo "::error::CLI reports $cli_version, expected $version"
+            exit 1
+          fi
+          echo "PASS: checksums, manifest and CLI report $version"
+
+      - name: Verify GitHub release attestations
+        shell: bash
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/latest"
+          for asset in *; do
+            verified=false
+            for attempt in 1 2 3 4 5; do
+              if gh release verify-asset "$TAG" "$asset" 2> "$RUNNER_TEMP/verify-error.log"; then
+                verified=true
+                break
+              fi
+              echo "::warning::Attestation check for $asset failed (attempt $attempt/5): $(cat "$RUNNER_TEMP/verify-error.log")"
+              sleep $((attempt * 3))
+            done
+            if [ "$verified" != true ]; then
+              echo "::error::GitHub release attestation could not be verified for $asset"
+              exit 1
+            fi
+          done
+          echo "PASS: GitHub release attestations verified for every asset"
+
+  docs-health:
+    name: Documentation links
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Verify local documentation and screenshots
+        run: node scripts/check-docs.mjs
+
+  upstream-scan:
+    name: Upstream reference scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Scan reference projects
         shell: bash
         run: |
           set -euo pipefail
+          failed=0
           {
             echo '### Reference repositories'
             echo
-            echo '| Repository | Last push | Latest stable release |'
-            echo '|---|---|---|'
+            echo '| Repository | Last push | Latest stable release | Status |'
+            echo '|---|---|---|---|'
             for repo in DevToys-app/DevToys CorentinTh/it-tools gchq/CyberChef jqlang/jq panva/jose electron-userland/electron-builder; do
-              pushed=$(gh api "repos/$repo" --jq .pushed_at)
-              release=$(gh api "repos/$repo/releases/latest" --jq .tag_name)
-              echo "| $repo | $pushed | $release |"
+              pushed='unavailable'
+              release='unavailable'
+              status='OK'
+              ok=false
+              for attempt in 1 2 3; do
+                if pushed=$(gh api "repos/$repo" --jq '.pushed_at' 2> "$RUNNER_TEMP/upstream-error.log"); then
+                  published=$(gh api "repos/$repo/releases/latest" --jq .tag_name 2> "$RUNNER_TEMP/upstream-error.log" || true)
+                  release=${published:-none}
+                  ok=true
+                  break
+                fi
+                sleep $((attempt * 2))
+              done
+              if [ "$ok" != true ]; then
+                status="API unavailable"
+                failed=1
+                echo "::warning::Unable to query upstream repository $repo: $(cat "$RUNNER_TEMP/upstream-error.log")"
+              fi
+              echo "| $repo | $pushed | $release | $status |"
             done
           } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$failed" = 1 ]; then
+            echo "::warning::Some upstream repositories could not be queried because of network/API failures; this is not a project regression."
+          fi

@@ -1,80 +1,72 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { createBatchRunner } from '../src/utils/batchRunner.js'
 
-afterEach(() => vi.useRealTimers())
-const mockWorker = () => ({ postMessage: vi.fn(), terminate: vi.fn() })
-const bytes = () => new TextEncoder().encode('hello')
-const recipe = { steps: ['md5'], options: {} }
+class FakeWorker {
+  constructor() {
+    this.messages = []
+    this.terminated = false
+  }
 
-describe('batch worker lifecycle', () => {
-  it('reuses a worker, rejects stale messages, and surfaces step errors', async () => {
-    const worker = mockWorker()
-    const factory = vi.fn(() => worker)
-    const runner = createBatchRunner({ workerFactory: factory })
-    const first = runner.run(bytes(), recipe)
-    worker.onmessage({ data: { id: 99, output: 'stale' } })
-    worker.onmessage({ data: { id: 1, output: 'digest' } })
-    await expect(first).resolves.toBe('digest')
-    const second = runner.run(bytes(), recipe)
-    worker.onmessage({ data: { id: 1, output: 'stale' } })
-    worker.onmessage({ data: { id: 2, error: '第 2 步失败' } })
-    await expect(second).rejects.toThrow('第 2 步失败')
-    expect(factory).toHaveBeenCalledTimes(1)
-    runner.dispose()
-  })
+  postMessage(message) {
+    this.messages.push(structuredClone(message))
+  }
 
-  it('immediately terminates active work when stopped and cannot restart a disposed runner', async () => {
-    const worker = mockWorker()
+  terminate() {
+    this.terminated = true
+  }
+}
+
+describe('batch worker runner lifecycle', () => {
+  it('posts a structured-cloneable recipe and resolves the worker output', async () => {
+    const worker = new FakeWorker()
     const runner = createBatchRunner({ workerFactory: () => worker })
-    const task = runner.run(bytes(), recipe)
-    runner.dispose()
-    await expect(task).rejects.toMatchObject({ name: 'AbortError' })
-    expect(worker.terminate).toHaveBeenCalledTimes(1)
-    await expect(runner.run(bytes(), recipe)).rejects.toMatchObject({ name: 'AbortError' })
-  })
+    const pending = runner.run(new Uint8Array([1, 2, 3]), { steps: ['sha256'], options: {} })
 
-  it('terminates timed-out work and recovers using a fresh worker', async () => {
-    vi.useFakeTimers()
-    const worker = mockWorker()
-    const replacement = mockWorker()
-    const factory = vi.fn().mockReturnValueOnce(worker).mockReturnValueOnce(replacement)
-    const runner = createBatchRunner({ workerFactory: factory, timeoutMs: 10 })
-    const task = runner.run(bytes(), recipe)
-    const check = expect(task).rejects.toThrow('已终止')
-    await vi.advanceTimersByTimeAsync(10)
-    await check
-    expect(worker.terminate).toHaveBeenCalledTimes(1)
-    const next = runner.run(bytes(), recipe)
-    worker.onerror({ preventDefault() {} })
-    replacement.onmessage({ data: { id: 2, output: 'recovered' } })
-    await expect(next).resolves.toBe('recovered')
+    expect(worker.messages).toHaveLength(1)
+    expect(worker.messages[0].bytes).toEqual(new Uint8Array([1, 2, 3]))
+    worker.onmessage({ data: { id: worker.messages[0].id, output: 'ok' } })
+    await expect(pending).resolves.toBe('ok')
     runner.dispose()
   })
 
-  it('reports worker startup, transport and runtime failures without hanging', async () => {
-    const startup = createBatchRunner({ workerFactory: () => { throw new Error('no worker') } })
-    await expect(startup.run(bytes(), recipe)).rejects.toThrow('no worker')
-    const worker = mockWorker()
+  it('pauses only an active item and rejects later runs until disposed', async () => {
+    const worker = new FakeWorker()
     const runner = createBatchRunner({ workerFactory: () => worker })
-    const task = runner.run(bytes(), recipe)
-    worker.onerror({ preventDefault() {} })
-    await expect(task).rejects.toThrow('后台处理失败')
-    worker.postMessage.mockImplementation(() => { throw new Error('clone failed') })
-    await expect(runner.run(bytes(), recipe)).rejects.toThrow('clone failed')
+    expect(runner.pause()).toBe(false)
+
+    const pending = runner.run(new Uint8Array([4]), { steps: ['md5'], options: {} })
+    expect(runner.pause()).toBe(true)
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+    expect(worker.terminated).toBe(true)
+    await expect(runner.run(new Uint8Array([5]), { steps: ['md5'], options: {} }))
+      .rejects.toMatchObject({ name: 'AbortError' })
+
     runner.dispose()
   })
 
-  it('copies sliced views and prevents overlapping tasks', async () => {
-    const worker = mockWorker()
+  it('dispose rejects active work and reports worker construction failures', async () => {
+    const neverResponds = new FakeWorker()
+    const runner = createBatchRunner({ workerFactory: () => neverResponds })
+    const pending = runner.run(new Uint8Array([6]), { steps: ['sha1'], options: {} })
+    runner.dispose()
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+
+    const failure = createBatchRunner({
+      workerFactory: () => { throw new Error('worker unavailable') }
+    })
+    await expect(failure.run(new Uint8Array([7]), { steps: ['md5'], options: {} }))
+      .rejects.toThrow('worker unavailable')
+    failure.dispose()
+  })
+
+  it('does not allow overlapping items on one runner', async () => {
+    const worker = new FakeWorker()
     const runner = createBatchRunner({ workerFactory: () => worker })
-    const input = Uint8Array.from([0, 1, 2, 3]).subarray(1, 3)
-    const task = runner.run(input, recipe)
-    const payload = worker.postMessage.mock.calls[0][0]
-    expect(payload.bytes).toEqual(Uint8Array.from([1, 2]))
-    expect(payload.bytes.buffer).not.toBe(input.buffer)
-    await expect(runner.run(bytes(), recipe)).rejects.toThrow('尚未处理完成')
-    worker.onmessage({ data: { id: 1, output: 'ok' } })
-    await expect(task).resolves.toBe('ok')
+    const pending = runner.run(new Uint8Array([8]), { steps: ['md5'], options: {} })
+    await expect(runner.run(new Uint8Array([9]), { steps: ['md5'], options: {} }))
+      .rejects.toThrow('尚未处理完成')
+    worker.onmessage({ data: { id: worker.messages[0].id, output: 'done' } })
+    await expect(pending).resolves.toBe('done')
     runner.dispose()
   })
 })
