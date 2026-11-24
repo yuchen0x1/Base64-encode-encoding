@@ -33,6 +33,7 @@ describe('Electron renderer security policy', () => {
     expect(main).toMatch(/webviewTag:\s*false/)
     expect(main).toContain('setWindowOpenHandler')
     expect(main).toContain('will-navigate')
+    expect(main).toContain('will-redirect')
     expect(main).toContain('setPermissionRequestHandler')
   })
 

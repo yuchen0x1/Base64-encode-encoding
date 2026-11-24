@@ -71,7 +71,12 @@ describe('createQrReader', () => {
       maxNumberOfSymbols: 1,
       returnErrors: false
     }))
-    expect(normalizeQrResults([{ text: 'first', format: 'QRCode', position: {} }, { text: 'first', format: 'QRCode', position: {} }])).toHaveLength(1)
+    expect(normalizeQrResults([{ text: 'first', format: 'QRCode', position: {} }, { text: 'first', format: 'QRCode', position: {} }])).toHaveLength(2)
+    expect(normalizeQrResults([
+      { text: 'first', format: 'QRCode', position: { topLeft: { x: 1, y: 1 }, topRight: { x: 11, y: 1 }, bottomLeft: { x: 1, y: 11 }, bottomRight: { x: 11, y: 11 } } },
+      { text: 'first', format: 'QRCode', position: { topLeft: { x: 1, y: 1 }, topRight: { x: 11, y: 1 }, bottomLeft: { x: 1, y: 11 }, bottomRight: { x: 11, y: 11 } } },
+      { text: 'first', format: 'QRCode', position: { topLeft: { x: 21, y: 1 }, topRight: { x: 31, y: 1 }, bottomLeft: { x: 21, y: 11 }, bottomRight: { x: 31, y: 11 } } }
+    ])).toHaveLength(2)
   })
 
   it('caps normalized symbols', () => {

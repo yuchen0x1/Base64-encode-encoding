@@ -60,16 +60,22 @@ function createWindow() {
     return { action: 'deny' }
   })
 
-  // 阻止导航离开受信主文档；即使同源子路径也不允许。
+  // 阻止导航和重定向离开受信主文档；即使同源子路径也不允许。
+  const isTrustedAppUrl = (url) => isTrustedRendererUrl(url, {
+    isPackaged: app.isPackaged,
+    indexFile: path.join(__dirname, '../dist/index.html'),
+    devServerUrl
+  })
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const trusted = isTrustedRendererUrl(url, {
-      isPackaged: app.isPackaged,
-      indexFile: path.join(__dirname, '../dist/index.html'),
-      devServerUrl
-    })
+    const trusted = isTrustedAppUrl(url)
     if (trusted) return
     event.preventDefault()
     openExternalSafely(url)
+  })
+
+  mainWindow.webContents.on('will-redirect', (event, url) => {
+    if (isTrustedAppUrl(url)) return
+    event.preventDefault()
   })
 
   mainWindow.webContents.on('will-attach-webview', (event) => {
