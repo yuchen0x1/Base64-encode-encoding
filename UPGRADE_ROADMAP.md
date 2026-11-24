@@ -55,7 +55,7 @@
 | EV-038 结果 LRU 缓存（性能） | JSON/哈希/SQL 重复计算没有有界缓存 | CyberChef 操作缓存思路 | 输入+选项作为 key，按字节和条目双上限 | 工具 helper、新 `lru.js` | 中 | P2 | 重复计算命中；达到上限自动淘汰 | PLANNED |
 | EV-039 Blob/DataURL 生命周期（稳定性） | 多个工具生成下载 URL/DataURL，统一释放策略不足 | 浏览器工具最佳实践 | 统一 revoke/替换清理和组件卸载处理 | `App.vue`、`ToolBatch.vue`、`ToolImageBase64.vue` | 中 | P1 | 重复导出后 URL 数量不增长；卸载释放资源 | PLANNED |
 | EV-040 更新状态机契约（稳定性） | 状态散落在 `useUpdater` 与 Electron 事件中 | 桌面更新器状态机 | 明确定义合法迁移并用表驱动测试 | `useUpdater.js`、`updater.js`、测试 | 中 | P1 | 非法迁移被拒绝；每个状态有 UI 文案和恢复路径 | PLANNED |
-| EV-041 自动化回归矩阵（测试） | browser/Electron smoke 存在，但 CI 未调用全部入口 | DevToys/桌面项目 CI | 新增 14 个专项测试文件；本地运行桌面、更新、CLI 和 285 项单元测试 | `.github/workflows`、`tests/` | 中 | P1 | 本地分层验证通过；CI 全部入口的最终结果以 PR 运行为准 | PARTIAL |
+| EV-041 自动化回归矩阵（测试） | browser/Electron smoke 存在，但 CI 未调用全部入口 | DevToys/桌面项目 CI | 新增 9 个专项测试文件并扩充 4 个既有文件；本地运行桌面、更新、CLI 和 285 项单元测试 | `.github/workflows`、`tests/` | 中 | P1 | 本地分层验证通过；CI 全部入口的最终结果以 PR 运行为准 | PARTIAL |
 | EV-042 性能基准脚本（测试） | 当前只记录构建结果，没有稳定启动/批处理基线 | CyberChef/ut 性能意识 | 记录启动、构建、吞吐、峰值内存，禁止编造对比 | `scripts/perf`、CI artifact | 中 | P2 | 每次基准带环境和原始数据；无数据时标记缺失 | PLANNED |
 | EV-043 Windows 安装回滚演练（发布） | 本地包可生成，真实安装替换/回滚尚未完成 | PowerToys/Files 安装更新 | 隔离目录安装旧版、更新新版、故意失败并核验旧版 | `electron/apply-installer.js`、脚本、VM | 高 | P1 | 成功升级启动新版本；失败保留旧版本；有日志证据 | BLOCKED |
 | EV-044 lint/安全质量门禁（CI） | 默认镜像安全接口异常、发布健康缺乏资产校验 | Vue lint + 供应链门禁 | lint 归零；官方 npm audit 0 vulnerabilities；maintenance 拆分并加强依赖/发布/文档检查 | `.github/workflows/maintenance.yml`、`scripts/` | 中 | P1 | 本地门禁通过；远程工作流结果以 PR/CI 为准 | PARTIAL |

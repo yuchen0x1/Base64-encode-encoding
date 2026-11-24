@@ -70,6 +70,14 @@ export function isTrustedRendererUrl(rawUrl, {
   if (url.username || url.password) return false
 
   if (!isPackaged) {
+    if (url.protocol === 'file:' && !url.host && !url.search && !url.hash &&
+        typeof indexFile === 'string' && indexFile) {
+      try {
+        if (normalizePathForComparison(fileURLToPath(url)) === normalizePathForComparison(indexFile)) return true
+      } catch {
+        // Fall through to the development-server check.
+      }
+    }
     const expected = normalizedDevServer(devServerUrl)
     if (!expected) return false
     return url.origin === expected.origin &&

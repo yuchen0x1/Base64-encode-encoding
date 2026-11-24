@@ -1,59 +1,72 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createBatchRunner } from '../src/utils/batchRunner.js'
 
-function createFakeWorker() {
-  const worker = {
-    onmessage: null,
-    onerror: null,
-    terminated: false,
-    messages: [],
-    postMessage(message) { this.messages.push(message) },
-    terminate() { this.terminated = true },
-    respond(output) {
-      this.onmessage?.({ data: { id: this.messages.at(-1)?.id, output } })
-    }
+class FakeWorker {
+  constructor() {
+    this.messages = []
+    this.terminated = false
   }
-  return worker
+
+  postMessage(message) {
+    this.messages.push(structuredClone(message))
+  }
+
+  terminate() {
+    this.terminated = true
+  }
 }
 
-describe('createBatchRunner', () => {
-  it('resolves the worker output for an active item', async () => {
-    const worker = createFakeWorker()
+describe('batch worker runner lifecycle', () => {
+  it('posts a structured-cloneable recipe and resolves the worker output', async () => {
+    const worker = new FakeWorker()
     const runner = createBatchRunner({ workerFactory: () => worker })
-    const promise = runner.run(new Uint8Array([1, 2, 3]), { steps: [] })
+    const pending = runner.run(new Uint8Array([1, 2, 3]), { steps: ['sha256'], options: {} })
+
     expect(worker.messages).toHaveLength(1)
-    worker.respond('ok')
-    await expect(promise).resolves.toBe('ok')
+    expect(worker.messages[0].bytes).toEqual(new Uint8Array([1, 2, 3]))
+    worker.onmessage({ data: { id: worker.messages[0].id, output: 'ok' } })
+    await expect(pending).resolves.toBe('ok')
     runner.dispose()
   })
 
-  it('pauses only the active item and rejects with AbortError', async () => {
-    const worker = createFakeWorker()
+  it('pauses only an active item and rejects later runs until disposed', async () => {
+    const worker = new FakeWorker()
     const runner = createBatchRunner({ workerFactory: () => worker })
-    const promise = runner.run(new Uint8Array([1]), { steps: [] })
-    expect(runner.pause()).toBe(true)
-    await expect(promise).rejects.toMatchObject({ name: 'AbortError' })
-    expect(worker.terminated).toBe(true)
     expect(runner.pause()).toBe(false)
 
-    await expect(runner.run(new Uint8Array([2]), { steps: [] })).rejects.toMatchObject({ name: 'AbortError' })
+    const pending = runner.run(new Uint8Array([4]), { steps: ['md5'], options: {} })
+    expect(runner.pause()).toBe(true)
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+    expect(worker.terminated).toBe(true)
+    await expect(runner.run(new Uint8Array([5]), { steps: ['md5'], options: {} }))
+      .rejects.toMatchObject({ name: 'AbortError' })
+
     runner.dispose()
   })
 
-  it('rejects new work after dispose and releases the worker', async () => {
-    const worker = createFakeWorker()
-    const runner = createBatchRunner({ workerFactory: () => worker })
+  it('dispose rejects active work and reports worker construction failures', async () => {
+    const neverResponds = new FakeWorker()
+    const runner = createBatchRunner({ workerFactory: () => neverResponds })
+    const pending = runner.run(new Uint8Array([6]), { steps: ['sha1'], options: {} })
     runner.dispose()
-    await expect(runner.run(new Uint8Array([1]), { steps: [] })).rejects.toMatchObject({ name: 'AbortError' })
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+
+    const failure = createBatchRunner({
+      workerFactory: () => { throw new Error('worker unavailable') }
+    })
+    await expect(failure.run(new Uint8Array([7]), { steps: ['md5'], options: {} }))
+      .rejects.toThrow('worker unavailable')
+    failure.dispose()
   })
 
-  it('rejects a second concurrent run on the same runner', async () => {
-    const worker = createFakeWorker()
+  it('does not allow overlapping items on one runner', async () => {
+    const worker = new FakeWorker()
     const runner = createBatchRunner({ workerFactory: () => worker })
-    const first = runner.run(new Uint8Array([1]), { steps: [] })
-    await expect(runner.run(new Uint8Array([2]), { steps: [] })).rejects.toThrow('当前条目尚未处理完成')
-    worker.respond('done')
-    await expect(first).resolves.toBe('done')
+    const pending = runner.run(new Uint8Array([8]), { steps: ['md5'], options: {} })
+    await expect(runner.run(new Uint8Array([9]), { steps: ['md5'], options: {} }))
+      .rejects.toThrow('尚未处理完成')
+    worker.onmessage({ data: { id: worker.messages[0].id, output: 'done' } })
+    await expect(pending).resolves.toBe('done')
     runner.dispose()
   })
 })

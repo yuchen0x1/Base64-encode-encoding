@@ -111,6 +111,14 @@ describe('renderer URL and external-link policy', () => {
     expect(isTrustedRendererUrl('https://github.com/', { isPackaged: false })).toBe(false)
   })
 
+  it('also accepts the exact local dist file for an unpackaged Electron build', () => {
+    expect(isTrustedRendererUrl(indexUrl, { isPackaged: false, indexFile })).toBe(true)
+    expect(isTrustedRendererUrl(pathToFileURL(path.resolve('dist/other.html')).href, {
+      isPackaged: false,
+      indexFile
+    })).toBe(false)
+  })
+
   it('opens only credential-free HTTPS links on the official host allowlist', () => {
     expect(resolveSafeExternalUrl('https://github.com/yuchen0x1/Base64-encode-encoding'))
       .toBe('https://github.com/yuchen0x1/Base64-encode-encoding')

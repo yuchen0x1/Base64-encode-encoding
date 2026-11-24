@@ -468,6 +468,7 @@ function pauseProcessing() {
   paused.value = true
   runStatus.value = 'paused'
   runner?.pause()
+  activeReader?.abort()
 }
 async function resumeProcessing() {
   if (!processing.value || !paused.value) return
@@ -491,7 +492,9 @@ function readFileAsBytes(file) {
 async function processPending() {
   const list = runList
   const mode = runSnapshot.value.sourceMode
-  const recipe = runSnapshot.value.recipe
+  // A recipe read through the Vue ref is a reactive Proxy. Workers require a
+  // structured-cloneable plain object, so rebuild it from the versioned contract.
+  const recipe = createBatchRecipe(runSnapshot.value.recipe.steps, runSnapshot.value.recipe.options)
   runner = createBatchRunner()
   let outputBytes = results.value.reduce((sum, row) => sum + (row.ok ? new TextEncoder().encode(row.output).length : 0), 0)
   try {
