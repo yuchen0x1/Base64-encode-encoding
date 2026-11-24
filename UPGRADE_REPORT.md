@@ -1,9 +1,19 @@
 # 极客工具箱升级交付报告
 
-交付日期：2026-11-16（Asia/Shanghai）  
-项目版本：`0.0.7`  
-分支：`main`  
-工作树：保留用户已有变更；已提交为 `919e3cb`，推送到 `origin/main`，并以 `v0.0.7` 标签发布。
+历史基线：2026-11-16（Asia/Shanghai），`v0.0.7`。
+本次候选：2026-11-24（Asia/Shanghai），`v0.1.0`。
+分支：从 `main` 创建 `upgrade/comprehensive-v0.1.0`，以 Pull Request 合并并发布 `v0.1.0`。
+工作树：保留并整合用户已有变更，不使用硬重置丢弃内容。
+
+## v0.1.0 交付摘要
+
+本轮对 0.0.12 基线做功能扩展、代码质量提升与安全加固。核心变化包括：离线二维码识别、JWT HS256 本地验签、JSON 树/路径/差异/类型、颜色多格式双向转换、全局命令面板和最近使用、21 款工具懒加载、Electron 45.4.1 升级、IPC/导航/CSP 收紧，以及依赖、发布健康、文档和安装生命周期门禁修复。
+
+本地验证：285 项 Vitest 全通过；ESLint 0 error / 0 warning；Vite 构建成功；`npm audit --audit-level=low` 0 vulnerabilities；桌面 `file://` 沙箱烟测、更新助手真实运行时烟测和 CLI 烟测通过。真实 Windows 安装、旧版覆盖升级和代码签名不以本地构建替代，按 PR CI 与 Release 工作流结果记录。
+
+新增审计证据见 [安全审计报告](SECURITY_AUDIT_REPORT.md) 和 [性能报告](PERFORMANCE_REPORT.md)；完整发布说明见 [发布历史](docs/releases/release-notes.md)。
+
+## 历史基线
 
 ## 1. 结论摘要
 

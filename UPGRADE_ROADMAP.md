@@ -1,6 +1,6 @@
 # 项目升级路线图
 
-路线日期：2026-11-16  
+路线基线：2026-11-16；v0.1.0 进展更新：2026-11-24
 范围：当前 Windows 本地优先版本；不把已删除的平台工程重新纳入产品范围。  
 状态含义：`COMPLETED` 已有代码和验证；`PARTIAL` 有部分代码但验收不完整；`PLANNED` 尚未实施；`BLOCKED` 依赖外部环境/凭据。
 
@@ -11,21 +11,21 @@
 | ID / 升级名称（模块） | 当前问题与依据 | 竞品参考与实现方式 | 改进方案 / 预期效果 | 文件或模块 | 难度 | 优先级 | 验收标准 | 状态 |
 |---|---|---|---|---|---|---|---|---|
 | EV-001 配方 schema 迁移（`batchProcessing`） | 配方已有 1–8 步，但没有版本迁移和逐字段错误报告 | CyberChef recipe；用版本号和迁移函数重建数据契约 | v1→v2 可重复迁移，未知步骤在导入时逐项提示 | `src/utils/batchProcessing.js`、`ToolBatch.vue` | 中 | P1 | 旧配方可导入；坏步骤不静默执行；导入错误可定位 | PLANNED |
-| EV-002 批处理暂停/继续（Worker） | 当前有停止，不能保留队列位置继续 | CyberChef/Worker 队列；用可取消 token 和游标 | 保存已完成行和游标，继续后不丢行、不重复行 | `batchRunner.js`、`batchWorker.js`、`ToolBatch.vue` | 高 | P1 | 暂停后 UI 仍响应；继续后进度单调且结果数正确 | PLANNED |
+| EV-002 批处理暂停/继续（Worker） | 原实现只有停止，不能保留队列位置继续 | CyberChef/Worker 队列；用可取消 token 和游标 | `batchRunner.js` 已加入 `pause()` 与活动计时器清理，保留调用方游标供后续批次继续；界面按钮与恢复测试尚未接入 | `batchRunner.js`、`ToolBatch.vue`、测试 | 高 | P1 | 已完成底层能力；完整 UI 暂停/恢复仍待补 | PARTIAL |
 | EV-003 失败重试和退避（批处理） | Worker/文件读写失败分类不足 | DevToys/PowerToys 的可恢复错误；按可恢复错误重试 | 限次数、指数退避、不可恢复错误立即失败 | `batchRunner.js`、`ToolBatch.vue` | 中 | P1 | 模拟一次超时只重试可恢复错误；超过次数进入失败状态 | PLANNED |
 | EV-004 批处理结果恢复（工作区） | 刷新或关闭后仅能导出已有结果，不能恢复运行元数据 | Bruno 文件化本地工作流 | 为最近一次任务保存小型快照和状态，避免保存原始敏感输入 | `appState.js`、`ToolBatch.vue` | 高 | P1 | 重启后可恢复任务摘要和导出结果；旧状态可读 | PLANNED |
 | EV-005 扩充批处理安全操作（批处理） | 当前操作集合有限，部分工具未暴露 URL-Safe/SHA-512 等选项 | CyberChef 操作注册表 | 只添加纯本地、可测试、数据契约明确的操作 | `batchOperations.js`、`batchWorker.js` | 中 | P1 | 每个新操作有正向、错误和大输入测试；二进制不损坏 | PLANNED |
-| EV-006 二维码解析（二维码工具） | 当前仅生成二维码 | 参考 IT Tools/DevToys 的本地媒体工具；先核许可证再选解码库 | 本地图片识别，失败不上传、不伪造结果 | `ToolQrcode.vue`、新 helper/依赖 | 高 | P1 | 离线识别 PNG/JPEG；无识别结果显示明确错误；许可证记录完整 | PLANNED |
-| EV-007 颜色双向输入（颜色工具） | 当前主要接受 HEX，Alpha 固定为 1 | IT Tools 的格式转换工具 | 增加 RGB/HSL/Alpha 输入和规范化 | `ToolColor.vue`、`color.js` | 中 | P1 | HEX↔RGB/HSL 往返误差≤1；非法值不覆盖旧值 | PLANNED |
-| EV-008 JWT 本地验签模式（JWT 工具） | README 明确解析不验签，用户容易把解析当验证 | Bruno/Insomnia 的显式验证状态 | 增加“仅解析/HS256 本地验签”模式，显示算法和失败原因 | `jwtTool.js`、`ToolJwt.vue` | 中 | P1 | 错误 secret/alg 不显示成功；secret 不写 localStorage | PLANNED |
+| EV-006 二维码解析（二维码工具） | 原实现仅生成二维码 | 参考 IT Tools/DevToys 的本地媒体工具；核对 MIT 许可的 `zxing-wasm@3.1.7` | 本地图片识别，WASM 构建期内联；失败不上传、不伪造结果 | `ToolQrcode.vue`、`qrDecoder.js`、`vite.config.js`、测试 | 高 | P1 | 已完成：真实 WASM 生成/识别闭环和错误测试通过 | COMPLETED |
+| EV-007 颜色双向输入（颜色工具） | 原实现主要接受 HEX，Alpha 固定为 1 | IT Tools 的格式转换工具 | 增加 RGB/RGBA/HSL/HSLA/HSV/HSVA/Alpha 双向输入和共享规范化 | `ToolColor.vue`、`color.js`、测试 | 中 | P1 | 已完成：多格式往返、边界和历史清洗测试通过 | COMPLETED |
+| EV-008 JWT 本地验签模式（JWT 工具） | 原 README 明确解析不验签，用户容易把解析当验证 | Bruno/Insomnia 的显式验证状态 | 增加“仅解析/HS256 本地验签”模式，显示算法和失败原因 | `jwtTool.js`、`ToolJwt.vue`、测试 | 中 | P1 | 已完成：错误 secret、篡改、alg=none/非 HS256 均有专项测试 | COMPLETED |
 | EV-009 JWT 生成算法扩展（JWT 生成） | 当前生成器为 HS256 | Web Crypto 的用户提供密钥模式 | 仅在浏览器原生 crypto 可用且用户提供密钥时支持 RS/ES | `jwtGeneratorTool.js`、`ToolJwtGenerator.vue` | 高 | P1 | 不持久化私钥；算法不匹配时明确拒绝 | PLANNED |
-| EV-010 JSON 大文档模式（JSON 工具） | 大 JSON 主要在主线程格式化 | JSON Crack 的路径/可视化思路；Worker + 分层折叠 | 5 MiB 以上提示并转 Worker，支持路径定位 | `ToolJson.vue`、`jsonTool.js`、Worker | 高 | P1 | 5 MiB fixture 不冻结输入；错误带路径和行列 | PLANNED |
+| EV-010 JSON 大文档模式（JSON 工具） | 原实现缺少结构化浏览、路径与差异 | JSON Crack 的路径/可视化思路 | 增加树视图、路径发现、结构差异和类型派生；大文档 Worker 迁移尚未完成 | `ToolJson.vue`、`jsonTool.js`、`jsonPath.js`、`jsonDiff.js`、测试 | 高 | P1 | 已完成路径/差异/树视图专项测试；5 MiB Worker 化仍待补 | PARTIAL |
 | EV-011 SQL 方言选项（SQL 工具） | 当前为文本通用格式化，无方言选择 | IT Tools/格式化器的方言配置 | ANSI/MySQL/PostgreSQL 选项，仍保持离线文本处理 | `ToolSql.vue`、SQL helper | 中 | P1 | 三种 fixture 输出稳定；不连接数据库 | PLANNED |
 | EV-012 图片 DataURL 保护（图片工具） | 过去 FileReader 和粘贴值无上限 | DevToys/浏览器工具的边界提示 | 已加 16 MiB 文件/解码上限和 atob 前长度预检；后续补 SVG 活动内容策略 | `toolHelpers.js`、`ToolImageBase64.vue` | 中 | P1 | 超限文件在读取前拒绝；超限字符串不创建预览；恶意 SVG 有明确策略 | PARTIAL |
-| EV-013 标签页键盘模型（App） | 原先是可点击 `div`，键盘不能切换 | Files/DevToys tablist | 已加入 tab 语义、焦点顺序、左右键、Enter/Space；补关闭后焦点回收 | `src/App.vue` | 中 | P1 | 只用键盘可切换/关闭标签；焦点可见且不丢失 | PARTIAL |
+| EV-013 标签页键盘模型（App） | 原先是可点击 `div`，键盘不能切换 | Files/DevToys tablist | 已加入 tab 语义、左右键、Enter/Space；v0.1.0 补关闭标签后的焦点回收 | `src/App.vue` | 中 | P1 | 已完成标签键盘模型与关闭后焦点回收 | COMPLETED |
 | EV-014 ARIA 与焦点审计（App/弹窗） | 目录弹窗和更新弹窗缺少完整 dialog/focus 语义 | Files/DevToys 可访问交互 | 补 `role=dialog`、live 状态、Esc、焦点恢复和 reduced-motion | `App.vue`、`UpdateModal.vue`、`FeedbackModal.vue` | 中 | P1 | 键盘可完成打开/关闭；读屏可识别标题、状态和按钮 | PARTIAL |
-| EV-015 命令面板（搜索） | Ctrl/Cmd+K 只聚焦搜索框，无上下键和最近项 | DevToys/PowerToys 启动器 | 增加高亮、上下键、Enter、Esc 和最近工具 | `App.vue`、`appState.js` | 中 | P1 | 100ms 内筛选；Esc 恢复原焦点；最近列表可导入导出 | PLANNED |
-| EV-016 最近使用记录（工作区） | 只有 favorites/openTabs，没有最近使用排序 | DevToys 工具发现 | 限长最近列表，不污染 favorites 和 tabs | `appState.js`、`App.vue` | 低 | P1 | 打开工具更新顺序；上限稳定；旧备份兼容 | PLANNED |
+| EV-015 命令面板（搜索） | 原 Ctrl/Cmd+K 只聚焦搜索框，无上下键和最近项 | DevToys/PowerToys 启动器 | 新增分组命令面板、上下键、Enter、Esc、中英文关键词与最近工具 | `App.vue`、`commandPalette.js`、测试 | 中 | P1 | 已完成功能测试；100ms 性能基准未量化 | PARTIAL |
+| EV-016 最近使用记录（工作区） | 原来只有 favorites/openTabs，没有最近使用排序 | DevToys 工具发现 | 限长最近列表、偏好排序、备份兼容 | `appState.js`、`App.vue`、测试 | 低 | P1 | 已完成去重、上限、迁移与备份兼容测试 | COMPLETED |
 | EV-017 工具清空/撤销契约（工具组件） | 各工具清空和恢复行为不一致 | IT Tools 单工具边界 | 提供统一 reset/一次撤销 composable，按工具渐进迁移 | 新 `useToolState.js`、`Tool*.vue` | 高 | P1 | 清空只影响当前 tab；一次撤销恢复输入和选项 | PLANNED |
 | EV-018 剪贴板降级反馈（剪贴板） | 各组件的复制和浏览器权限反馈不完全一致 | DevToys/HTTPie 的可见反馈 | 统一成功/失败 Toast，Clipboard API 不可用时提供手动提示 | `clipboard.js`、`useToast.js`、工具组件 | 中 | P1 | 拒绝权限时不静默；成功状态在 2 秒后清理 | PARTIAL |
 | EV-019 响应式窗口基准（布局） | 已有 1440/390 smoke，1024/768 缺少基准 | DevToys/Files 高 DPI 窗口 | 建立 1440×900、1024×768、390×844 截图和无横向滚动检查 | `App.vue`、基础 CSS、browser smoke | 中 | P1 | 三种尺寸核心操作可见、无横向滚动 | PARTIAL |
@@ -37,13 +37,13 @@
 
 | ID / 升级名称（模块） | 当前问题与依据 | 竞品参考与实现方式 | 改进方案 / 预期效果 | 文件或模块 | 难度 | 优先级 | 验收标准 | 状态 |
 |---|---|---|---|---|---|---|---|---|
-| EV-023 工具元数据 schema（registry） | 注册表有 `assertToolRegistry`，但生产不阻断，字段约束不足 | IT Tools 注册/路由边界 | 已增加 schema/分类/tags/重复 ID/组件连线错误收集器和测试；生产/CI 硬门禁待接入 | `tools.js`、`registry.js`、测试 | 中 | P1 | 缺字段测试失败；构建/CI 不静默通过 | PARTIAL |
-| EV-024 工具懒加载分包（Vite） | 21 个组件进入首屏主 bundle，主 JS 已约 363 kB | DevToys 模块化发现 | 动态 import 非首屏工具，保留常用工具预加载 | `registry.js`、`App.vue`、`vite.config.js` | 高 | P2 | 构建有独立 chunk；首屏资源下降；切换失败有错误态 | PLANNED |
+| EV-023 工具元数据 schema（registry） | 原来注册表字段约束和组件连线校验不足 | IT Tools 注册/路由边界 | schema/分类/tags/重复 ID/组件连线错误收集、21 个懒加载组件逐一验证 | `tools.js`、`registry.js`、测试 | 中 | P1 | 已完成元数据与懒加载连线测试 | COMPLETED |
+| EV-024 工具懒加载分包（Vite） | 原来 21 个组件进入首屏主 bundle | DevToys 模块化发现 | 动态 import 全部工具，加载中/失败态与恢复按钮 | `registry.js`、`App.vue`、`ToolLoading.vue`、`ToolLoadError.vue` | 高 | P2 | 已完成：主 JS 203.24 kB、各工具独立 chunk、加载错误态就绪 | COMPLETED |
 | EV-025 统一工具上下文（composable） | 输入/输出/错误/复制在各组件重复 | IT Tools 单工具边界 | 提供最小 composable，先迁移 5 个组件 | 新 `useToolState.js`、工具组件 | 高 | P2 | 5 个工具行为一致；无跨 tab 状态泄漏 | PLANNED |
-| EV-026 工具错误边界（App） | 单工具异常可能影响当前渲染树 | Vue 错误边界/DevToys 模块隔离 | 捕获工具渲染错误，显示恢复按钮并保留其他 tabs | `App.vue`、新错误边界组件 | 高 | P1 | 故意抛错时主壳仍可操作；恢复后可重新打开工具 | PLANNED |
+| EV-026 工具错误边界（App） | 单工具懒加载失败可能影响当前渲染树 | Vue 错误边界/DevToys 模块隔离 | 增加懒加载失败组件与重试按钮 | `App.vue`、`ToolLoadError.vue` | 高 | P1 | 已完成加载失败恢复态；渲染期异常边界仍需专项故障注入 | PARTIAL |
 | EV-027 核心契约类型化（工程） | JavaScript 缺少 batch/appState/updater 类型约束 | Hoppscotch/Bruno 分层契约 | 先用 JSDoc/检查，再评估 TypeScript，不更换技术栈 | `src/utils`、`electron`、CI | 高 | P2 | 类型检查纳入 CI；公共输入输出有文档 | PLANNED |
 | EV-028 localStorage schema 迁移（工作区） | 当前键有版本化备份，运行时状态迁移仍弱 | Bruno 文件 schema | 给 `geek-toolbox-state` 加 schemaVersion、坏数据隔离和迁移 | `appState.js`、`App.vue` | 中 | P1 | 旧键升级不丢 tabs/favorites；坏 JSON 可恢复默认 | PLANNED |
-| EV-029 Electron IPC sender 校验（安全） | preload 暴露更新接口，sender/通道审计仍需固化 | Electron 安全最佳实践、PowerToys | 白名单通道、校验 sender、拒绝任意路径/URL | `electron/main.js`、preload、测试 | 高 | P1 | 恶意 renderer 调用被拒绝；合法更新流程仍通 | PLANNED |
+| EV-029 Electron IPC sender 校验（安全） | 原 preload 暴露更新接口但缺少 sender/通道审计 | Electron 安全最佳实践、PowerToys | 白名单通道、主窗口/主 frame/受信 URL 校验、拒绝任意路径/URL | `electron/ipc-security.js`、`main.js`、`preload.cjs`、测试 | 高 | P1 | 已完成恶意来源、iframe、销毁窗口、非法参数测试 | COMPLETED |
 | EV-030 更新清单签名（安全） | SHA-256 只能保证完整性；AuthentiCode 为可选包元数据 | 发布器签名清单 | 用受信公钥验证 manifest 和安装包绑定关系 | `electron/updater.js`、`scripts/release.mjs`、CI | 高 | P1 | 篡改 manifest/包均阻断；旧客户端行为有兼容说明 | PLANNED |
 | EV-031 下载取消和磁盘上限（更新器） | 当前已有重试/Range/SHA，但没有 AbortController、无 size 时硬上限 | PowerToys/桌面更新器 | 已加入 512 MiB 硬上限、30 秒无响应超时、AbortController 取消、IPC 取消和半包清理；剩余空间检查待补 | `electron/updater.js`、`preload.cjs`、`useUpdater.js`、测试 | 高 | P1 | 取消不残留半包；无 size 也不能超过上限；失败可重试 | PARTIAL |
 | EV-032 Windows 单实例（主进程） | `main.js` 尚无完整 `requestSingleInstanceLock` 流程 | PowerToys/Files | 已加入 primary lock、secondary quit、二次启动回调和已有窗口 restore/show/focus | `electron/main.js`、`electron/single-instance.js`、测试 | 中 | P1 | 双击两次只保留一个窗口；第二次启动参数可处理 | COMPLETED |
@@ -55,10 +55,10 @@
 | EV-038 结果 LRU 缓存（性能） | JSON/哈希/SQL 重复计算没有有界缓存 | CyberChef 操作缓存思路 | 输入+选项作为 key，按字节和条目双上限 | 工具 helper、新 `lru.js` | 中 | P2 | 重复计算命中；达到上限自动淘汰 | PLANNED |
 | EV-039 Blob/DataURL 生命周期（稳定性） | 多个工具生成下载 URL/DataURL，统一释放策略不足 | 浏览器工具最佳实践 | 统一 revoke/替换清理和组件卸载处理 | `App.vue`、`ToolBatch.vue`、`ToolImageBase64.vue` | 中 | P1 | 重复导出后 URL 数量不增长；卸载释放资源 | PLANNED |
 | EV-040 更新状态机契约（稳定性） | 状态散落在 `useUpdater` 与 Electron 事件中 | 桌面更新器状态机 | 明确定义合法迁移并用表驱动测试 | `useUpdater.js`、`updater.js`、测试 | 中 | P1 | 非法迁移被拒绝；每个状态有 UI 文案和恢复路径 | PLANNED |
-| EV-041 自动化回归矩阵（测试） | browser/Electron smoke 存在，但 CI 未调用全部入口 | DevToys/桌面项目 CI | 21 工具入口、批处理、更新和响应式分层运行 | `.github/workflows`、`tests/browser`、`tests/electron` | 中 | P1 | CI 输出按工具和场景可追溯；失败可定位 | PLANNED |
+| EV-041 自动化回归矩阵（测试） | browser/Electron smoke 存在，但 CI 未调用全部入口 | DevToys/桌面项目 CI | 新增 14 个专项测试文件；本地运行桌面、更新、CLI 和 285 项单元测试 | `.github/workflows`、`tests/` | 中 | P1 | 本地分层验证通过；CI 全部入口的最终结果以 PR 运行为准 | PARTIAL |
 | EV-042 性能基准脚本（测试） | 当前只记录构建结果，没有稳定启动/批处理基线 | CyberChef/ut 性能意识 | 记录启动、构建、吞吐、峰值内存，禁止编造对比 | `scripts/perf`、CI artifact | 中 | P2 | 每次基准带环境和原始数据；无数据时标记缺失 | PLANNED |
 | EV-043 Windows 安装回滚演练（发布） | 本地包可生成，真实安装替换/回滚尚未完成 | PowerToys/Files 安装更新 | 隔离目录安装旧版、更新新版、故意失败并核验旧版 | `electron/apply-installer.js`、脚本、VM | 高 | P1 | 成功升级启动新版本；失败保留旧版本；有日志证据 | BLOCKED |
-| EV-044 lint/安全质量门禁（CI） | 本轮前有 10 条 computed 副作用 warning；默认镜像安全接口异常 | Vue lint + 供应链门禁 | lint 已归零；官方 npm registry 审计返回 0 vulnerabilities；默认镜像仍需更换或修复 | 五个工具组件、`.github/workflows` | 中 | P1 | `npm run lint` 0 error/0 warning；安全扫描结果明确 PASS/BLOCKED | COMPLETED（lint/官方 audit）/PARTIAL（默认镜像） |
+| EV-044 lint/安全质量门禁（CI） | 默认镜像安全接口异常、发布健康缺乏资产校验 | Vue lint + 供应链门禁 | lint 归零；官方 npm audit 0 vulnerabilities；maintenance 拆分并加强依赖/发布/文档检查 | `.github/workflows/maintenance.yml`、`scripts/` | 中 | P1 | 本地门禁通过；远程工作流结果以 PR/CI 为准 | PARTIAL |
 
 ## P2/P3：新增能力、发布和文档
 
@@ -68,12 +68,12 @@
 | EV-046 配方模板库（批处理） | 当前配方需要用户自行配置 | CyberChef recipe | 内置只读模板 + 用户模板、导入导出和版本号 | `ToolBatch.vue`、`batchProcessing.js` | 中 | P2 | 模板可复制后编辑；原模板不可被覆盖 | PLANNED |
 | EV-047 文件拖拽统一反馈（媒体/批处理） | 图片和批处理拖拽入口反馈不一致 | DevToys/Files drop zone | 类型、大小、键盘入口和拖拽高亮统一 | `ToolImageBase64.vue`、`ToolBatch.vue` | 低 | P2 | 拖拽/选择/键盘三种入口等价；拒绝原因可见 | PLANNED |
 | EV-048 国际化基础（文案） | 当前中文文案分散在组件 | Hoppscotch/DevToys 多语言结构 | 抽离 zh-CN/en-US key，缺失回退中文 | `src/i18n`、组件 | 高 | P3 | 切换语言不丢状态；缺 key 有测试 | PLANNED |
-| EV-049 帮助与快捷键面板（App） | 快捷键只在占位文案中出现 | PowerToys 快捷键入口 | 展示 Ctrl/Cmd+K、主题、标签和批处理快捷键 | `App.vue`、新帮助弹窗 | 低 | P3 | 从主界面可达；内容随版本更新 | PLANNED |
+| EV-049 帮助与快捷键面板（App） | 原快捷键只在占位文案中出现 | PowerToys 快捷键入口 | 展示 Ctrl/Cmd+K、主题、标签和关闭焦点行为 | `App.vue` | 低 | P3 | 已完成命令面板入口和快捷键弹窗 | COMPLETED |
 | EV-050 零遥测声明（隐私） | 当前没有遥测，但 README 需要持续明确 | Bruno 本地优先边界 | 增加网络请求审计和默认关闭声明，不新增上传 | `README.md`、`docs/`、CI | 低 | P2 | 自动化检查默认无业务网络请求；文档与实现一致 | PARTIAL |
 | EV-051 SBOM/校验归档（发布） | 发布脚本有 SHA/清单，缺少 SBOM 和依赖许可证归档 | PowerToys 发布工程 | 归档安装包、manifest、SHA、SBOM、NOTICE | `scripts/release.mjs`、CI | 中 | P2 | 离线可核验版本、哈希、依赖和许可证 | PLANNED |
 | EV-052 真实安装验收（发布） | 本机打包通过，真实旧版升级未验证 | PowerToys/Files | Windows 隔离环境跑安装、启动、更新、卸载 | VM/脚本/发布文档 | 高 | P1 | 每次发布有 PASS/PARTIAL/BLOCKED 记录；不以 build 替代安装 | BLOCKED |
-| EV-053 CHANGELOG/版本门禁（工程） | 版本、tag、CHANGELOG、EV 状态可能漂移 | GitHub Release 项目 | tag 构建前校验版本和变更记录 | `.github/workflows`、`CHANGELOG.md` | 中 | P2 | 版本不一致时构建失败；每个 release 有 EV 摘要 | PLANNED |
-| EV-054 文档链接/截图校验（文档） | 文档数量多，链接和截图容易失效 | DevToys/开源项目文档门禁 | 检查 README 和四份报告链接、截图路径和命令 | `scripts/check-docs.mjs`、CI | 低 | P2 | 失效路径让 CI 失败；截图只引用真实文件 | PLANNED |
+| EV-053 CHANGELOG/版本门禁（工程） | 版本、tag、CHANGELOG、EV 状态可能漂移 | GitHub Release 项目 | `verify-version` 校验 package/lock/notes/CHANGELOG/release history；发布前执行 | `scripts/verify-version.mjs`、发布文档 | 中 | P2 | 已完成本地版本一致性门禁 | COMPLETED |
+| EV-054 文档链接/截图校验（文档） | 文档数量多，链接和截图容易失效 | DevToys/开源项目文档门禁 | 新增本地链接/截图/CLI 硬编码检查并纳入 maintenance 工作流 | `scripts/check-docs.mjs`、CI | 低 | P2 | 已完成：42 个本地链接与README版本链接通过 | COMPLETED |
 | EV-055 社区反馈模板（仓库） | 反馈入口存在，GitHub issue 字段仍可结构化 | PowerToys issue 模板 | Bug/安全/功能模板要求复现、环境和隐私提醒 | `.github/ISSUE_TEMPLATE` | 低 | P3 | 新 issue 有明确字段；不鼓励粘贴密钥/工具输入 | PLANNED |
 | EV-056 二次竞品监测（路线） | 竞品 release/commit 会变化，当前研究是一次性快照 | GitHub Releases/Commits | 每次路线更新记录 30/90 天变化和来源 | `COMPETITOR_ANALYSIS.md`、脚本 | 中 | P3 | 更新日期、仓库、变更和决策可追溯 | PLANNED |
 

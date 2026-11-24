@@ -25,6 +25,14 @@
 
 补充对照（不计入严格开源样本）：He3 `tools-example` 的根目录许可证需要再次核对；HTTPie Desktop 主要是官方发布物仓库，不能把它的发布资产当作开源源码证据。
 
+## v0.1.0 采用更新
+
+- 参考 PowerToys / DevToys 的启动器式发现，已实现全局命令面板、最近使用和工具懒加载；未复制其实现代码。
+- 参考 Bruno / Insomnia 的显式验证状态，已实现 JWT HS256 本地验签并区分“仅解析”和“签名有效”。
+- 参考 IT Tools / DevToys 的本地媒体工具边界，选择 MIT 许可的 `zxing-wasm@3.1.7` 并内联到工具分包，二维码识别不访问 CDN、不上传图片。
+- 参考 JSON Crack 的路径发现方向，已实现树视图、路径定位和结构差异；未复制其 UI 代码，也未把 5 MiB 以上文档 Worker 化宣称为已完成。
+- 参考 Electron 安全最佳实践强化 IPC sender、导航和 CSP；manifest 自有密钥签名仍未实施，SHA-256 不等同于代码签名。
+
 ## 2. 证据等级
 
 - **A：源码和仓库结构可直接核对。** IT Tools、CyberChef、DevToys、Hoppscotch、Bruno、PowerToys、Files、Open Dev。
