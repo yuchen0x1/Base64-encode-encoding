@@ -1,11 +1,11 @@
 # 极客工具箱升级交付报告
 
-## v0.1.2 候选报告（2026-11-24）
+## v0.1.2 候选报告（更新于 2026-11-25）
 
 ### A. 基线与项目盘点
 
 - 起始 `main` / `origin/main`：`9dbf979dfbc4fc7105e4f6e438ce56e5bfa0c9d3`；起始正式版 `v0.1.1`，Tag 指向 `d62116b684eddaa87d9171e24bc692bf6ffc0bb5`。
-- 候选分支：`codex/upgrade-v0.1.2`；当前 head `d2cd37b6634ef6249a1cf5b6c2018c2e15d6fb86`；Draft PR #21。应用与锁文件版本统一到 `0.1.2`；正式合并、Tag 和 Release 暂缓。
+- 候选分支：`codex/upgrade-v0.1.2`；Draft PR #21。候选代码 CI 基准 head 为 `1840a85fac8d86148ba48676b073922f10e73587`；本次只同步报告和审计证据，不改变候选代码。应用与锁文件版本统一到 `0.1.2`；正式合并、Tag 和 Release 暂缓。
 - 全部 21 款工具已与组件注册表和现有测试核对；本版不增加重复工具，改进现有二维码、JSON、工作区、搜索和复制流程。
 - 远端 `main` 最新 Release 仍是 `v0.1.1`；无 `v0.1.2` Tag / Release 冲突。
 
@@ -34,7 +34,7 @@
 | `npm audit`（官方 registry，含开发依赖） | 0 vulnerabilities |
 | 打包资源、文档链接与版本门禁 | 通过；47 个本地链接/图片 |
 | Windows x64 NSIS 安装包 | 本地构建通过；PR Windows runner 构建及 NSIS 归档 CRC 检查通过 |
-| Windows installer / PR CI | PR #21 全部检查通过；隔离安装、覆盖升级、配置保留、强制版本不匹配回滚、两版启动及卸载通过 |
+| Windows installer / PR CI | 候选代码 head `1840a85` 的 Quality Gate run 45429273095 全部通过（macOS CLI 重跑通过）；Windows installer run 45429273392 的隔离安装、覆盖升级、配置保留、强制版本不匹配回滚、两版启动及卸载通过 |
 
 ### E. 性能实测
 
@@ -42,16 +42,16 @@
 
 | 指标 | 测量值 | 边界 |
 |---|---:|---|
-| Smoke 脚本启动至工作区首屏就绪 | 562 ms | 不含 OS / Electron 冷启动前置时间 |
+| Smoke 脚本启动至工作区首屏就绪 | 440 ms | 不含 OS / Electron 冷启动前置时间 |
 | JSON 样本 | 5,283,861 bytes | 多行 JSON；数组含 5,120 个 1,024 字符字符串 |
-| Worker 校验 / 美化 | 176 / 77 ms | 单次本地测量；校验耗时含 120 ms debounce |
-| Renderer working set：二维码识别后 / 多行 JSON 校验后 / 美化后 | 148.1 / 204.9 / 328.9 MiB | 同一隐藏窗口阶段快照 |
-| Renderer peak working set | 369.8 MiB | 同一单次多行样本；不是稳定峰值基准 |
-| Renderer private memory：二维码识别后 / 多行 JSON 校验后 / 美化后 | 70.1 / 128.5 / 261.9 MiB | Windows `app.getAppMetrics()` 私有内存阶段快照 |
+| Worker 校验 / 美化 | 218 / 64 ms | 单次本地测量；校验耗时含 120 ms debounce |
+| Renderer working set：二维码识别后 / 多行 JSON 校验后 / 美化后 | 144.8 / 201.5 / 325.7 MiB | 同一隐藏窗口阶段快照 |
+| Renderer peak working set | 366.6 MiB | 同一单次多行样本；不是稳定峰值基准 |
+| Renderer private memory：二维码识别后 / 多行 JSON 校验后 / 美化后 | 67.3 / 125.4 / 259.0 MiB | Windows `app.getAppMetrics()` 私有内存阶段快照 |
 | Renderer JS heap after validation | 35.6 MiB | Chromium heap 快照；不包含全部原生/Worker 内存 |
-| Renderer CPU during formatting | 1.6% | 单次 Electron 采样；不代表持续负载或跨机器性能 |
-| 单行长字符串 JSON 校验 | 5,242,894 bytes；private memory 246.6 MiB | 批处理烟测窗口；不执行美化 |
-| JSON-only 单行数字数组 | 5,247,010 bytes；打开后 / 校验后 / 美化后 private memory 50.1 / 504.0 / 616.8 MiB；peak working set 692.1 MiB | 独立 renderer；美化结果 6,996,014 字节；4 次、每次间隔 150 ms 的采样最大值；压力样本，不是稳定基准 |
+| Renderer CPU during formatting | 1.8% | 单次 Electron 采样；不代表持续负载或跨机器性能 |
+| 单行长字符串 JSON 校验 | 5,242,894 bytes；private memory 245.1 MiB | 批处理烟测窗口；不执行美化 |
+| JSON-only 单行数字数组 | 5,247,010 bytes；初次记录打开后 / 校验后 / 美化后 private memory 50.1 / 504.0 / 616.8 MiB、peak working set 692.1 MiB；两次复测分别为 45.5 / 500.1 / 611.5 MiB（peak 685.9 MiB）和 47.3 / 501.4 / 3,170.0 MiB（peak 3,297.2 MiB） | 独立 renderer；美化结果 6,996,014 字节；每阶段 4 次、每次间隔 150 ms 的采样最大值；结果波动很大，不是稳定上限或基准 |
 | Node token-heavy JSON 样本 | 5,600,003 bytes | 根数组含 2,800,001 个数字 token；与上方 Electron 字符串样本分开测量 |
 | Node token-heavy 格式化 / 压缩 | 744 / 1,079 ms | 单次本地 helper 观测；压缩输出与原文逐字一致，不代表 Electron UI 或跨机器耗时 |
 | 入口 JS | 204,726 bytes（Vite gzip 76.30 kB） | 当前构建 |
@@ -59,14 +59,14 @@
 | QR Worker chunk | 1,299.26 kB | 识别时才加载 |
 | JSON Worker chunk | 13,024 bytes（gzip -9：5,108 bytes） | Worker 运行逻辑 |
 
-对照本地 v0.1.1 构建记录，二维码工具 chunk 从 1,308,328 bytes（gzip 537,475 bytes）移至独立 Worker；本版主线程工具 chunk 为 10,816 bytes。二维码 Worker 在首次识别时才加载，Electron 烟测用 2048 × 2048 图像验证解码正确性，但没有记录专门的扫描耗时基准；也没有同环境的 JSON Worker 前基准。独立 JSON-only renderer 中，5,247,010 字节单行数字数组校验后 private memory 达 504 MiB，美化后为 616.8 MiB，peak working set 为 692.1 MiB；同次启动后基线为 50.1 MiB。另一个同级多行样本显著较低，说明数据形状影响很大。`wrap="off"` 不能消除此问题；目前未确定内存增长的完整归因，也未确认存在持续泄漏。该资源放大可能影响低内存设备，EV-057 已补入隔离烟测但长行渲染策略和可接受内存预算仍未解决，因此候选尚不应视为发布就绪；不能将多行样本数据外推为单行上限。所有性能数字均为单次观测，不代表跨机器承诺；EV-042 与 EV-057 仍未完成。
+对照本地 v0.1.1 构建记录，二维码工具 chunk 从 1,308,328 bytes（gzip 537,475 bytes）移至独立 Worker；本版主线程工具 chunk 为 10,816 bytes。二维码 Worker 在首次识别时才加载，Electron 烟测用 2048 × 2048 图像验证解码正确性，但没有记录专门的扫描耗时基准；也没有同环境的 JSON Worker 前基准。独立 JSON-only renderer 对 5,247,010 字节单行数字数组的重复测量波动显著：同一脚本的格式化后 private memory 从 611.5 MiB 到 3,170 MiB，peak working set 从 685.9 MiB 到 3,297.2 MiB；早期记录为 616.8 / 692.1 MiB。`wrap="off"` 不能消除此问题。一次未保留的逐任务释放 Worker 实验测得格式化后 3,038.8 MiB private memory、3,110.2 MiB peak working set，未形成有效缓解，随后已还原该实验改动。目前未确定内存增长的完整归因，也未确认持续泄漏。该资源放大可能影响低内存设备，EV-057 的长行渲染策略和可接受内存预算仍未解决，因此候选尚不应视为发布就绪；不能将多行样本数据外推为单行上限。所有性能数字均为单次观测，不代表跨机器承诺；EV-042 与 EV-057 仍未完成。
 
 ### F. 安全与未完成事项
 
 - 本地安全测试覆盖损坏/未来版本状态保护、生产 CSP、Worker 故障与取消、Blob 下载 URL 和既有 IPC 信任边界。
 - npm 官方 registry 全依赖审计无已知漏洞；不等同于第三方渗透或模糊测试。
-- 候选 PR #21 仍为 Draft。当前 head 的 Windows 质量、Windows 安装器、三系统 CLI 和依赖审查全部通过；Windows runner 实际安装 v0.1.1、覆盖升级至 v0.1.2、保留 profile、注入版本不匹配并恢复 v0.1.1、启动两个版本及卸载均通过（[Windows installer run 45427734119](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45427734119)，[Quality Gate run 45427734124](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45427734124)）。这不是正式 Release 资产；尚无 v0.1.2 Tag、Release、SHA-256 清单或 Attestation。
-- 5 MiB 级多行 JSON Worker 流程通过；新增隔离 JSON-only 单行压力烟测复现高 Renderer 内存（见性能表）。原因尚未确证，不称为泄漏或通用上限；EV-057 仍未闭环，解决策略和内存预算确定前不应发布候选。
+- 候选 PR #21 仍为 Draft。候选代码 head `1840a85` 的 [Quality Gate run 45429273095](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45429273095) 中 Windows quality、三系统 CLI 和 dependency review 全部通过；macOS job 首次以零步骤取消，单项重跑 job 138581148914 后通过。Windows runner 实际安装 v0.1.1、覆盖升级至 v0.1.2、保留 profile、注入版本不匹配并恢复 v0.1.1、启动两个版本及卸载均通过（[Windows installer run 45429273392](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45429273392)）。这不是正式 Release 资产；尚无 v0.1.2 Tag、Release、SHA-256 清单或 Attestation。
+- 5 MiB 级多行 JSON Worker 流程通过；独立 JSON-only 单行压力烟测重现高且波动显著的 Renderer 内存（见性能表）。原因尚未确证，不称为泄漏或通用上限；EV-057 仍未闭环，解决策略和内存预算确定前不应发布候选。
 - macOS/iOS 不在当前 Windows 产品交付范围；第三方安全测试与多机 CPU/内存基准未执行。
 
 候选 PR #21 当前保持 Draft；EV-057 的长行资源问题和可接受内存预算未闭环前，不合并或创建正式 Tag。若完成修复并重新验证，再补录最终 Commit、Tag、Release 资产、SHA-256、Attestation 与 `main` 一致性证据。尚未运行的发布步骤不标记为通过。
