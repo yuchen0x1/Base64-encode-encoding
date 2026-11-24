@@ -53,3 +53,19 @@ describe('normalizeVersion', () => {
     expect(normalizeVersion('  ')).toBe('')
   })
 })
+
+describe('release lifecycle version comparisons', () => {
+  it('treats the released candidate as equal to the current latest', () => {
+    expect(compareVersions('0.0.12', 'v0.0.12')).toBe(0)
+    expect(isNewerVersion('v0.0.12', '0.0.12')).toBe(false)
+  })
+
+  it('keeps prerelease candidates below their stable release', () => {
+    expect(compareVersions('0.0.13-rc.1', 'v0.0.12')).toBe(1)
+    expect(compareVersions('0.0.13-rc.1', '0.0.13')).toBe(-1)
+  })
+
+  it('never upgrades from a newer stable to a prerelease candidate', () => {
+    expect(isNewerVersion('0.0.13-rc.1', '0.0.13')).toBe(false)
+  })
+})

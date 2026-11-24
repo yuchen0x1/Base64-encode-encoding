@@ -11,9 +11,25 @@ $installDir = Join-Path $root 'installed'
 $exeName = '极客工具箱.exe'
 $exe = Join-Path $installDir $exeName
 $newInstaller = (Resolve-Path -LiteralPath "updates/desktop/GeekToolbox-Setup-$Version.exe").Path
-$release = gh api "repos/$env:GITHUB_REPOSITORY/releases/latest" | ConvertFrom-Json
-if ($LASTEXITCODE -ne 0) { throw 'Cannot load the previous stable release.' }
-$oldVersion = $release.tag_name.TrimStart('v')
+$releases = @(gh api "repos/$env:GITHUB_REPOSITORY/releases?per_page=100" | ConvertFrom-Json)
+if ($LASTEXITCODE -ne 0 -or !$releases.Count) { throw 'Cannot load published releases.' }
+
+# Select the highest stable release strictly older than the candidate. Do not
+# use /releases/latest here: another workflow can publish the candidate while
+# this job is running, which previously made the smoke test compare vX to vX.
+$olderReleases = @()
+foreach ($candidate in $releases) {
+  if ($candidate.draft -or $candidate.prerelease -or $candidate.tag_name -notmatch '^v\d+\.\d+\.\d+$') { continue }
+  $candidateVersion = $candidate.tag_name.TrimStart('v')
+  $comparison = node scripts/compare-version.mjs $candidateVersion $Version
+  if ($LASTEXITCODE -ne 0) { throw "Cannot compare $candidateVersion with $Version." }
+  if ([int]$comparison -lt 0) {
+    $olderReleases += [pscustomobject]@{ Version = $candidateVersion; Tag = $candidate.tag_name; Release = $candidate }
+  }
+}
+if (!$olderReleases.Count) { throw "No published stable release older than v$Version is available for the upgrade smoke." }
+$release = ($olderReleases | Sort-Object { [version]$_.Version } -Descending | Select-Object -First 1).Release
+$oldVersion = ($olderReleases | Sort-Object { [version]$_.Version } -Descending | Select-Object -First 1).Version
 if ([version]$oldVersion -ge [version]$Version) { throw 'Expected an older stable release for the upgrade smoke.' }
 
 $oldName = "GeekToolbox-Setup-$oldVersion.exe"
