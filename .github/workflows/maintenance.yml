@@ -167,7 +167,7 @@ jobs:
           for asset in *; do
             verified=false
             for attempt in 1 2 3 4 5; do
-              if gh release verify-asset "$TAG" "$asset" 2> "$RUNNER_TEMP/verify-error.log"; then
+              if gh release verify-asset "$TAG" "$asset" -R "$GITHUB_REPOSITORY" 2> "$RUNNER_TEMP/verify-error.log"; then
                 verified=true
                 break
               fi
