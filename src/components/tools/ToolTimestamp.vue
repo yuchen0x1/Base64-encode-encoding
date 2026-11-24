@@ -104,6 +104,7 @@
 <script setup>
 import { ref, onActivated, onDeactivated, onUnmounted } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
+import { copyText } from '../../utils/clipboard.js'
 import { parseUnixTimestamp } from '../../utils/timestamp.js'
 
 const currentDateTimeStr = ref('')
@@ -186,12 +187,8 @@ function convertDateToStamp() {
 }
 
 async function copy(text) {
-  try {
-    await navigator.clipboard.writeText(text)
-    globalToast('已复制：' + text)
-  } catch {
-    globalToast('无法访问剪贴板，请手动复制', 'error')
-  }
+  if (await copyText(text, { reportFailure: false })) globalToast('已复制：' + text)
+  else globalToast('无法访问剪贴板，请手动复制', 'error')
 }
 
 function startClock() {

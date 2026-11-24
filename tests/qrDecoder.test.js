@@ -79,6 +79,35 @@ describe('createQrReader', () => {
     ])).toHaveLength(2)
   })
 
+  it('waits for asynchronous WASM initialization and labels initialization failures', async () => {
+    let resolveInitialization
+    const initialization = new Promise(resolve => { resolveInitialization = resolve })
+    const readBarcodesMock = vi.fn().mockResolvedValue([])
+    const reader = createQrReader({
+      base64Wasm: 'AAEC',
+      prepareZXingModule: vi.fn(() => initialization),
+      readBarcodes: readBarcodesMock
+    })
+    const decode = reader(new Uint8Array([1]))
+
+    await Promise.resolve()
+    expect(readBarcodesMock).not.toHaveBeenCalled()
+    resolveInitialization({})
+    await expect(decode).resolves.toEqual([])
+    expect(readBarcodesMock).toHaveBeenCalledTimes(1)
+
+    const failingReader = createQrReader({
+      base64Wasm: 'AAEC',
+      prepareZXingModule: vi.fn(() => Promise.reject(new Error('WASM init failed'))),
+      readBarcodes: readBarcodesMock
+    })
+    await expect(failingReader(new Uint8Array([1]))).rejects.toMatchObject({
+      message: 'WASM init failed',
+      kind: 'setup'
+    })
+    expect(readBarcodesMock).toHaveBeenCalledTimes(1)
+  })
+
   it('caps normalized symbols', () => {
     const repeated = Array.from({ length: 5 }, (_, index) => ({ text: `value-${index}` }))
     expect(normalizeQrResults(repeated, 3)).toHaveLength(3)

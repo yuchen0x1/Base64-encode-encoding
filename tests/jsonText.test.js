@@ -56,6 +56,18 @@ describe('lossless JSON text operations', () => {
     expect(parseJsonForMutation(deep).ok).toBe(false)
   })
 
+  it('formats and minifies a 5 MiB token-heavy document with bounded scanning', () => {
+    const source = `[${'0,'.repeat(2_800_000)}0]`
+    expect(Buffer.byteLength(source)).toBeGreaterThan(5 * 1024 * 1024)
+
+    const startedAt = performance.now()
+    const pretty = formatJsonText(source)
+    expect(pretty.startsWith('[\n  0,\n  0,\n  0,\n')).toBe(true)
+    expect(pretty.length).toBeGreaterThan(source.length)
+    expect(formatJsonText(pretty, false)).toBe(source)
+    expect(performance.now() - startedAt).toBeLessThan(20_000)
+  }, 30_000)
+
   it('blocks duplicate keys, including escaped aliases, before destructive transformations', () => {
     for (const text of ['{"a":1,"a":2}', String.raw`{"a":1,"\u0061":2}`]) {
       expect(parseJsonForMutation(text).error.message).toContain('重复键')

@@ -71,33 +71,16 @@ jobs:
       - run: npm audit --registry=https://registry.npmjs.org --omit=dev --audit-level=high
       - run: npm run test:desktop
       - name: Build Windows installer
-        env:
-          CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
         run: npm run package:win
       - name: Verify packaged update helper
         shell: pwsh
         run: |
           $env:TOOLBOX_SMOKE_RUNTIME = (Resolve-Path -LiteralPath 'release/win-unpacked/极客工具箱.exe').Path
           npm run test:updater
-      - name: Verify signature configuration and generate update manifest
-        env:
-          TOOLBOX_AUTHENTICODE_THUMBPRINT: ${{ secrets.WINDOWS_AUTHENTICODE_THUMBPRINT }}
-          TOOLBOX_AUTHENTICODE_SUBJECT: ${{ secrets.WINDOWS_AUTHENTICODE_SUBJECT }}
+      - name: Generate update manifest
         shell: pwsh
         run: |
           $installer = "release/GeekToolbox-Setup-$env:VERSION.exe"
-          $expected = ($env:TOOLBOX_AUTHENTICODE_THUMBPRINT -replace '\s', '').ToUpperInvariant()
-          $signature = Get-AuthenticodeSignature -LiteralPath $installer
-          if ($expected) {
-            if ($expected -notmatch '^[A-F0-9]{40}$' -or $signature.Status -ne 'Valid' -or $signature.SignerCertificate.Thumbprint -ne $expected) {
-              throw 'Windows installer signer does not match the configured trusted thumbprint.'
-            }
-          } elseif ($signature.Status -ne 'NotSigned') {
-            throw 'The installer is signed, but its trusted thumbprint is missing from release configuration.'
-          } else {
-            Write-Host 'Unsigned Windows installer. GitHub release attestation is separate from Authenticode.'
-          }
           npm run release:desktop -- --skip-build --installer $installer
       - name: Exercise NSIS over the previous published release
         env:

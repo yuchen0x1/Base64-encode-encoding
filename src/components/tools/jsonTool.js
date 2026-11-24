@@ -2,6 +2,8 @@ import { assertJsonDepth, assertJsonNumbersRoundTrip, formatJsonText } from '../
 
 export const JSON_ADVANCED_MAX_BYTES = 16 * 1024 * 1024
 export const JSON_LARGE_DOCUMENT_BYTES = 5 * 1024 * 1024
+export const JSON_WORKER_THRESHOLD_BYTES = 1 * 1024 * 1024
+export const JSON_MAX_DOCUMENT_BYTES = 32 * 1024 * 1024
 
 export function jsonByteLength(text) {
   return new TextEncoder().encode(String(text ?? '')).byteLength
@@ -21,6 +23,32 @@ export function parseJson(text) {
   } catch (error) {
     return { ok: false, error }
   }
+}
+
+export function countJsonKeys(root) {
+  let count = 0
+  const pending = [root]
+  while (pending.length) {
+    const value = pending.pop()
+    if (!value || typeof value !== 'object') continue
+
+    if (Array.isArray(value)) {
+      count += value.length
+      for (let index = 0; index < value.length; index++) {
+        const child = value[index]
+        if (child && typeof child === 'object') pending.push(child)
+      }
+      continue
+    }
+
+    for (const key in value) {
+      if (!Object.hasOwn(value, key)) continue
+      count++
+      const child = value[key]
+      if (child && typeof child === 'object') pending.push(child)
+    }
+  }
+  return count
 }
 
 export function formatJson(text) {

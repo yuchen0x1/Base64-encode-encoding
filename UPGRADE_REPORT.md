@@ -1,16 +1,88 @@
 # 极客工具箱升级交付报告
 
-## v0.1.1 正式发布（2026-11-24）
+## v0.1.2 候选报告（2026-11-24）
 
-在已发布的 v0.1.0 基线上，本次仅增加两项窄范围修复：Electron 主窗口拒绝跨来源重定向；二维码结果缺少完整定位元数据时不再按相同文本误去重。版本元数据、README、简要变更日志和完整发布说明已同步。PR #19 已合并至 `main`（`d62116b`），`v0.1.1` 标签与正式 Release 已发布。
+### A. 基线与项目盘点
 
-验证：38 个测试文件 / 285 项测试、ESLint、版本一致性检查、45 条文档链接/截图检查、npm 全量审计、Vite 构建、Electron 桌面烟测、更新助手烟测及 5 项 CLI 烟测通过；Windows x64 NSIS 构建成功。PR CI 的 Windows Release Candidate lifecycle smoke 和正式 Release 工作流的包完整性检查、`v0.1.0` 覆盖升级、用户配置保留、故意 payload mismatch 回滚、启动和卸载均通过。最终发布资产 SHA256 与 GitHub attestation 经工作流验证。因本地缺少 7-Zip，本机额外 NSIS 包完整性校验未执行，未把它记为通过。
+- 起始 `main` / `origin/main`：`9dbf979dfbc4fc7105e4f6e438ce56e5bfa0c9d3`；起始正式版 `v0.1.1`，Tag 指向 `d62116b684eddaa87d9171e24bc692bf6ffc0bb5`。
+- 候选分支：`codex/upgrade-v0.1.2`；应用与锁文件版本统一到 `0.1.2`。PR、最终 Commit 和正式 Release 待后续工作流确认后补录。
+- 全部 21 款工具已与组件注册表和现有测试核对；本版不增加重复工具，改进现有二维码、JSON、工作区、搜索和复制流程。
+- 远端 `main` 最新 Release 仍是 `v0.1.1`；无 `v0.1.2` Tag / Release 冲突。
 
-PR：[https://github.com/yuchen0x1/Base64-encode-encoding/pull/19](https://github.com/yuchen0x1/Base64-encode-encoding/pull/19)（已合并）；`main`：`d62116b684eddaa87d9171e24bc692bf6ffc0bb5`；Tag：`v0.1.1` 指向同一提交。Release：[https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.1](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.1)（2026-11-24 12:21:56 UTC）。
+### B. 修复与实际效果
+
+- QR：WASM 识别改由扫描时创建的 Worker 加载；普通工具打开/生成不创建解码 Worker。清空、替换成无效文件、组件卸载会使未完成文件读取失效；模块初始化失败停止该批次剩余任务。
+- JSON：校验、美化、压缩、类型生成、结构变换、差异和 JSONPath 查询按文档大小交由 Worker；超过 1 MiB 的 Worker 故障只返回错误，不同步占用主线程。文本上限 32 MiB；树和 JSONPath 结构上限 5 MiB；支持取消与输入变更后的任务清理。
+- 工作区数据：增加 `schemaVersion` 和 legacy 迁移；坏 JSON、显式非法版本及未来 schema 保留原始值并暂停写入，避免用户偏好被默认值覆盖。
+- 资源与剪贴板：统一延迟回收导出 Blob URL；复制统一处理空内容、权限异常和旧环境降级。
+- CSP 与搜索：构建产物移除 Vite localhost WebSocket 来源；侧栏与命令面板共用 NFKC、英文别名与多词匹配。
+- 文档：路线图 EV-010/018/028/039 已完成；EV-043/052 的历史生命周期证据指向实际 Windows Actions run。当前候选自身的远程生命周期待 PR / Release workflow。
+
+### C. 竞品与许可证
+
+在已有 15 个开源源码项目调研基础上，于 2026-11-24 通过 GitHub 仓库 API 刷新 DevToys、IT Tools、CyberChef、PowerToys、Bruno 的默认分支推送日期和 SPDX 许可证。五个仓库近 90 天均有推送记录；本版只吸收架构/交互思路，不新增依赖或复制第三方代码。详情见 [生态研究](docs/ECOSYSTEM_RESEARCH.md)。
+
+### D. 本地质量门禁
+
+| 检查 | 结果 |
+|---|---|
+| Vitest | 42 个文件 / 310 项通过 |
+| ESLint | 通过 |
+| Electron `file://` 烟测 | 通过：批处理 Worker、QR 按需/取消/替换竞态及 2048 × 2048 图片识别、5 MiB 多行 JSON 成功与故障保护；独立 JSON-only 单行压力烟测通过并记录高内存风险 |
+| 更新助手烟测 | 通过：真实 helper ready handoff、EXE-only 崩溃保护、独立 runtime |
+| CLI | 构建通过；5 项 smoke 测试通过 |
+| `npm audit`（官方 registry，含开发依赖） | 0 vulnerabilities |
+| 打包资源、文档链接与版本门禁 | 通过；47 个本地链接/图片 |
+| Windows x64 NSIS 安装包 | 本地构建通过；隔离覆盖安装/回滚/卸载待候选 PR CI |
+| Windows installer / PR CI | 尚未由 v0.1.2 候选 workflow 验证 |
+
+### E. 性能实测
+
+以下为当前 Windows Electron 隐藏窗口烟测的单次观测，不是多机基准。`startupScriptToWorkspaceMs` 从 smoke 脚本启动计时，不代表冷启动或安装后用户启动时间。
+
+| 指标 | 测量值 | 边界 |
+|---|---:|---|
+| Smoke 脚本启动至工作区首屏就绪 | 562 ms | 不含 OS / Electron 冷启动前置时间 |
+| JSON 样本 | 5,283,861 bytes | 多行 JSON；数组含 5,120 个 1,024 字符字符串 |
+| Worker 校验 / 美化 | 176 / 77 ms | 单次本地测量；校验耗时含 120 ms debounce |
+| Renderer working set：二维码识别后 / 多行 JSON 校验后 / 美化后 | 148.1 / 204.9 / 328.9 MiB | 同一隐藏窗口阶段快照 |
+| Renderer peak working set | 369.8 MiB | 同一单次多行样本；不是稳定峰值基准 |
+| Renderer private memory：二维码识别后 / 多行 JSON 校验后 / 美化后 | 70.1 / 128.5 / 261.9 MiB | Windows `app.getAppMetrics()` 私有内存阶段快照 |
+| Renderer JS heap after validation | 35.6 MiB | Chromium heap 快照；不包含全部原生/Worker 内存 |
+| Renderer CPU during formatting | 1.6% | 单次 Electron 采样；不代表持续负载或跨机器性能 |
+| 单行长字符串 JSON 校验 | 5,242,894 bytes；private memory 246.6 MiB | 批处理烟测窗口；不执行美化 |
+| JSON-only 单行数字数组 | 5,247,010 bytes；打开后 / 校验后 / 美化后 private memory 50.1 / 504.0 / 616.8 MiB；peak working set 692.1 MiB | 独立 renderer；美化结果 6,996,014 字节；4 次、每次间隔 150 ms 的采样最大值；压力样本，不是稳定基准 |
+| Node token-heavy JSON 样本 | 5,600,003 bytes | 根数组含 2,800,001 个数字 token；与上方 Electron 字符串样本分开测量 |
+| Node token-heavy 格式化 / 压缩 | 744 / 1,079 ms | 单次本地 helper 观测；压缩输出与原文逐字一致，不代表 Electron UI 或跨机器耗时 |
+| 入口 JS | 204,726 bytes（Vite gzip 76.30 kB） | 当前构建 |
+| QR 工具主 chunk | 10.81 kB（gzip 4.62 kB） | WASM 不在该 chunk |
+| QR Worker chunk | 1,299.26 kB | 识别时才加载 |
+| JSON Worker chunk | 13,024 bytes（gzip -9：5,108 bytes） | Worker 运行逻辑 |
+
+对照本地 v0.1.1 构建记录，二维码工具 chunk 从 1,308,328 bytes（gzip 537,475 bytes）移至独立 Worker；本版主线程工具 chunk 为 10,816 bytes。二维码 Worker 在首次识别时才加载，Electron 烟测用 2048 × 2048 图像验证解码正确性，但没有记录专门的扫描耗时基准；也没有同环境的 JSON Worker 前基准。独立 JSON-only renderer 中，5,247,010 字节单行数字数组校验后 private memory 达 504 MiB，美化后为 616.8 MiB，peak working set 为 692.1 MiB；同次启动后基线为 50.1 MiB。另一个同级多行样本显著较低，说明数据形状影响很大。`wrap="off"` 不能消除此问题；目前未确定内存增长的完整归因，也未确认存在持续泄漏。该资源放大可能影响低内存设备，EV-057 已补入隔离烟测但长行渲染策略和可接受内存预算仍未解决，因此候选尚不应视为发布就绪；不能将多行样本数据外推为单行上限。所有性能数字均为单次观测，不代表跨机器承诺；EV-042 与 EV-057 仍未完成。
+
+### F. 安全与未完成事项
+
+- 本地安全测试覆盖损坏/未来版本状态保护、生产 CSP、Worker 故障与取消、Blob 下载 URL 和既有 IPC 信任边界。
+- npm 官方 registry 全依赖审计无已知漏洞；不等同于第三方渗透或模糊测试。
+- 当前候选仍待 Windows PR CI、该候选的隔离覆盖安装/回滚/卸载、远端 Release 资产与 SHA-256 / Attestation 核验。本地 Windows x64 NSIS 构建已通过。
+- 5 MiB 级多行 JSON Worker 流程通过；新增隔离 JSON-only 单行压力烟测复现高 Renderer 内存（见性能表）。原因尚未确证，不称为泄漏或通用上限；EV-057 仍未闭环，解决策略和内存预算确定前不应发布候选。
+- macOS/iOS 不在当前 Windows 产品交付范围；第三方安全测试与多机 CPU/内存基准未执行。
+
+候选分支和 PR 合并后，将在本节追加最终 Commit、PR、Actions、Tag、Release、安装包、SHA-256、Attestation 与 `main` 一致性证据。没有运行的步骤不会提前标记为通过。
+
+## v0.1.1 正式发布与生命周期核验（2026-11-24）
+
+在已发布的 v0.1.0 基线上，本次仅增加两项窄范围修复：Electron 主窗口拒绝跨来源重定向；二维码结果缺少完整定位元数据时不再按相同文本误去重。版本元数据、README、简要变更日志和完整发布说明已同步。PR #19 已合并，`v0.1.1` 标签与正式 Release 已发布；之后仅文档 PR #20 合并到 `main`。
+
+验证：[正式 Release run 45391803298](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45391803298) 中，38 个测试文件 / 285 项测试、ESLint、运行依赖审计、Electron 桌面烟测、Windows NSIS 构建、更新助手检查和三系统 CLI 烟测均通过。该 run 的 Windows 生命周期测试实际安装 `v0.1.0`、覆盖升级到 `v0.1.1`、保留 profile、在故意 payload mismatch 后恢复旧版、启动并卸载；发布资产 SHA-256 与 GitHub Release attestation 均验证通过。[PR #20 run 45393215151](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45393215151) 也再次通过 Windows Release Candidate 生命周期测试。主线 push build [run 45394330710](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45394330710) 的生命周期步骤为 skipped，不作为生命周期证据。因本地缺少 7-Zip，本机额外 NSIS 包完整性校验未执行；正式 Windows runner 的发布脚本日志确认 NSIS 归档 CRC 校验通过。
+
+PR：[https://github.com/yuchen0x1/Base64-encode-encoding/pull/19](https://github.com/yuchen0x1/Base64-encode-encoding/pull/19)（已合并）；文档后续 PR：[https://github.com/yuchen0x1/Base64-encode-encoding/pull/20](https://github.com/yuchen0x1/Base64-encode-encoding/pull/20)（已合并）；当前 `main`：`9dbf979dfbc4fc7105e4f6e438ce56e5bfa0c9d3`；`v0.1.1` Tag 指向 `d62116b684eddaa87d9171e24bc692bf6ffc0bb5`。Release：[https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.1](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.1)（2026-11-24 12:21:56 UTC）。
 
 - Windows x64 NSIS：[GeekToolbox-Setup-0.1.1.exe](https://github.com/yuchen0x1/Base64-encode-encoding/releases/download/v0.1.1/GeekToolbox-Setup-0.1.1.exe)，111,898,806 bytes，SHA-256 `f2a0730cb22fe265d19787cae44b3347d18bdb10919b84dacbba36726451921c`。
 - CLI：[GeekToolbox-CLI-0.1.1.mjs](https://github.com/yuchen0x1/Base64-encode-encoding/releases/download/v0.1.1/GeekToolbox-CLI-0.1.1.mjs)，SHA-256 `cebf0a5ffbcc7236e79da388fd88822da529c03b8f055e43f3eb0d2f4e60536e`。
-- Windows 安装程序未配置 Authenticode 证书，故为未签名构建；SHA-256、GitHub Release asset digest 和 GitHub attestation 均由正式发布工作流验证，三者不等同于 Authenticode 签名。
+
+以下 `历史基线` 及其下的审计、EV 状态和测试表是对应旧版本/执行日期的记录快照，保留当时的范围和结果；它们不是当前路线状态。当前 EV 状态以 [升级路线图](UPGRADE_ROADMAP.md) 为准。
 
 历史基线：2026-11-16（Asia/Shanghai），`v0.0.7`。
 本次候选：2026-11-24（Asia/Shanghai），`v0.1.0`。
@@ -21,7 +93,7 @@ PR：[https://github.com/yuchen0x1/Base64-encode-encoding/pull/19](https://githu
 
 本轮对 0.0.12 基线做功能扩展、代码质量提升与安全加固。核心变化包括：离线二维码识别、JWT HS256 本地验签、JSON 树/路径/差异/类型、颜色多格式双向转换、全局命令面板和最近使用、21 款工具懒加载、Electron 45.4.1 升级、IPC/导航/CSP 收紧，以及依赖、发布健康、文档和安装生命周期门禁修复。
 
-本地验证：285 项 Vitest 全通过；ESLint 0 error / 0 warning；Vite 构建成功；`npm audit --audit-level=low` 0 vulnerabilities；桌面 `file://` 沙箱烟测、更新助手真实运行时烟测和 CLI 烟测通过。真实 Windows 安装、旧版覆盖升级和代码签名不以本地构建替代，按 PR CI 与 Release 工作流结果记录。
+历史本地验证记录：285 项 Vitest 全通过；ESLint 0 error / 0 warning；Vite 构建成功；`npm audit --audit-level=low` 0 vulnerabilities；桌面 `file://` 沙箱烟测、更新助手真实运行时烟测和 CLI 烟测通过。Windows 安装生命周期与发布资产来源/完整性以本报告顶部列出的 PR / Release workflow 记录为准。
 
 新增审计证据见 [安全审计报告](SECURITY_AUDIT_REPORT.md) 和 [性能报告](PERFORMANCE_REPORT.md)；完整发布说明见 [发布历史](docs/releases/release-notes.md)。
 
@@ -29,7 +101,7 @@ PR：[https://github.com/yuchen0x1/Base64-encode-encoding/pull/19](https://githu
 
 ## 1. 结论摘要
 
-本轮完成了真实项目扫描、15 个严格开源源码项目研究、56 项升级路线、多个 P1/P2 代码修复和 Windows NSIS 打包复验。项目通过本地测试、lint、Vite 构建、Electron 桌面烟测、更新助手检查和官方 npm 审计；`v0.0.7` 的远程 Actions 与公开 Release 也已完成核验。代码签名、隔离安装升级、macOS/iOS 和线上安全审计仍没有被虚报为完成。He3 与 HTTPie Desktop 作为许可证/源码开放性补充对照，不计入 15 个严格开源样本。
+本轮完成了真实项目扫描、15 个严格开源源码项目研究、56 项升级路线、多个 P1/P2 代码修复和 Windows NSIS 打包复验。项目通过本地测试、lint、Vite 构建、Electron 桌面烟测、更新助手检查和官方 npm 审计；`v0.0.7` 的远程 Actions 与公开 Release 也已完成核验。隔离安装升级、macOS/iOS 和线上安全审计没有被虚报为完成。He3 与 HTTPie Desktop 作为许可证/源码开放性补充对照，不计入 15 个严格开源样本。
 
 本轮实际落地的重点是：
 
@@ -92,7 +164,6 @@ PR：[https://github.com/yuchen0x1/Base64-encode-encoding/pull/19](https://githu
 | EV-027 | PLANNED | 核心模块仍为 JavaScript，未纳入类型检查 |
 | EV-028 | PLANNED | 备份有 schema，localStorage 运行时 schema 迁移待补 |
 | EV-029 | PLANNED | 需要 IPC sender/通道白名单测试 |
-| EV-030 | PLANNED | SHA-256/可选 Authenticode 不等同签名清单 |
 | EV-031 | PARTIAL | 已有 512 MiB 硬上限、30 秒无响应超时、AbortController 取消、IPC 取消和半包清理；剩余空间检查待补 |
 | EV-032 | COMPLETED | `requestSingleInstanceLock`、二次启动退出和已有窗口 restore/show/focus 已实现并有 3 项专项测试 |
 | EV-033 | PLANNED | 需要日志分级和字段脱敏 |
@@ -114,7 +185,7 @@ PR：[https://github.com/yuchen0x1/Base64-encode-encoding/pull/19](https://githu
 | EV-049 | PLANNED | 尚无帮助/快捷键面板 |
 | EV-050 | PARTIAL | 当前没有遥测；需持续用网络审计和文档固定边界 |
 | EV-051 | PLANNED | 当前有 SHA/清单，缺 SBOM/许可证归档 |
-| EV-052 | BLOCKED | 需要旧版安装包、签名/隔离环境和真实安装验证 |
+| EV-052 | BLOCKED | 需要旧版安装包、隔离环境和真实安装验证 |
 | EV-053 | PLANNED | 版本/CHANGELOG/EV 自动门禁待补 |
 | EV-054 | PLANNED | 尚无文档路径/截图 CI 检查 |
 | EV-055 | PLANNED | 尚无结构化 issue 模板 |
@@ -161,7 +232,7 @@ PR：[https://github.com/yuchen0x1/Base64-encode-encoding/pull/19](https://githu
 | 更新助手 | PASS | `npm run test:updater` 三项运行时检查通过 |
 | Electron 目录构建（成功构建） | PASS | `release/win-unpacked` 已生成 |
 | Electron 目录构建（最后重跑） | BLOCKED | electron-builder 外部下载阶段长时间无输出，因网络阻塞中止；已有成功目录产物保留 |
-| Windows NSIS 包（本地成功构建） | PASS | 2026-11-16 21:17 生成 `GeekToolbox-Setup-0.0.6.exe`；SHA-256 `C94182B05003A072EC5EE7F791ED72A8077F489BC080C41EA1D59944B3F17A3C`；未配置代码签名 |
+| Windows NSIS 包（本地成功构建） | PASS | 2026-11-16 21:17 生成 `GeekToolbox-Setup-0.0.6.exe`；SHA-256 `C94182B05003A072EC5EE7F791ED72A8077F489BC080C41EA1D59944B3F17A3C` |
 | Windows NSIS 包（最后重跑） | BLOCKED | electron-builder 外部下载阶段 `connect ETIMEDOUT 20.205.243.166:443`；已有成功产物未被删除 |
 | npm audit（官方 registry） | PASS | `npm audit --registry=https://registry.npmjs.org --omit=optional --audit-level=moderate` 返回 `found 0 vulnerabilities` |
 | npm audit（默认镜像） | BLOCKED | `registry.npmmirror.com` security endpoint 返回 404；需修复镜像或固定官方 registry |
@@ -188,16 +259,16 @@ PR：[https://github.com/yuchen0x1/Base64-encode-encoding/pull/19](https://githu
 - 资源输入有 16 MiB 图片和 1 MiB 工作区边界；时间戳不再接受不安全整数。
 - 生产更新源拒绝 HTTP，标签页和目录弹窗有基础键盘/ARIA 语义。
 - NSIS 脚本和图标已恢复，Windows 安装包本地生成成功。
-- 剩余生产级工作集中在磁盘空间预检、IPC sender 校验、签名清单、真实安装更新和远程发布。
+- 剩余生产级工作集中在磁盘空间预检、IPC sender 校验、真实安装更新和远程发布。
 
 ## 7. 下一阶段最值得做的五件事
 
 1. EV-031：补充更新前磁盘空间预检和更完整的下载恢复演练。
-2. EV-029/030：IPC sender 校验和签名清单。
+2. EV-029：IPC sender 校验。
 3. EV-001/002/003：批处理配方迁移、暂停恢复和失败重试。
 4. EV-041/043/052：把 desktop/browser smoke 接入 CI，并在隔离环境做真实安装/回滚。
 5. EV-034/051：生成依赖许可证清单和 SBOM，并建立供应链门禁。
 
 ## 8. 交付边界
 
-本报告完成本地可执行范围内的修复、证据整理和 v0.0.7 远程发布核验。安装包仍未签名，真实旧版覆盖安装、回滚和完整自动更新闭环需要隔离环境继续验收；这些边界不因 Release 已公开而改变。
+本历史报告记录当时本地可执行范围内的修复、证据整理和 v0.0.7 远程发布核验。真实旧版覆盖安装、回滚和完整自动更新闭环需要隔离环境继续验收；这些边界不因 Release 已公开而改变。

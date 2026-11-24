@@ -250,6 +250,8 @@
 <script setup>
 import { ref, reactive, computed, watch, onUnmounted } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
+import { revokeObjectURLAfter } from '../../utils/objectUrl.js'
+import { copyText } from '../../utils/clipboard.js'
 import { getUniqueFileReferences, splitBatchLines } from '../../utils/toolHelpers.js'
 import {
   BATCH_LIMITS, BATCH_OPERATIONS as operations, batchOperationLabel,
@@ -358,7 +360,7 @@ function download(content, mime, filename) {
   link.href = url
   link.download = filename
   link.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  revokeObjectURLAfter(url)
 }
 function exportRecipe() {
   download(JSON.stringify(createBatchRecipe(steps.value, options), null, 2), 'application/json;charset=utf-8', 'geek-toolbox-recipe.json')
@@ -429,8 +431,8 @@ function clearAll() {
 }
 function toggleRow(row) { expandedId.value = expandedId.value === row.id ? null : row.id }
 async function copy(text) {
-  try { await navigator.clipboard.writeText(text); globalToast('已复制到剪贴板') }
-  catch { globalToast('复制失败：浏览器拒绝访问剪贴板', 'error') }
+  if (await copyText(text, { reportFailure: false })) globalToast('已复制到剪贴板')
+  else globalToast('复制失败：浏览器拒绝访问剪贴板', 'error')
 }
 function copyRow(row) { if (row.ok) return copy(row.output) }
 function copyAll() { return copy(results.value.filter(row => row.ok).map(row => row.output).join('\n')) }

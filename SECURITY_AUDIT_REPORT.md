@@ -1,13 +1,13 @@
 # 安全审计报告
 
 审计日期：2026-11-24（Asia/Shanghai）  
-版本：`v0.1.1`（2026-11-24 正式发布；继承并补充 v0.1.0 安全基线）
-范围：Electron 主进程 / preload / 更新器、渲染界面 CSP、命令与工具依赖、发布健康工作流。  
-边界：本报告记录代码与自动化证据；不等同于第三方渗透测试、代码签名或真实安装升级验收。
+版本：`v0.1.2` 候选（未发布；继承 v0.1.1 / v0.1.0 安全基线）
+范围：Electron 主进程 / preload / 更新器、Worker 生命周期、localStorage 迁移保护、渲染界面 CSP、命令与工具依赖、发布健康工作流。
+边界：本报告记录代码与自动化证据；不等同于第三方渗透测试、模糊测试或完整应用内自动更新端到端测试。Windows 安装生命周期和发布资产验证结果见下方 Actions 记录。
 
 ## 结论
 
-本次改善了最小权限边界：更新 IPC 调用必须通过主窗口主 frame 与受信文档校验，preload 不再暴露 `ipcRenderer`，外链仅允许官方 HTTPS 白名单，导航、webview、设备权限和 CSP 均已收紧。`npm audit --audit-level=low` 返回 0 vulnerabilities，新增 IPC 与安全策略专项测试已纳入测试套件。
+当前候选继承并回归验证 Electron 最小权限边界：更新 IPC 调用必须通过主窗口主 frame 与受信文档校验，preload 不暴露 `ipcRenderer`，外链仅允许官方 HTTPS 白名单，导航、webview、设备权限和 CSP 均已收紧。本轮生产 CSP 实际构建产物仅允许 `connect-src 'self'`；Worker 失败边界、损坏状态保护和导出 URL 生命周期均有回归验证。
 
 ## 已实施控制
 
@@ -20,20 +20,26 @@
 - 更新器在窗口关闭、渲染进程消失和应用退出时取消下载，合并加载期事件并移除待处理监听器，减少半包与重复监听风险。
 - Windows 安装生命周期测试选择严格早于候选版本的已发布稳定版，避免发布并发导致 `/releases/latest` 变为候选版本后的假失败。
 - maintenance 工作流拆分依赖审计、发布资产校验、文档链接和上游扫描，增加 API 重试及 SHA256 / manifest / CLI / Release attestation 检查。
+- 大于 1 MiB 的 JSON 操作使用 Worker，最多处理 32 MiB；Worker 故障时大文档明确报错，不在渲染主线程同步重跑。
+- 二维码 WASM 随独立 Worker 按首次扫描加载；取消、无效替换和卸载会阻断过期任务继续创建 Worker。
+- localStorage 只迁移缺少 schemaVersion 的 legacy 记录；损坏、显式非法或未来版本数据保持原值，并暂停后续写入。
+- Blob 下载 URL 延迟释放；复制文本统一校验空内容、Clipboard API 和 legacy fallback。
 
 ## 风险与未闭环项
 
 | 风险 | 状态 | 说明 |
 |---|---|---|
 | WASM 编译豁免 | 已接受 | `'wasm-unsafe-eval'` 仅用于本地内联 ZXing reader；输入为本地图片，但仍是 CSP 的受控例外。 |
-| 真实 Windows 覆盖安装/升级 | 待 CI | 本地完成 Electron 沙箱与更新助手烟测，不执行真实安装器；以 GitHub-hosted runner 的 installer smoke 与 Release 工作流为准。 |
-| Manifest 签名 | 规划中 | SHA-256、大小和 GitHub Release attestation 不等于项目自有密钥签名或 Authenticode。 |
+| 极长单行 JSON 的 Renderer 内存 | 已复现，P1 未闭环 | 独立 JSON-only renderer 加载 5,247,010 字节单行数字数组后，private memory 从 50.1 MiB（打开后）增至 504 MiB（校验后）及 616.8 MiB（美化后）；peak working set 692.1 MiB。`wrap="off"` 仍不能消除放大。原因尚未确证，也未确认持续泄漏；32 MiB 文本限制不等于内存预算。EV-057 有回归烟测，但渲染策略和可接受预算待定。 |
 | 第三方渗透测试 | 未执行 | 未声称完成红队、模糊测试或外部安全审计。 |
 
 ## 证据
 
-- `npm test -- --reporter=dot`：38 files / 285 tests passed（含 `tests/ipc-security.test.js`、`tests/security-policy.test.js`）。
+- `npm test -- --reporter=dot`：42 files / 310 tests passed（含 IPC、Worker RPC、存储迁移、CSP 与 URL 生命周期专项测试）。
 - `npm run lint`：0 error、0 warning。
-- `npm audit --audit-level=low`：0 vulnerabilities。
-- `npm run test:desktop`：Electron `file://` sandboxed renderer 场景通过，无渲染器 console error；退出阶段 GPU 诊断日志不作为安全证明。
+- `npm audit --registry=https://registry.npmjs.org --audit-level=low`：0 vulnerabilities（含开发依赖）。
+- `npm run test:desktop`：Electron `file://` renderer 的批处理 Worker、首次扫描 2048 × 2048 二维码、取消竞态、5 MiB 多行 JSON Worker 成功与失败边界、JSON 操作互斥和 KeepAlive 资源释放均通过，无渲染器 console error。最新多行 JSON 校验/美化为 176/77 ms，Renderer private memory 为 128.5/261.9 MiB，working-set peak 369.8 MiB。独立 JSON-only 单行压力烟测通过，但观察到 private memory 50.1/504/616.8 MiB、peak working set 692.1 MiB；这些单次采样不是稳定性能基准。详见升级报告。
+- `npm run package:win`：本地 Windows x64 NSIS 安装包构建通过；候选版隔离覆盖安装、回滚和卸载待远端 PR CI。
 - `npm run test:updater`：真实助手运行时、缺少运行文件失败保护通过。
+- 既有 [Release run 45391803298](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45391803298) 与 [PR run 45393215151](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45393215151) 已实际验证 v0.1.0→v0.1.1 覆盖升级、配置保留、故障恢复、启动和卸载；这属于 v0.1.1 生命周期证据，不替代本候选自己的 PR / Release run。
+- 当前 v0.1.2 候选尚未远程运行；其 Windows 构建、依赖审计、Release 和安装生命周期将在后续候选 PR / Release workflow 中核验。

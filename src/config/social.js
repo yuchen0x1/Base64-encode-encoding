@@ -1,3 +1,5 @@
+import { copyText } from '../utils/clipboard.js'
+
 /**
  * 社区 / 反馈入口配置（单一事实来源）
  *
@@ -51,29 +53,5 @@ function clickHiddenAnchor(url) {
  * @returns {Promise<boolean>}
  */
 export async function copyToClipboard(text) {
-  if (!text) return false
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text)
-      return true
-    }
-  } catch {
-    /* 权限被拒时走降级方案 */
-  }
-
-  try {
-    const ta = document.createElement('textarea')
-    ta.value = text
-    ta.setAttribute('readonly', '')
-    ta.style.position = 'fixed'
-    ta.style.top = '-9999px'
-    ta.style.opacity = '0'
-    document.body.appendChild(ta)
-    ta.select()
-    const ok = document.execCommand('copy')
-    ta.remove()
-    return ok
-  } catch {
-    return false
-  }
+  return copyText(text, { reportFailure: false })
 }

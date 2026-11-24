@@ -4,6 +4,7 @@ import {
   commandOptionId,
   filterCommands,
   flattenCommandCatalog,
+  matchesToolSearch,
   moveCommandIndex,
   scoreCommand
 } from '../src/utils/commandPalette.js'
@@ -49,6 +50,22 @@ describe('command palette catalog', () => {
     expect(filterCommands(commands, '对称加密')[0].toolId).toBe('aes-crypto')
     expect(filterCommands(commands, 'dark')[0].type).toBe('action')
     expect(filterCommands(commands, 'zzzz-no-match')).toEqual([])
+  })
+
+  it('shares normalized alias and multi-token matching with tool navigation', () => {
+    const qrTool = {
+      id: 'qrcode-generator',
+      name: '二维码生成与识别',
+      description: '离线二维码处理',
+      tags: ['二维码'],
+      icon: 'QrCode'
+    }
+
+    expect(matchesToolSearch(qrTool, 'QR SCAN')).toBe(true)
+    expect(matchesToolSearch(qrTool, 'ＱＲ')).toBe(true)
+    expect(matchesToolSearch(qrTool, 'qr scan')).toBe(true)
+    expect(matchesToolSearch(qrTool, 'qr missing')).toBe(false)
+    expect(matchesToolSearch(qrTool, '   ')).toBe(true)
   })
 
   it('scores titles above tags and rewards pinned commands', () => {

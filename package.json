@@ -1,7 +1,7 @@
 {
   "name": "geek-toolbox",
   "productName": "极客工具箱",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "极客工具箱 - Windows 本地开发者工具箱",
   "main": "electron/main.js",
   "type": "module",
@@ -17,7 +17,7 @@
     "build:win": "npm run check:packaging && vite build && electron-builder --win --x64 --dir --publish never",
     "package:win": "npm run check:packaging && vite build && electron-builder --win nsis --x64 --publish never",
     "test": "vitest run",
-    "test:desktop": "vite build && electron tests/electron/batch-smoke.cjs",
+    "test:desktop": "vite build && electron tests/electron/batch-smoke.cjs && electron tests/electron/json-lifecycle-smoke.cjs && electron tests/electron/json-memory-smoke.cjs",
     "test:updater": "node scripts/verify-updater-runtime.mjs",
     "test:watch": "vitest",
     "lint": "eslint .",

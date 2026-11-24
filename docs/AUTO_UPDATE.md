@@ -13,7 +13,7 @@ updates/desktop/GeekToolbox-Setup-X.Y.Z.exe
 
 清单包含 `version`、`channel`、`buildTime`、`releaseDate`、`notes`、`kind: "nsis"`、`platform: "win32"`、`arch: "x64"` 以及 `package.url`、`package.sha256`、`package.size`。
 
-SHA-256 为安装包的真实摘要，缺失、格式非法或下载内容不一致时拒绝更新。`package.signature` 可选；配置时包含 `type: "authenticode"`、40 位证书 `thumbprint` 和可选 `subject`。客户端必须验证签名有效且指纹匹配。SHA-256 本身不提供发布者身份认证。
+SHA-256 为安装包的真实摘要，缺失、格式非法或下载内容不一致时拒绝更新。发布时同时提供 SHA-256 校验文件和 GitHub Release Attestation，用于核验资产完整性与发布来源。
 
 ## 构建与发布
 
@@ -43,17 +43,6 @@ npm run release -- --skip-build --installer "release/GeekToolbox-Setup-0.0.6.exe
 
 发布工作流检查标签与 `package.json` 版本完全一致；普通 push / PR 不会创建 Release。已发布历史版本的网页资产不由本次代码清理远程删除。
 
-## 代码签名配置
-
-以下 GitHub Secrets 为可选配置：
-
-- `WINDOWS_CSC_LINK`：electron-builder 使用的证书内容或受保护地址。
-- `WINDOWS_CSC_KEY_PASSWORD`：证书密码。
-- `WINDOWS_AUTHENTICODE_THUMBPRINT`：40 位十六进制证书指纹。
-- `WINDOWS_AUTHENTICODE_SUBJECT`：可选证书主题。
-
-未配置证书时仍可生成未签名安装包和 SHA-256 清单，但不得宣称完成了代码签名验证。私钥、密码和 Token 不得入库。
-
 ## 更新源
 
 按以下顺序选择：
@@ -64,13 +53,13 @@ npm run release -- --skip-build --installer "release/GeekToolbox-Setup-0.0.6.exe
 
 GitHub API 遇到匿名请求限流（HTTP 403 或 429）时，打包版回退到同一 Release 的 `latest/download/version.json`，避免限流导致无法检查更新。回退路径仍使用 HTTPS，并继续执行清单、安装包类型、大小和 SHA-256 校验；API 恢复后会自动回到带 Release 资产摘要核对的路径。
 
-Windows 安装版启动约 4 秒后检查一次，用户也可以点击侧边栏版本号手动检查。选择 24 小时后提醒时，当前候选版本的自动弹窗会延后。打包应用先核对官方清单摘要、稳定版本、资产名、字节数和安装包摘要。备用源的安装包必须匹配这些记录，已配置的签名仍以官方清单为准。
+Windows 安装版启动约 4 秒后检查一次，用户也可以点击侧边栏版本号手动检查。选择 24 小时后提醒时，当前候选版本的自动弹窗会延后。打包应用先核对官方清单摘要、稳定版本、资产名、字节数和安装包摘要。备用源的安装包必须匹配这些记录。
 
 ## 客户端流程
 
 1. 比较版本，不对更旧的版本触发更新。
 2. 下载到 `userData/updates/`；HTTP 下载最多三次重试，服务器支持 Range 时继续已有临时文件。
-3. 展示下载速度与进度，核验安装包大小和 SHA-256，有签名配置时再核验 Authenticode。
+3. 展示下载速度与进度，核验安装包大小和 SHA-256。
 4. 准备安装目录之外的独立助手运行时，包含 ICU 与 V8 启动数据。
 5. 可用空间和网络许可时，安装前从官方 Release 准备当前版本安装包并核对 SHA-256。助手通过专用 IPC 确认就绪后，当前应用才退出。
 6. 助手重新核对摘要，等待旧进程释放文件，执行 NSIS 覆盖安装，核验目标 EXE 和 ASAR 版本，启动新版。锁定超时时保留当前安装；安装失败时重试或进入交互安装。
@@ -92,4 +81,4 @@ npm run test:updater
 
 更新检查位于 `tests/updater.test.js`、`tests/useUpdater.test.js`、`tests/update-validation.test.js`、`tests/apply-installer.test.js`、`tests/installer-verification.test.js`、`tests/installer-bootstrap.test.js` 和 `tests/updater-handshake.test.js`。
 
-`test:desktop` 验证 Electron 沙箱内的界面和 Worker，`test:updater` 验证独立助手真实启动与失败保护，二者均不执行安装器。必须分别报告构建、签名、实际安装和完整自动更新结果；只有旧客户端实际发现、校验、安装并启动新版本，才能标记自动更新端到端通过。
+`test:desktop` 验证 Electron 沙箱内的界面和 Worker，`test:updater` 验证独立助手真实启动与失败保护，二者均不执行安装器。必须分别报告构建、实际安装和完整自动更新结果；只有旧客户端实际发现、校验、安装并启动新版本，才能标记自动更新端到端通过。

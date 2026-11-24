@@ -31,11 +31,16 @@ export function createQrReader({
     throw new Error('二维码识别模块未初始化')
   }
   const wasmBytes = decodeBase64ToUint8Array(base64Wasm)
-  prepareZXingModule({
+  const moduleReady = Promise.resolve(prepareZXingModule({
     overrides: { wasmBinary: wasmBytes.buffer },
     fireImmediately: true
+  })).catch(error => {
+    const setupError = new Error(error?.message || '二维码识别模块初始化失败', { cause: error })
+    setupError.kind = 'setup'
+    throw setupError
   })
   return async function decodeQrImage(input, options = {}) {
+    await moduleReady
     const callOptions = { ...options }
     callOptions.maxNumberOfSymbols = Number.isFinite(callOptions.maxNumberOfSymbols)
       ? Math.min(QR_FILE_LIMITS.maxSymbolsPerImage, Math.max(1, Math.floor(callOptions.maxNumberOfSymbols)))

@@ -2,6 +2,18 @@
 
 证据采集日期为 2026-11-18。Star、Fork、最新稳定 Release、默认分支提交和许可证来自 GitHub。活跃档位以最近默认分支提交衡量。源码链接固定在调研时的提交。议题链接代表抽样证据，未据此推断社区需求频率。研究使用公开资料与实现思路。
 
+## 2026-11-24 上游活跃度与许可证复核
+
+本次通过 GitHub 仓库 API 重新核对五个重点项目的默认分支最近推送时间和 SPDX 标识。下表只刷新仓库元数据；此前源码结构与功能对照仍是上方 2026-11-18 的研究快照。五个项目在近 90 天均有推送记录；许可证用于界定参考与代码复用边界，本轮没有新增第三方代码或依赖。
+
+| 仓库 | SPDX | 默认分支最近推送（UTC） | 本项目的参考边界 |
+|---|---|---|---|
+| [DevToys](https://github.com/DevToys-app/DevToys) | MIT | 2026-09-29 00:45:51 | 参考本地工具注册和桌面发现，不移植 C# 实现 |
+| [IT Tools](https://github.com/CorentinTh/it-tools) | GPL-3.0 | 2026-11-20 22:11:22 | 仅参考工具目录与分类，不复制 GPL 代码 |
+| [CyberChef](https://github.com/gchq/CyberChef) | Apache-2.0 | 2026-11-20 17:23:18 | 参考 recipe、Worker 和组合操作，不复制实现 |
+| [PowerToys](https://github.com/microsoft/PowerToys) | MIT | 2026-11-24 12:41:49 | 参考 Windows 工具发现、快捷键和发布体验 |
+| [Bruno](https://github.com/usebruno/bruno) | MIT（Git 仓库） | 2026-11-24 12:51:11 | 参考 file-first 工作区和离线边界；仓库讨论指出官方发布二进制可能含仓库外的商业模块，不能仅凭仓库 SPDX 推断发行物许可 |
+
 | 关系 | 项目 / README | Star / Fork | 主语言 / SPDX | 最近提交 / Release | 比较与证据 |
 |---|---|---:|---|---|---|
 | 直接 | [DevToys-app/DevToys](https://github.com/DevToys-app/DevToys/blob/main/README.md) | 32291 / 1797 | C# / MIT | 2026-09-29（≤90 天） · [v1.0.13.0](https://github.com/DevToys-app/DevToys/releases/tag/v1.0.13.0) | C# 核心将工具注册和智能检测分离，Windows/Linux/macOS 桌面产品共享工具；参考注册表和键盘发现路径。 [源码](https://github.com/DevToys-app/DevToys/blob/2dbbc8aa594978d11165a0e8112243c96a277dbc/src/app/dev/DevToys.Core/Tools/SmartDetectedTool.cs) · [提交](https://github.com/DevToys-app/DevToys/commit/2dbbc8aa594978d11165a0e8112243c96a277dbc) · [#1698](https://github.com/DevToys-app/DevToys/issues/1698) · [CI](https://github.com/DevToys-app/DevToys/tree/2dbbc8aa594978d11165a0e8112243c96a277dbc/.github/workflows) |

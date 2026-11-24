@@ -404,16 +404,19 @@ import { useUpdater, openUpdatePanel } from './composables/useUpdater.js'
 import { globalToast } from './composables/useToast.js'
 import { resolveLocale, translate } from './i18n.js'
 import {
+  APP_STATE_SCHEMA_VERSION,
   createWorkspaceBackup,
   filterCommonTools,
   getCommonToolsCount,
   MAX_WORKSPACE_BACKUP_BYTES,
   normalizeAppState,
+  readPersistedAppState,
   parseWorkspaceBackup,
   recordRecentTool,
   sortToolsByPreference
 } from './utils/appState.js'
-import { buildCommandCatalog, flattenCommandCatalog } from './utils/commandPalette.js'
+import { buildCommandCatalog, flattenCommandCatalog, matchesToolSearch } from './utils/commandPalette.js'
+import { revokeObjectURLAfter } from './utils/objectUrl.js'
 
 // 工具组件注册表：组件与元数据的单一映射，新增工具只需在 registry.js 登记
 import { toolComponents, assertToolRegistry } from './config/registry.js'
@@ -436,17 +439,24 @@ const categoryIconMap = {
 
 // localStorage 持久化辅助
 const STORAGE_KEY = 'geek-toolbox-state'
+let storageWritable = true
 function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
+    const result = readPersistedAppState(localStorage, STORAGE_KEY)
+    storageWritable = result.canSave
+    if (result.error) globalToast('本地工作区数据无法读取，原始数据已保留且暂停保存。', 'error')
+    return result.state
   } catch {
+    storageWritable = false
+    globalToast('本地工作区存储不可用，已暂停保存。', 'error')
     return null
   }
 }
 function saveState() {
+  if (!storageWritable) return
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      schemaVersion: APP_STATE_SCHEMA_VERSION,
       isDark: isDark.value,
       favorites: favorites.value,
       recentToolIds: recentToolIds.value,
@@ -621,14 +631,7 @@ const filteredTools = computed(() => {
     list = list.filter(t => t.category === activeCategory.value)
   }
 
-  if (searchQuery.value.trim()) {
-    const q = searchQuery.value.toLowerCase().trim()
-    list = list.filter(t =>
-      t.name.toLowerCase().includes(q) ||
-      t.description.toLowerCase().includes(q) ||
-      t.tags.some(tag => tag.toLowerCase().includes(q))
-    )
-  }
+  list = list.filter(tool => matchesToolSearch(tool, searchQuery.value))
   return list
 })
 
@@ -712,7 +715,7 @@ function exportWorkspace() {
   link.href = url
   link.download = `geek-toolbox-workspace-${new Date().toISOString().slice(0, 10)}.json`
   link.click()
-  URL.revokeObjectURL(url)
+  revokeObjectURLAfter(url)
   globalToast(t('backupExported'))
 }
 

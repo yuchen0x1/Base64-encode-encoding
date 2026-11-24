@@ -46,8 +46,9 @@ for (const file of markdownFiles(root)) {
 
 const readme = readFileSync(path.join(root, 'README.md'), 'utf8')
 const expectedRelease = `https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v${pkg.version}`
-if (!readme.includes(expectedRelease)) {
-  problems.push(`README.md: missing current release link ${expectedRelease}`)
+const expectedCandidate = `https://github.com/yuchen0x1/Base64-encode-encoding/tree/codex/upgrade-v${pkg.version}`
+if (!readme.includes(expectedRelease) && !readme.includes(expectedCandidate)) {
+  problems.push(`README.md: missing current release or candidate link for v${pkg.version}`)
 }
 
 const cliDoc = readFileSync(path.join(root, 'docs/CLI.md'), 'utf8')

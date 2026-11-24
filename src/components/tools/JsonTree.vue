@@ -1,39 +1,33 @@
 <template>
-  <div :class="['json-tree-node', depth === 0 ? 'root' : '']">
-    <div class="json-tree-row" :style="{ paddingLeft: `${Math.min(depth, 12) * 14}px` }">
-      <button
-        v-if="isContainer"
-        type="button"
-        class="tree-toggle"
-        :aria-expanded="expanded"
-        :aria-label="`${expanded ? '折叠' : '展开'} ${path}`"
-        @click="expanded = !expanded"
-      >
-        {{ expanded ? '▾' : '▸' }}
-      </button>
-      <span v-else class="tree-toggle-spacer"></span>
-      <span class="tree-key code-font">{{ label }}</span>
-      <span class="tree-colon">:</span>
-      <span :class="['tree-type', valueType]">{{ summary }}</span>
-      <span class="tree-actions">
-        <button type="button" class="tree-action" :title="`复制路径 ${path}`" @click="copyPath">路径</button>
-        <button type="button" class="tree-action" :title="`复制节点 ${path}`" @click="copyValue">值</button>
-      </span>
-    </div>
-
-    <div v-if="isContainer && expanded" class="json-tree-children">
-      <JsonTree
-        v-for="entry in visibleEntries"
-        :key="entry.key"
-        :node="entry.value"
-        :label="entry.label"
-        :path="entry.path"
-        :depth="depth + 1"
-        :default-expand-depth="defaultExpandDepth"
-      />
-      <div v-if="hiddenCount > 0" class="tree-truncated" :style="{ paddingLeft: `${Math.min(depth + 1, 12) * 14 + 20}px` }">
-        还有 {{ hiddenCount }} 项未渲染；请在文本/路径模式处理超大集合。
+  <div class="json-tree">
+    <div
+      v-for="entry in tree.rows"
+      :key="entry.path"
+      :class="['json-tree-node', entry.depth === 0 ? 'root' : '']"
+    >
+      <div class="json-tree-row" :style="{ paddingLeft: `${Math.min(entry.depth, 12) * 14}px` }">
+        <button
+          v-if="entry.isContainer"
+          type="button"
+          class="tree-toggle"
+          :aria-expanded="entry.expanded"
+          :aria-label="`${entry.expanded ? '折叠' : '展开'} ${entry.path}`"
+          @click="toggleEntry(entry)"
+        >
+          {{ entry.expanded ? '▾' : '▸' }}
+        </button>
+        <span v-else class="tree-toggle-spacer"></span>
+        <span class="tree-key code-font">{{ entry.label }}</span>
+        <span class="tree-colon">:</span>
+        <span :class="['tree-type', valueType(entry.node)]">{{ summary(entry.node) }}</span>
+        <span class="tree-actions">
+          <button type="button" class="tree-action" :title="`复制路径 ${entry.path}`" @click="copyPath(entry.path)">路径</button>
+          <button type="button" class="tree-action" :title="`复制节点 ${entry.path}`" @click="copyValue(entry.node)">值</button>
+        </span>
       </div>
+    </div>
+    <div v-if="tree.truncated" class="tree-truncated">
+      树视图最多显示 {{ JSON_TREE_MAX_VISIBLE_NODES }} 个节点；其余项未加载，请使用 JSONPath 查询或编辑器文本模式。
     </div>
   </div>
 </template>
@@ -42,69 +36,53 @@
 import { computed, ref } from 'vue'
 import { copyText } from '../../utils/clipboard.js'
 import { globalToast } from '../../composables/useToast.js'
-import { formatJsonPathPart } from '../../utils/jsonPath.js'
+import { buildJsonTreeRows, JSON_TREE_MAX_VISIBLE_NODES } from '../../utils/jsonTree.js'
 import { formatJsonValuePreview } from './jsonTool.js'
 
 defineOptions({ name: 'JsonTree' })
 
-const MAX_VISIBLE_CHILDREN = 500
-
 const props = defineProps({
   node: { type: [Object, Array, String, Number, Boolean], default: null },
-  label: { type: String, default: '$' },
-  path: { type: String, default: '$' },
-  depth: { type: Number, default: 0 },
   defaultExpandDepth: { type: Number, default: 1 }
 })
 
-const expanded = ref(props.depth < props.defaultExpandDepth)
-const isArray = computed(() => Array.isArray(props.node))
-const isObject = computed(() => props.node !== null && typeof props.node === 'object' && !isArray.value)
-const isContainer = computed(() => isArray.value || isObject.value)
-const valueType = computed(() => {
-  if (isArray.value) return 'array'
-  if (isObject.value) return 'object'
-  if (props.node === null) return 'null'
-  return typeof props.node
-})
-const summary = computed(() => {
-  if (isArray.value) return `Array(${props.node.length})`
-  if (isObject.value) return `Object(${Object.keys(props.node).length})`
-  if (typeof props.node === 'string') return formatJsonValuePreview(props.node, 120)
-  if (props.node === null) return 'null'
-  return String(props.node)
-})
+const expandedOverrides = ref(new Map())
+const tree = computed(() => buildJsonTreeRows(props.node, {
+  defaultExpandDepth: props.defaultExpandDepth,
+  expandedOverrides: expandedOverrides.value
+}))
 
-const entries = computed(() => {
-  if (isArray.value) {
-    return props.node.map((value, index) => ({
-      key: `index-${index}`,
-      label: `[${index}]`,
-      value,
-      path: `${props.path}[${index}]`
-    }))
-  }
-  if (!isObject.value) return []
-  return Object.keys(props.node).map(key => ({
-    key: `key-${key}`,
-    label: key,
-    value: props.node[key],
-    path: `${props.path}${formatJsonPathPart(key)}`
-  }))
-})
-const visibleEntries = computed(() => entries.value.slice(0, MAX_VISIBLE_CHILDREN))
-const hiddenCount = computed(() => Math.max(0, entries.value.length - MAX_VISIBLE_CHILDREN))
-
-async function copyPath() {
-  if (await copyText(props.path)) globalToast(`已复制路径：${props.path}`)
+function toggleEntry(entry) {
+  const next = new Map(expandedOverrides.value)
+  next.set(entry.path, !entry.expanded)
+  expandedOverrides.value = next
 }
 
-async function copyValue() {
-  const serialized = typeof props.node === 'string'
-    ? props.node
-    : isContainer.value
-      ? JSON.stringify(props.node, null, 2)
-      : String(props.node)
+function valueType(node) {
+  if (Array.isArray(node)) return 'array'
+  if (node !== null && typeof node === 'object') return 'object'
+  if (node === null) return 'null'
+  return typeof node
+}
+
+function summary(node) {
+  if (Array.isArray(node)) return `Array(${node.length})`
+  if (node !== null && typeof node === 'object') return 'Object'
+  if (typeof node === 'string') return formatJsonValuePreview(node, 120)
+  if (node === null) return 'null'
+  return String(node)
+}
+
+async function copyPath(path) {
+  if (await copyText(path)) globalToast(`已复制路径：${path}`)
+}
+
+async function copyValue(node) {
+  const serialized = typeof node === 'string'
+    ? node
+    : node !== null && typeof node === 'object'
+      ? JSON.stringify(node, null, 2)
+      : String(node)
   if (await copyText(serialized)) globalToast('已复制 JSON 节点值')
 }
 </script>
@@ -190,9 +168,8 @@ async function copyValue() {
   border-color: rgba(var(--rgb-primary), 0.35);
 }
 .tree-truncated {
-  font-size: 0.72rem;
+  padding: 0.45rem 0.6rem;
   color: var(--text-sub);
-  padding-top: 0.3rem;
-  padding-bottom: 0.3rem;
+  font-size: 0.72rem;
 }
 </style>
