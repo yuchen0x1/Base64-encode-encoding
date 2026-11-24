@@ -16,7 +16,7 @@
 - 工作区数据：增加 `schemaVersion` 和 legacy 迁移；坏 JSON、显式非法版本及未来 schema 保留原始值并暂停写入，避免用户偏好被默认值覆盖。
 - 资源与剪贴板：统一延迟回收导出 Blob URL；复制统一处理空内容、权限异常和旧环境降级。
 - CSP 与搜索：构建产物移除 Vite localhost WebSocket 来源；侧栏与命令面板共用 NFKC、英文别名与多词匹配。
-- 文档：路线图 EV-010/018/028/039 已完成；EV-043/052 的历史生命周期证据指向实际 Windows Actions run。当前候选自身的远程生命周期待 PR / Release workflow。
+- 文档：路线图 EV-010/018/028/039 已完成；候选 PR #21 的 Windows Actions 已验证 EV-043/052 生命周期，历史 v0.1.1 证据仍保留独立日期和范围。
 
 ### C. 竞品与许可证
 
@@ -33,8 +33,8 @@
 | CLI | 构建通过；5 项 smoke 测试通过 |
 | `npm audit`（官方 registry，含开发依赖） | 0 vulnerabilities |
 | 打包资源、文档链接与版本门禁 | 通过；47 个本地链接/图片 |
-| Windows x64 NSIS 安装包 | 本地构建通过；隔离覆盖安装/回滚/卸载待候选 PR CI |
-| Windows installer / PR CI | 尚未由 v0.1.2 候选 workflow 验证 |
+| Windows x64 NSIS 安装包 | 本地构建通过；PR Windows runner 构建及 NSIS 归档 CRC 检查通过 |
+| Windows installer / PR CI | PR #21 全部检查通过；隔离安装、覆盖升级、配置保留、强制版本不匹配回滚、两版启动及卸载通过 |
 
 ### E. 性能实测
 
@@ -65,11 +65,11 @@
 
 - 本地安全测试覆盖损坏/未来版本状态保护、生产 CSP、Worker 故障与取消、Blob 下载 URL 和既有 IPC 信任边界。
 - npm 官方 registry 全依赖审计无已知漏洞；不等同于第三方渗透或模糊测试。
-- 当前候选仍待 Windows PR CI、该候选的隔离覆盖安装/回滚/卸载、远端 Release 资产与 SHA-256 / Attestation 核验。本地 Windows x64 NSIS 构建已通过。
+- 候选 PR #21 仍为 Draft。其 Windows 质量、Windows 安装器、三系统 CLI 和依赖审查全部通过；Windows runner 实际安装 v0.1.1、覆盖升级至 v0.1.2、保留 profile、注入版本不匹配并恢复 v0.1.1、启动两个版本及卸载均通过（[Windows installer run 45426008641](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45426008641)，[Quality Gate run 45426008800](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45426008800)）。这不是正式 Release 资产；尚无 v0.1.2 Tag、Release、SHA-256 清单或 Attestation。
 - 5 MiB 级多行 JSON Worker 流程通过；新增隔离 JSON-only 单行压力烟测复现高 Renderer 内存（见性能表）。原因尚未确证，不称为泄漏或通用上限；EV-057 仍未闭环，解决策略和内存预算确定前不应发布候选。
 - macOS/iOS 不在当前 Windows 产品交付范围；第三方安全测试与多机 CPU/内存基准未执行。
 
-候选分支和 PR 合并后，将在本节追加最终 Commit、PR、Actions、Tag、Release、安装包、SHA-256、Attestation 与 `main` 一致性证据。没有运行的步骤不会提前标记为通过。
+候选 PR #21 当前保持 Draft；EV-057 的长行资源问题和可接受内存预算未闭环前，不合并或创建正式 Tag。若完成修复并重新验证，再补录最终 Commit、Tag、Release 资产、SHA-256、Attestation 与 `main` 一致性证据。尚未运行的发布步骤不标记为通过。
 
 ## v0.1.1 正式发布与生命周期核验（2026-11-24）
 

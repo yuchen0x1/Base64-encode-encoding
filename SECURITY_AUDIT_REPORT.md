@@ -42,4 +42,4 @@
 - `npm run package:win`：本地 Windows x64 NSIS 安装包构建通过；候选版隔离覆盖安装、回滚和卸载待远端 PR CI。
 - `npm run test:updater`：真实助手运行时、缺少运行文件失败保护通过。
 - 既有 [Release run 45391803298](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45391803298) 与 [PR run 45393215151](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45393215151) 已实际验证 v0.1.0→v0.1.1 覆盖升级、配置保留、故障恢复、启动和卸载；这属于 v0.1.1 生命周期证据，不替代本候选自己的 PR / Release run。
-- 当前 v0.1.2 候选尚未远程运行；其 Windows 构建、依赖审计、Release 和安装生命周期将在后续候选 PR / Release workflow 中核验。
+- 候选 PR #21 仍为 Draft；[Quality Gate run 45426008800](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45426008800) 的 Windows quality、三系统 CLI 和 dependency review 全部通过。[Windows installer run 45426008641](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45426008641) 完成 NSIS 构建、CRC 校验、v0.1.1→v0.1.2 覆盖安装、profile 保留、强制版本不匹配回滚至 v0.1.1、启动和卸载。尚无正式 Release、Tag 或发布资产证明；EV-057 的长行内存风险仍阻止合并发布。
