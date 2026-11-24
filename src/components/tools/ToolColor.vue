@@ -3,7 +3,7 @@
     <div class="glass-panel color-preview-wrap" :style="{ background: bgStyle }">
       <div class="preview-inner">
         <span class="preview-label">色彩实时预览</span>
-        <span class="preview-hex code-font">{{ hexValue }}</span>
+        <span class="preview-hex code-font">{{ normalizedHex }}</span>
       </div>
     </div>
 
@@ -13,8 +13,8 @@
           <span class="panel-title">取色器 / 输入色值</span>
         </div>
         <div class="input-body">
-          <input v-model="hexValue" type="color" class="color-picker" :style="{ borderColor: currentRgba }" />
-          <input v-model="hexValue" type="text" class="input-control code-font" spellcheck="false" placeholder="#RRGGBB 或 #RGB" />
+          <input :value="pickerHex" type="color" class="color-picker" :style="{ borderColor: currentRgba }" @input="hexValue = $event.target.value" />
+          <input v-model="hexValue" type="text" class="input-control code-font" spellcheck="false" placeholder="#HEX、rgb()、hsl() 或 hsv()" />
           <div class="swatches">
             <button
               v-for="c in swatches"
@@ -47,92 +47,43 @@
 </template>
 
 <script setup>
-import { copyText } from '../../utils/clipboard.js'
 import { ref, computed } from 'vue'
+import { copyText } from '../../utils/clipboard.js'
 import { globalToast } from '../../composables/useToast.js'
+import {
+  formatHex,
+  formatRgb,
+  getColorFormats,
+  tryParseColor
+} from '../../utils/color.js'
 
 const hexValue = ref('#38bdf8')
 const swatches = ['#38bdf8', '#34d399', '#c084fc', '#f472b6', '#fb7185', '#fbbf24', '#0f172a', '#f8fafc']
 
-function hexToRgb(hex) {
-  let h = hex.replace(/^#/, '').trim()
-  if (!h) return null
-  if (h.length === 3) {
-    h = h.split('').map(c => c + c).join('')
-  }
-  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null
-  const int = parseInt(h, 16)
-  return {
-    r: (int >> 16) & 255,
-    g: (int >> 8) & 255,
-    b: int & 255
-  }
-}
-
-function rgbToHsl(r, g, b) {
-  r /= 255; g /= 255; b /= 255
-  const max = Math.max(r, g, b), min = Math.min(r, g, b)
-  let h = 0, s = 0
-  const l = (max + min) / 2
-  if (max !== min) {
-    const d = max - min
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-    switch (max) {
-      case r: h = (g - b) / d + (g < b ? 6 : 0); break
-      case g: h = (b - r) / d + 2; break
-      case b: h = (r - g) / d + 4; break
-    }
-    h /= 6
-  }
-  return {
-    h: Math.round(h * 360),
-    s: Math.round(s * 100),
-    l: Math.round(l * 100)
-  }
-}
-
 const colorState = computed(() => {
-  const val = hexToRgb(hexValue.value)
-  if (!val) {
-    return { rgb: { r: 0, g: 0, b: 0 }, error: '无效的 HEX 色值' }
+  const result = tryParseColor(hexValue.value)
+  if (!result.ok) {
+    return { color: { r: 0, g: 0, b: 0 }, error: result.error }
   }
-  return { rgb: val, error: '' }
+  return { color: result.color, error: '' }
 })
 
-const rgb = computed(() => colorState.value.rgb)
+const color = computed(() => colorState.value.color)
 const error = computed(() => colorState.value.error)
 
 const currentRgba = computed(() => {
-  const c = rgb.value
-  return `rgba(${c.r}, ${c.g}, ${c.b}, 1)`
+  const c = color.value
+  return `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a ?? 1})`
 })
 
 const bgStyle = computed(() => {
-  return `linear-gradient(135deg, ${hexValue.value} 0%, rgba(255,255,255,0.2) 200%)`
+  return `linear-gradient(135deg, ${formatRgb(color.value)} 0%, rgba(255,255,255,0.2) 200%)`
 })
 
-const hsl = computed(() => {
-  const c = rgb.value
-  return rgbToHsl(c.r, c.g, c.b)
-})
+const normalizedHex = computed(() => formatHex(color.value, { uppercase: false }))
+const pickerHex = computed(() => formatHex(color.value, { alpha: false, uppercase: false }))
 
-const normalizedHex = computed(() => {
-  const c = rgb.value
-  return '#' + [c.r, c.g, c.b].map(v => v.toString(16).padStart(2, '0')).join('')
-})
-
-const formats = computed(() => {
-  const c = rgb.value
-  const h = hsl.value
-  return [
-    { label: 'HEX', value: normalizedHex.value },
-    { label: 'RGB', value: `rgb(${c.r}, ${c.g}, ${c.b})` },
-    { label: 'RGBA', value: `rgba(${c.r}, ${c.g}, ${c.b}, 1)` },
-    { label: 'HSL', value: `hsl(${h.h}, ${h.s}%, ${h.l}%)` },
-    { label: 'HSLA', value: `hsla(${h.h}, ${h.s}%, ${h.l}%, 1)` },
-    { label: 'CSS var', value: `--color: ${normalizedHex.value};` }
-  ]
-})
+const formats = computed(() => getColorFormats(color.value))
 
 async function copy(text) {
   if (!text) return
