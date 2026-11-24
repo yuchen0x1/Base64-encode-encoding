@@ -1,7 +1,7 @@
 # 安全审计报告
 
 审计日期：2026-11-24（Asia/Shanghai）  
-版本候选：`v0.1.0`  
+版本候选：`v0.1.1`（未发布候选，继承 v0.1.0 安全基线）
 范围：Electron 主进程 / preload / 更新器、渲染界面 CSP、命令与工具依赖、发布健康工作流。  
 边界：本报告记录代码与自动化证据；不等同于第三方渗透测试、代码签名或真实安装升级验收。
 
@@ -15,6 +15,7 @@
 - `registerTrustedIpcHandlers()` 只允许已登记通道，处理器不接收原始 Electron IPC event。
 - `electron/preload.cjs` 仅暴露冻结的 `toolboxUpdater` 接口；`contextIsolation: true`、`sandbox: true`、`nodeIntegration: false`、`webSecurity: true`、`webviewTag: false`。
 - `electron/main.js` 一律拒绝应用内新窗口与越界导航；仅官方 HTTPS 域名转交系统浏览器，并拒绝摄像头、麦克风、定位等设备权限。
+- 主窗口将普通导航和服务器重定向统一校验到受信应用文档；不受信重定向会被阻止，并有回归断言。
 - CSP 去掉脚本 `unsafe-inline` / `unsafe-eval`，首帧主题脚本使用 SHA-256 白名单；二维码 WASM 仅保留 `'wasm-unsafe-eval'` 并在构建期内联，不走 CDN、fetch 或外部资源。
 - 更新器在窗口关闭、渲染进程消失和应用退出时取消下载，合并加载期事件并移除待处理监听器，减少半包与重复监听风险。
 - Windows 安装生命周期测试选择严格早于候选版本的已发布稳定版，避免发布并发导致 `/releases/latest` 变为候选版本后的假失败。

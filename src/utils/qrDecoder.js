@@ -69,18 +69,18 @@ export function normalizeQrResults(results, maxSymbols = QR_FILE_LIMITS.maxSymbo
       position.bottomRight
     ].filter(point => point && Number.isFinite(point.x) && Number.isFinite(point.y))
 
-    const key = [
-      text,
-      points.map(point => `${Math.round(point.x)},${Math.round(point.y)}`).join('|')
-    ].join('#')
-    if (seen.has(key)) continue
-    seen.add(key)
+    const hasPosition = points.length === 4
+    const key = hasPosition
+      ? `${text}#${points.map(point => `${Math.round(point.x)},${Math.round(point.y)}`).join('|')}`
+      : null
+    if (key && seen.has(key)) continue
+    if (key) seen.add(key)
 
     output.push({
       text,
       format: String(result?.format || result?.symbology || 'QRCode'),
       position,
-      hasPosition: points.length === 4
+      hasPosition
     })
     if (output.length >= maxSymbols) break
   }

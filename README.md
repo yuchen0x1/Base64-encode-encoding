@@ -14,11 +14,13 @@
 
 <!-- github-release:start -->
 
-**[v0.1.0](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.0)** · 2026-11-24
+**[v0.1.1](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.1)** · 2026-11-24
 
-本版升级二维码离线识别、JWT HS256 本地验签、JSON 树/路径/差异/类型、颜色多格式转换、全局命令面板与工具懒加载，并加固 Electron IPC、导航和 CSP。
+本版拦截 Electron 跨来源重定向，并修复二维码多码识别在缺少位置元数据时误去重的问题。
 
 [全部发行记录](https://github.com/yuchen0x1/Base64-encode-encoding/releases)
+
+前一正式版：[v0.1.0](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.0)
 
 <!-- github-release:end -->
 
@@ -38,7 +40,7 @@
 | Base64、URL、哈希和 JSON 的配方 | 多行文本、多文件、后台运行和结果导出 | 单个文件或标准输入，结果写入标准输出 |
 | 版本检查 | 应用内检查、下载和覆盖安装 | `--check-update` 查询版本和摘要，手动替换文件 |
 
-在发布页下载后，可用 `gh release verify-asset v0.1.0 <文件>` 验证 GitHub 的发布证明，或用 `SHA256SUMS.txt` 核对文件摘要。[命令行使用说明](docs/CLI.md) · [平台兼容性与路线图](docs/PLATFORMS.md)
+在发布页下载后，可用 `gh release verify-asset v0.1.1 <文件>` 验证 GitHub 的发布证明，或用 `SHA256SUMS.txt` 核对文件摘要。[命令行使用说明](docs/CLI.md) · [平台兼容性与路线图](docs/PLATFORMS.md)
 
 ## 功能
 
