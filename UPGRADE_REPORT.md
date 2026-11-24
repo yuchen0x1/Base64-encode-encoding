@@ -1,10 +1,16 @@
 # 极客工具箱升级交付报告
 
-## v0.1.1 候选补丁（2026-11-24）
+## v0.1.1 正式发布（2026-11-24）
 
-在已发布的 v0.1.0 基线上，本次仅增加两项窄范围修复：Electron 主窗口拒绝跨来源重定向；二维码结果缺少完整定位元数据时不再按相同文本误去重。候选版本元数据、README、简要变更日志和完整发布说明均已同步。该补丁分支/PR/Release 尚待 CI、合并和正式发布确认。
+在已发布的 v0.1.0 基线上，本次仅增加两项窄范围修复：Electron 主窗口拒绝跨来源重定向；二维码结果缺少完整定位元数据时不再按相同文本误去重。版本元数据、README、简要变更日志和完整发布说明已同步。PR #19 已合并至 `main`（`d62116b`），`v0.1.1` 标签与正式 Release 已发布。
 
-本地验证：38 个测试文件 / 285 项测试、ESLint、版本一致性检查、45 条文档链接/截图检查、npm 全量审计、Vite 构建、Electron 桌面烟测、更新助手烟测及 5 项 CLI 烟测通过；Windows x64 NSIS 构建成功。额外本地安装包完整性校验因环境未安装 7-Zip 未能执行；不得将其记作通过，正式 Windows Release 工作流含归档校验和旧版覆盖升级/回滚/卸载烟测。
+验证：38 个测试文件 / 285 项测试、ESLint、版本一致性检查、45 条文档链接/截图检查、npm 全量审计、Vite 构建、Electron 桌面烟测、更新助手烟测及 5 项 CLI 烟测通过；Windows x64 NSIS 构建成功。PR CI 的 Windows Release Candidate lifecycle smoke 和正式 Release 工作流的包完整性检查、`v0.1.0` 覆盖升级、用户配置保留、故意 payload mismatch 回滚、启动和卸载均通过。最终发布资产 SHA256 与 GitHub attestation 经工作流验证。因本地缺少 7-Zip，本机额外 NSIS 包完整性校验未执行，未把它记为通过。
+
+PR：[https://github.com/yuchen0x1/Base64-encode-encoding/pull/19](https://github.com/yuchen0x1/Base64-encode-encoding/pull/19)（已合并）；`main`：`d62116b684eddaa87d9171e24bc692bf6ffc0bb5`；Tag：`v0.1.1` 指向同一提交。Release：[https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.1](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.1)（2026-11-24 12:21:56 UTC）。
+
+- Windows x64 NSIS：[GeekToolbox-Setup-0.1.1.exe](https://github.com/yuchen0x1/Base64-encode-encoding/releases/download/v0.1.1/GeekToolbox-Setup-0.1.1.exe)，111,898,806 bytes，SHA-256 `f2a0730cb22fe265d19787cae44b3347d18bdb10919b84dacbba36726451921c`。
+- CLI：[GeekToolbox-CLI-0.1.1.mjs](https://github.com/yuchen0x1/Base64-encode-encoding/releases/download/v0.1.1/GeekToolbox-CLI-0.1.1.mjs)，SHA-256 `cebf0a5ffbcc7236e79da388fd88822da529c03b8f055e43f3eb0d2f4e60536e`。
+- Windows 安装程序未配置 Authenticode 证书，故为未签名构建；SHA-256、GitHub Release asset digest 和 GitHub attestation 均由正式发布工作流验证，三者不等同于 Authenticode 签名。
 
 历史基线：2026-11-16（Asia/Shanghai），`v0.0.7`。
 本次候选：2026-11-24（Asia/Shanghai），`v0.1.0`。
