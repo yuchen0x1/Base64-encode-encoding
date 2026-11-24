@@ -4,7 +4,7 @@
 
 ## 当前状态补记（2026-11-24）
 
-下方正文是 2026-11-09 的历史审计快照，不代表当前依赖、平台或代码状态。当前远程 `main` 为 v0.1.0，Windows x64 Electron 45.4.1；本地 v0.1.1 候选增加跨来源重定向拦截和二维码多码识别去重修复。v0.1.0 功能/架构基线详见 `UPGRADE_REPORT.md`，当前安全、性能、竞品和路线证据分别见 `SECURITY_AUDIT_REPORT.md`、`PERFORMANCE_REPORT.md`、`COMPETITOR_ANALYSIS.md`、`UPGRADE_ROADMAP.md`。候选补丁的真实 Windows 安装生命周期仍须等待 CI/Release 验证。
+下方正文是 2026-11-09 的历史审计快照，不代表当前依赖、平台或代码状态。当前远程 `main` 已合并 v0.1.1（Windows x64 Electron 45.4.1）；该版增加跨来源重定向拦截和二维码多码识别去重修复。v0.1.0 功能/架构基线及 v0.1.1 交付证据见 `UPGRADE_REPORT.md`，当前安全、性能、竞品和路线证据分别见 `SECURITY_AUDIT_REPORT.md`、`PERFORMANCE_REPORT.md`、`COMPETITOR_ANALYSIS.md`、`UPGRADE_ROADMAP.md`。v0.1.1 的 Windows 安装生命周期由 GitHub PR/Release 工作流实际验证通过。
 
 审计日期：2026-11-09（Asia/Shanghai）  
 项目：`geek-toolbox` / 极客工具箱 v1.2.0  
