@@ -46,7 +46,7 @@
 ## 🧪 验证结果
 
 - 本地回归：Electron `net.request` 分支读取 GitHub API JSON 和 `version.json`，并验证从 v0.1.2 检测 v0.1.3。
-- 本地通过：329 项 Vitest、ESLint、Vite/Electron 桌面烟测、更新助手烟测、CLI 构建与 5 项烟测、打包资源检查；生产依赖 `npm audit` 为 0 项漏洞。
+- 本地通过：330 项 Vitest、ESLint、Vite/Electron 桌面烟测、更新助手烟测、CLI 构建与 5 项烟测、打包资源检查；生产依赖 `npm audit` 为 0 项漏洞。
 - 未验证：v0.1.2 已安装二进制的自动升级 UI 端到端流程；该版本不能自我更新，因此本次需手动覆盖安装。中国大陆真实下载吞吐未测量。
 
 ## ⚠️ 已知问题
