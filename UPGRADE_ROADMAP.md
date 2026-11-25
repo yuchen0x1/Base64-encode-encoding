@@ -4,7 +4,7 @@
 范围：当前 Windows 本地优先版本；不把已删除的平台工程重新纳入产品范围。  
 状态含义：`COMPLETED` 已有代码和验证；`PARTIAL` 有部分代码但验收不完整；`PLANNED` 尚未实施；`BLOCKED` 当前无法验证且有明确外部阻碍。
 
-v0.1.1 正式发布包含 Electron 跨来源重定向拦截和二维码多码结果去重边界修复。发布工作流与 PR CI 已在隔离的 GitHub-hosted Windows runner 上验证真实安装、覆盖升级、配置保留、故障回滚、启动和卸载。v0.1.2 候选已完成大 JSON / 二维码 Worker、存储保护、剪贴板、Blob URL 和搜索一致性改进；本地验证完成，远程 PR 门禁与该候选的安装生命周期待实际运行。
+v0.1.1 正式发布包含 Electron 跨来源重定向拦截和二维码多码结果去重边界修复。发布工作流与 PR CI 已在隔离的 GitHub-hosted Windows runner 上验证真实安装、覆盖升级、配置保留、故障回滚、启动和卸载。v0.1.2 候选已完成大 JSON / 二维码 Worker、长行格式化保护、存储保护、剪贴板、Blob URL、搜索一致性和智能下载线路改进；本地验证完成，远程 PR 门禁与该候选的安装生命周期待实际运行。
 
 每一项都包含：编号、名称与模块、现状和证据、参考项目与实现方式、改进方案和效果、文件范围、难度、优先级、验收标准和当前状态。
 
@@ -56,9 +56,9 @@ v0.1.1 正式发布包含 Electron 跨来源重定向拦截和二维码多码结
 | EV-038 结果 LRU 缓存（性能） | JSON/哈希/SQL 重复计算没有有界缓存 | CyberChef 操作缓存思路 | 输入+选项作为 key，按字节和条目双上限 | 工具 helper、新 `lru.js` | 中 | P2 | 重复计算命中；达到上限自动淘汰 | PLANNED |
 | EV-039 Blob/DataURL 生命周期（稳定性） | 多个导出入口曾在点击瞬间回收 URL | 浏览器工具最佳实践 | 工作区、批处理、JSON 和二维码下载共用延迟回收；图片预览沿用文件大小限制和替换语义 | `objectUrl.js`、`App.vue`、`ToolBatch.vue`、`ToolJson.vue`、`ToolQrcode.vue` | 中 | P1 | 下载 URL 点击后保留 1 秒再释放；对象 URL helper 测试通过 | COMPLETED |
 | EV-040 更新状态机契约（稳定性） | 状态散落在 `useUpdater` 与 Electron 事件中 | 桌面更新器状态机 | 明确定义合法迁移并用表驱动测试 | `useUpdater.js`、`updater.js`、测试 | 中 | P1 | 非法迁移被拒绝；每个状态有 UI 文案和恢复路径 | PLANNED |
-| EV-041 自动化回归矩阵（测试） | browser/Electron smoke 存在，但 CI 未调用全部入口 | DevToys/桌面项目 CI | 新增专项测试并扩充既有覆盖；接入单测、lint、桌面、更新、CLI、依赖审查和 Windows 生命周期 | `.github/workflows`、`tests/` | 中 | 本地 310 项单测和分层烟测通过；PR #21 Quality Gate run 45429273095 的 Windows quality、三系统 CLI、依赖审查全部通过（macOS job 经单项重跑通过）；Windows installer run 45429273392 通过 | COMPLETED |
+| EV-041 自动化回归矩阵（测试） | browser/Electron smoke 存在，但 CI 未调用全部入口 | DevToys/桌面项目 CI | 新增专项测试并扩充既有覆盖；接入单测、lint、桌面、更新、CLI、依赖审查和 Windows 生命周期 | `.github/workflows`、`tests/` | 中 | 本地 328 项单测和分层烟测通过；PR #21 更新前 head 的 Quality Gate run 45439749550 和 Windows installer run 45439749767 通过；本轮提交仍待 CI | COMPLETED |
 | EV-042 性能基准脚本（测试） | 当前只记录构建结果，没有稳定启动/批处理基线 | CyberChef/ut 性能意识 | 记录启动、构建、吞吐、峰值内存，禁止编造对比 | `scripts/perf`、CI artifact | 中 | P2 | 每次基准带环境和原始数据；无数据时标记缺失 | PLANNED |
-| EV-057 超长 JSON 行渲染资源预算（JSON 工具） | 5 MiB 多行 JSON 可处理；5.25 MiB 单行数组的多次 smoke 中，校验后 private memory 约 500 MiB；格式化后从 611.5 MiB 波动到 3,170 MiB，peak working set 最高 3,297.2 MiB；`wrap="off"` 未消除成本 | CodeMirror 等虚拟化编辑器的 viewport 思路；须针对超长单行验证，不能仅凭一般 viewport 假设 | 已加入 JSON-only Windows 压力烟测；需先解释显著波动，再评估长行渲染策略、输入响应、取消和内存预算。逐任务释放 Worker 的实验未形成有效缓解，不据此宣称修复 | `ToolJson.vue`、编辑器实现、Electron smoke | 高 | P1 | 5 MiB 多行与单行样本分别记录 UI 响应、private memory、working set；确定可接受边界并有回归门禁 | PARTIAL |
+| EV-057 超长 JSON 行渲染资源预算（JSON 工具） | 5 MiB 多行 JSON 可处理；5.25 MiB 单行数组美化曾造成 textarea 数 GB 级内存峰值 | CodeMirror 等虚拟化编辑器的 viewport 思路；针对当前 textarea 先建立输出预算和回归烟测 | 美化结果最多 100,000 行，超限在 Worker 内拒绝并保留原输入；压缩仍可用，JSON-only smoke 断言错误提示、输入不变和峰值记录。单行输入校验的约 500 MiB 观测继续作为后续性能跟踪项 | `ToolJson.vue`、`jsonText.js`、JSON Worker、Electron smoke | 高 | 5 MiB 多行与单行样本分别记录 UI 响应、private memory、working set；超长美化不得写入 textarea；有回归门禁 | COMPLETED |
 | EV-043 Windows 安装回滚演练（发布） | 曾待隔离 runner 验证；现已有真实生命周期日志 | PowerToys/Files 安装更新 | 隔离目录安装旧版、覆盖新版、注入 payload/version mismatch 并核验恢复 | `electron/apply-installer.js`、`tests/windows/`、CI | 高 | P1 | v0.1.1 历史 runs 45391803298 / 45393215151 及候选 PR #21 run 45429273392 均通过；候选 run 安装 v0.1.1、升级 v0.1.2，并在故障后恢复 v0.1.1 | COMPLETED |
 | EV-044 lint/安全质量门禁（CI） | 默认镜像安全接口异常、发布健康缺乏资产校验 | Vue lint + 供应链门禁 | lint 归零；官方 npm audit 0 vulnerabilities；maintenance 拆分并加强依赖/发布/文档检查 | `.github/workflows/maintenance.yml`、`scripts/` | 中 | P1 | 本地门禁通过；远程工作流结果以 PR/CI 为准 | PARTIAL |
 
@@ -87,4 +87,4 @@ v0.1.1 正式发布包含 Electron 跨来源重定向拦截和二维码多码结
 4. P2 架构/性能：EV-024/025/026/027/033/036/038/039/042。
 5. P2/P3 发布文档和生态：EV-045–056。
 
-当前统计：56 项，`COMPLETED` 19 项、`PARTIAL` 12 项、`PLANNED` 25 项、`BLOCKED` 0 项。任何尚无运行日志或其他外部证据的项目仍按实际情况标记，不以静态文件存在代替验收。EV-057 的测量门槛已有证据，但资源问题和可接受预算仍未解决。
+当前统计：56 项，`COMPLETED` 20 项、`PARTIAL` 12 项、`PLANNED` 24 项、`BLOCKED` 0 项。任何尚无运行日志或其他外部证据的项目仍按实际情况标记，不以静态文件存在代替验收。EV-057 的灾难性格式化峰值已有输出预算和回归门禁；单行输入校验的内存观测仍需后续多机基准，不作为本轮已验证的性能承诺。

@@ -92,23 +92,35 @@ app.whenReady().then(async () => {
     }
     const afterValidation = await sampleRendererMetrics()
 
-    const formatted = await win.webContents.executeJavaScript(`(async () => {
+    const formatGuard = await win.webContents.executeJavaScript(`(async () => {
       const editor = document.querySelector('.tool-component-wrapper .main-editor');
+      const sourceBeforeFormat = editor.value;
       document.querySelector('.editor-actions button').click();
       const startedAt = Date.now();
       while (Date.now() - startedAt < 30000) {
         await new Promise(resolve => setTimeout(resolve, 50));
-        if (editor.value.startsWith('[\\n  12345678')) return editor.value.length;
+        const alert = document.querySelector('.cyber-status-bar.error [role="alert"]');
+        if (alert?.textContent.includes('100,000')) {
+          return {
+            inputUnchanged: editor.value === sourceBeforeFormat,
+            error: alert.textContent
+          };
+        }
       }
-      throw new Error('Single-line JSON formatting timed out');
+      throw new Error('Line-heavy JSON formatting guard timed out');
     })()`)
     const afterFormat = await sampleRendererMetrics()
+    if (!formatGuard.inputUnchanged || !formatGuard.error.includes('100,000')) {
+      throw new Error(`Line-heavy JSON formatting guard failed: ${JSON.stringify(formatGuard)}`)
+    }
     if (errors.length) throw new Error(JSON.stringify({ errors }))
 
     console.log(`PERF_JSON_ONLY: ${JSON.stringify({
       rendererProcessType: afterFormat?.type || afterValidation?.type || afterOpen?.type || null,
       inputBytes: validation.bytes,
-      formattedBytes: formatted,
+      formattedBytes: null,
+      formatRefused: true,
+      formatGuardError: formatGuard.error,
       privateMemoryAfterOpenMiB: memoryMiB(afterOpen?.memory.privateBytes),
       privateMemoryAfterValidationMiB: memoryMiB(afterValidation?.memory.privateBytes),
       privateMemoryAfterFormatMiB: memoryMiB(afterFormat?.memory.privateBytes),

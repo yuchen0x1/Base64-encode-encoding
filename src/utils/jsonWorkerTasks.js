@@ -1,6 +1,7 @@
 import {
   countJsonKeys,
   formatJson,
+  JSON_FORMAT_MAX_LINES,
   generateTypeScript,
   minifyJson,
   parseJson,
@@ -21,7 +22,9 @@ export function runJsonWorkerTask(type, payload = {}) {
     }
 
     if (type === 'format' || type === 'minify') {
-      const result = type === 'format' ? formatJson(payload.text) : minifyJson(payload.text)
+      const result = type === 'format'
+        ? formatJson(payload.text, { maxLines: JSON_FORMAT_MAX_LINES })
+        : minifyJson(payload.text)
       return result.ok ? result : { ok: false, error: result.error.message || 'JSON 格式无效' }
     }
 

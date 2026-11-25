@@ -6,12 +6,12 @@
 
 旧编号 v1.1.0 / v1.2.0 / v1.2.1 已退役，不重新创建下载入口。v0.0.2 的发布后资产替换单独记载，避免与原始标签混为一谈。
 
-## v0.1.2（2026-11-24，候选）
+## v0.1.2（2026-11-25，候选）
 
 ### 性能与可靠性
 
 - 二维码 WASM 仅在首次扫描时由 Worker 加载；清空、替换图片和组件卸载会取消文件读取与解码，Worker 初始化失败时停止剩余批次；Electron 烟测覆盖 2048 × 2048 图片识别。
-- 大于 1 MiB 的 JSON 校验、美化、压缩、路径查询和结构操作使用 Worker；32 MiB 文本上限、5 MiB 树/路径限制和取消操作保护资源。
+- 大于 1 MiB 的 JSON 校验、美化、压缩、路径查询和结构操作使用 Worker；32 MiB 文本上限、5 MiB 树/路径限制和取消操作保护资源。美化结果限制为最多 100,000 行，超长单行 JSON 会拒绝应用格式化结果并保留原输入，避免 textarea 产生数 GB 级布局峰值。
 - 本地状态新增 schema version 迁移，损坏或未来版本数据会保留且暂停保存。
 
 ### 体验与安全
@@ -19,13 +19,14 @@
 - 统一复制反馈、空内容处理和旧环境降级；所有 Blob 下载使用延迟释放。
 - 生产 CSP 从 `connect-src` 移除 Vite localhost WebSocket 来源。
 - 侧栏搜索和命令面板共享 NFKC、别名和多词匹配规则。
+- Windows 更新下载对公开 GitHub Release 安装包使用官方优先；失败或持续低速后探测 GH-Proxy 与经 Range 核验的备用线路，按实测吞吐和延迟评分选线。重定向主机、无凭据请求、Range 响应、大小和 SHA-256 均有边界校验。
 
 ### 候选验证
 
-- 本地：310 项 Vitest、ESLint、Electron `file://` 烟测（Worker 成功、取消、故障边界及 KeepAlive 释放/重试）、CLI、更新助手、官方 npm audit、文档和版本门禁通过。
-- 本地 Windows x64 NSIS 安装包构建及打包助手烟测通过；归档完整性和真实安装结果以对应 Actions 运行记录为准。
-- Draft PR #21 当前 head 的质量、依赖审查、三系统 CLI 与 Windows installer jobs 全部通过；Windows runner 已实际覆盖安装 v0.1.1→v0.1.2、保留 profile、故障回滚、启动和卸载。见 [Quality Gate run 45427734124](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45427734124) 与 [Windows installer run 45427734119](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45427734119)。
-- 已知 P1 候选风险：独立 JSON-only 烟测中 5.25 MiB 单行数字数组校验/美化后观察到约 504/617 MiB Renderer private memory、692 MiB 峰值 working set。未确认持续泄漏或完整成因；EV-057 尚未闭环，该资源预算问题解决前不发布候选。
+- 本地本轮：328 项 Vitest、ESLint、Vite 构建、Electron `file://` 烟测、CLI、更新助手、官方 npm audit（直连执行）和打包资源检查通过。
+- 本轮 JSON-only 烟测确认 5.25 MiB 单行数字数组的美化被 100,000 行预算拒绝且输入不变；该阶段 peak working set 514.1 MiB，仍保留 5 MiB 单行输入校验 503.5 MiB 的观测，不将其外推为跨机器基准。
+- 独立临时输出目录中的 Windows x64 NSIS 候选包已构建并核对版本、体积和 SHA-256；这是本地候选产物，不是正式 Release 资产。
+- Draft PR #21 更新前 head `fdc64b9` 的 Quality Gate / Windows installer 运行记录通过，但不覆盖本轮新提交；新 head 仍需远程门禁验证。
 
 ## v0.1.1（2026-11-24，已发布）
 

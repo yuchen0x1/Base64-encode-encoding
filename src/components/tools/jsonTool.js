@@ -1,4 +1,9 @@
-import { assertJsonDepth, assertJsonNumbersRoundTrip, formatJsonText } from '../../utils/jsonText.js'
+import {
+  assertJsonDepth,
+  assertJsonNumbersRoundTrip,
+  formatJsonText,
+  JSON_FORMAT_MAX_LINES
+} from '../../utils/jsonText.js'
 
 export const JSON_ADVANCED_MAX_BYTES = 16 * 1024 * 1024
 export const JSON_LARGE_DOCUMENT_BYTES = 5 * 1024 * 1024
@@ -51,8 +56,10 @@ export function countJsonKeys(root) {
   return count
 }
 
-export function formatJson(text) {
-  try { return { ok: true, value: formatJsonText(text) } }
+export { JSON_FORMAT_MAX_LINES }
+
+export function formatJson(text, options) {
+  try { return { ok: true, value: formatJsonText(text, true, options) } }
   catch (error) { return { ok: false, error } }
 }
 

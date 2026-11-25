@@ -30,8 +30,8 @@ describe('JSON worker tasks', () => {
     expect(new TextEncoder().encode(text).byteLength).toBeGreaterThan(5 * 1024 * 1024)
 
     const formatted = runJsonWorkerTask('format', { text })
-    expect(formatted.ok).toBe(true)
-    expect(runJsonWorkerTask('minify', { text: formatted.value })).toEqual({ ok: true, value: text })
+    expect(formatted).toMatchObject({ ok: false, error: expect.stringContaining('100,000') })
+    expect(runJsonWorkerTask('minify', { text })).toEqual({ ok: true, value: text })
   }, 20000)
 
   it('runs structural operations and reports parse errors with a field label', () => {

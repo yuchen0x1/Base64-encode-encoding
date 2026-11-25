@@ -2,6 +2,7 @@
 // serializing JS numbers (which would round 64-bit IDs or turn 1e999 into null).
 const TOKEN = /"(?:[^"\\]|\\.)*"|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null|[{}[\],:]/g
 const OUTPUT_CHUNK_CHARS = 64 * 1024
+export const JSON_FORMAT_MAX_LINES = 100_000
 
 function normalizeJsonSource(text) {
   return String(text).replace(/^\uFEFF/, '')
@@ -13,12 +14,19 @@ function* scanJsonTokens(source) {
   while ((match = pattern.exec(source)) !== null) yield match[0]
 }
 
-function createChunkWriter() {
+function createChunkWriter(maxLines = Number.POSITIVE_INFINITY) {
   const chunks = []
   let parts = []
   let length = 0
+  let lineCount = 1
 
   function write(value) {
+    if (value.includes('\n')) {
+      lineCount += value.split('\n').length - 1
+      if (lineCount > maxLines) {
+        throw new Error(`JSON 美化结果超过 ${maxLines.toLocaleString('en-US')} 行，为保护界面内存未应用；请先压缩数据或使用批量处理`)
+      }
+    }
     parts.push(value)
     length += value.length
     if (length >= OUTPUT_CHUNK_CHARS) {
@@ -43,11 +51,11 @@ export function jsonTokens(text) {
   return [...scanJsonTokens(source)]
 }
 
-export function formatJsonText(text, pretty = true) {
+export function formatJsonText(text, pretty = true, { maxLines = Number.POSITIVE_INFINITY } = {}) {
   const source = normalizeJsonSource(text)
   JSON.parse(source)
   const tokens = scanJsonTokens(source)
-  const writer = createChunkWriter()
+  const writer = createChunkWriter(pretty ? maxLines : Number.POSITIVE_INFINITY)
 
   if (!pretty) {
     for (const token of tokens) writer.write(token)

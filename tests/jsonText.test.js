@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatJsonText, assertJsonNumbersRoundTrip } from '../src/utils/jsonText.js'
+import { formatJsonText, assertJsonNumbersRoundTrip, JSON_FORMAT_MAX_LINES } from '../src/utils/jsonText.js'
 import { formatJson, minifyJson, parseJsonForMutation } from '../src/components/tools/jsonTool.js'
 import { createBatchRecipe, executeBatchRecipe } from '../src/utils/batchProcessing.js'
 
@@ -66,6 +66,14 @@ describe('lossless JSON text operations', () => {
     expect(pretty.length).toBeGreaterThan(source.length)
     expect(formatJsonText(pretty, false)).toBe(source)
     expect(performance.now() - startedAt).toBeLessThan(20_000)
+  }, 30_000)
+
+  it('can stop pretty-printing before a line-heavy result is materialized', () => {
+    const source = `[${'0,'.repeat(JSON_FORMAT_MAX_LINES)}0]`
+    expect(() => formatJsonText(source, true, { maxLines: JSON_FORMAT_MAX_LINES })).toThrow(/超过 100,000 行/)
+    expect(formatJsonText('{"payload":"' + 'x'.repeat(5 * 1024 * 1024) + '"}', true, {
+      maxLines: JSON_FORMAT_MAX_LINES
+    })).toContain('"payload":')
   }, 30_000)
 
   it('blocks duplicate keys, including escaped aliases, before destructive transformations', () => {

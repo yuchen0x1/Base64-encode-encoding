@@ -31,9 +31,23 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const DEFAULT_UPDATE_FEED = `${RELEASES_URL}/latest/download/version.json`
 const MAX_MANIFEST_BYTES = 64 * 1024
+const MAX_UPDATE_REDIRECTS = 10
+export const GH_PROXY_BASE_URL = 'https://gh-proxy.org/'
+export const GH_PROXY_BACKUP_BASE_URL = 'https://ghproxy.net/'
+const ALLOWED_PUBLIC_PROXY_HOSTS = new Set(['gh-proxy.org', 'ghproxy.net'])
 export const MAX_UPDATE_PACKAGE_BYTES = 512 * 1024 * 1024
 export const UPDATE_DOWNLOAD_IDLE_TIMEOUT_MS = 30_000
+export const UPDATE_DOWNLOAD_SLOW_THRESHOLD_BYTES_PER_SECOND = 64 * 1024
+export const UPDATE_DOWNLOAD_SLOW_WINDOW_MS = 3_000
+export const UPDATE_DOWNLOAD_SLOW_MIN_BYTES = 256 * 1024
+export const UPDATE_DOWNLOAD_SLOW_WINDOWS = 2
+export const UPDATE_ROUTE_PROBE_MIN_PACKAGE_BYTES = 1024 * 1024
+export const UPDATE_ROUTE_PROBE_BYTES = 64 * 1024
+export const UPDATE_ROUTE_PROBE_TIMEOUT_MS = 8_000
+const UPDATE_ROUTE_PROBE_LATENCY_WEIGHT_MS = 250
 const UPDATE_DOWNLOAD_CANCELLED = 'ERR_UPDATE_DOWNLOAD_CANCELLED'
+const UPDATE_DOWNLOAD_SLOW = 'ERR_UPDATE_DOWNLOAD_SLOW'
+const UPDATE_DOWNLOAD_RANGE_MISMATCH = 'ERR_UPDATE_DOWNLOAD_RANGE_MISMATCH'
 
 const state = {
   latest: null,
@@ -136,9 +150,221 @@ export function resolveFeed() {
   return path.join(__dirname, '..', 'updates', 'desktop')
 }
 
-async function httpFetch(url, options) {
-  if (net && typeof net.fetch === 'function') return net.fetch(url, options)
-  return fetch(url, options)
+function toFetchHeaders(headers = {}) {
+  const output = new Headers()
+  for (const [name, value] of Object.entries(headers)) {
+    if (Array.isArray(value)) {
+      for (const item of value) output.append(name, item)
+    } else if (value !== undefined && value !== null) {
+      output.set(name, value)
+    }
+  }
+  return output
+}
+
+function toRequestHeaders(headers) {
+  if (!headers) return undefined
+  if (headers instanceof Headers) return Object.fromEntries(headers.entries())
+  return headers
+}
+
+function electronRequestFetch(url, options = {}) {
+  const initialUrl = new URL(url).href
+  const headers = toRequestHeaders(options.headers)
+  const redirectMode = options.redirect || 'follow'
+
+  return new Promise((resolve, reject) => {
+    let currentUrl = initialUrl
+    let redirectCount = 0
+    let redirectError
+    let promiseSettled = false
+    let responseReceived = false
+    let bodyController
+    let bodyFinished = false
+    let response
+    let abortListener
+
+    const cleanupAbortListener = () => {
+      if (abortListener) options.signal?.removeEventListener('abort', abortListener)
+      abortListener = null
+    }
+    const fail = (error) => {
+      if (promiseSettled) return
+      promiseSettled = true
+      cleanupAbortListener()
+      reject(error)
+    }
+    const abortRequest = () => {
+      const error = options.signal?.reason instanceof Error
+        ? options.signal.reason
+        : new Error('更新请求已取消')
+      if (responseReceived && bodyController && !bodyFinished) {
+        bodyFinished = true
+        cleanupAbortListener()
+        try { bodyController.error(error) } catch { /* stream already closed */ }
+      } else {
+        fail(error)
+      }
+      try { request.abort() } catch { /* request may already be closed */ }
+      response?.destroy(error)
+    }
+
+    let request
+    try {
+      request = net.request({
+        url: initialUrl,
+        method: options.method || 'GET',
+        headers,
+        cache: options.cache || 'default',
+        redirect: 'manual',
+        credentials: 'omit',
+        useSessionCookies: false
+      })
+    } catch (error) {
+      fail(error)
+      return
+    }
+
+    request.on('redirect', (_statusCode, _method, redirectUrl) => {
+      if (promiseSettled) return
+      try {
+        if (redirectMode === 'error') {
+          throw new Error('更新请求不允许重定向')
+        }
+        if (redirectCount >= MAX_UPDATE_REDIRECTS) {
+          throw new Error('更新请求重定向次数超过上限')
+        }
+        redirectCount += 1
+        const nextUrl = new URL(redirectUrl, currentUrl).href
+        assertAllowedUpdateRedirect(nextUrl, initialUrl, '更新重定向地址')
+        currentUrl = nextUrl
+        request.followRedirect()
+      } catch (error) {
+        redirectError = error
+        fail(error)
+        try { request.abort() } catch { /* request may already be closed */ }
+      }
+    })
+
+    request.on('response', (incoming) => {
+      if (promiseSettled) {
+        incoming.destroy()
+        return
+      }
+      responseReceived = true
+      promiseSettled = true
+      response = incoming
+      const responseHeaders = toFetchHeaders(incoming.headers)
+      const body = new ReadableStream({
+        start(controller) {
+          bodyController = controller
+          const close = () => {
+            if (bodyFinished) return
+            bodyFinished = true
+            cleanupAbortListener()
+            controller.close()
+          }
+          const error = (reason) => {
+            if (bodyFinished) return
+            bodyFinished = true
+            cleanupAbortListener()
+            controller.error(reason)
+          }
+          incoming.on('data', (chunk) => {
+            if (bodyFinished) return
+            controller.enqueue(new Uint8Array(chunk))
+            if (controller.desiredSize !== null && controller.desiredSize <= 0) incoming.pause()
+          })
+          incoming.once('end', close)
+          incoming.once('aborted', () => error(new Error('更新响应在下载完成前中断')))
+          incoming.once('error', error)
+        },
+        pull() {
+          incoming.resume()
+        },
+        cancel(reason) {
+          if (!bodyFinished) {
+            bodyFinished = true
+            cleanupAbortListener()
+            incoming.destroy(reason instanceof Error ? reason : undefined)
+            try { request.abort() } catch { /* request may already be closed */ }
+          }
+        }
+      })
+      resolve({
+        url: currentUrl,
+        status: incoming.statusCode || 0,
+        ok: (incoming.statusCode || 0) >= 200 && (incoming.statusCode || 0) < 300,
+        headers: responseHeaders,
+        body
+      })
+    })
+
+    request.on('error', (error) => {
+      if (responseReceived) {
+        if (!bodyFinished && bodyController) {
+          bodyFinished = true
+          cleanupAbortListener()
+          try { bodyController.error(redirectError || error) } catch { /* stream already closed */ }
+        }
+        return
+      }
+      fail(redirectError || error)
+    })
+
+    abortListener = abortRequest
+    options.signal?.addEventListener('abort', abortListener, { once: true })
+    if (options.signal?.aborted) {
+      abortRequest()
+      return
+    }
+    try {
+      request.end()
+    } catch (error) {
+      fail(error)
+    }
+  })
+}
+
+async function fetchWithSafeRedirects(url, options = {}) {
+  const initialUrl = new URL(url).href
+  const redirectMode = options.redirect || 'follow'
+  let currentUrl = initialUrl
+  for (let redirectCount = 0; ; redirectCount += 1) {
+    const response = await fetch(currentUrl, {
+      ...options,
+      credentials: 'omit',
+      redirect: 'manual'
+    })
+    if (![301, 302, 303, 307, 308].includes(response.status)) return response
+
+    const location = response.headers?.get?.('location')
+    if (!location) {
+      await response.body?.cancel().catch(() => {})
+      throw new Error('更新重定向缺少 Location')
+    }
+    if (redirectMode === 'error') {
+      await response.body?.cancel().catch(() => {})
+      throw new Error('更新请求不允许重定向')
+    }
+    if (redirectCount >= MAX_UPDATE_REDIRECTS) {
+      await response.body?.cancel().catch(() => {})
+      throw new Error('更新请求重定向次数超过上限')
+    }
+
+    const nextUrl = new URL(location, currentUrl).href
+    assertAllowedUpdateRedirect(nextUrl, initialUrl, '更新重定向地址')
+    await response.body?.cancel().catch(() => {})
+    currentUrl = nextUrl
+  }
+}
+
+async function httpFetch(url, options = {}) {
+  const requestOptions = { ...options, credentials: 'omit' }
+  if (net && typeof net.request === 'function') {
+    return electronRequestFetch(url, requestOptions)
+  }
+  return fetchWithSafeRedirects(url, requestOptions)
 }
 
 function isHttpUrl(value) {
@@ -151,11 +377,136 @@ function isHttpUrl(value) {
   }
 }
 
+const PUBLIC_RELEASE_ASSET_PATH =
+  /^\/yuchen0x1\/Base64-encode-encoding\/releases\/(?:download\/v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)|latest\/download)\/[^/?#]+\.exe$/i
+
+/**
+ * GH-Proxy is only safe to use for the public installer asset whose URL was
+ * already checked against the trusted GitHub release metadata. API, raw,
+ * private, query-bearing, and unrelated GitHub URLs never enter the proxy.
+ */
+export function isPublicGitHubReleaseAssetUrl(value) {
+  if (typeof value !== 'string' || value.trim() !== value) return false
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' &&
+      url.hostname.toLowerCase() === 'github.com' &&
+      !url.username &&
+      !url.password &&
+      !url.port &&
+      !url.search &&
+      !url.hash &&
+      !url.pathname.includes('%') &&
+      PUBLIC_RELEASE_ASSET_PATH.test(url.pathname)
+  } catch {
+    return false
+  }
+}
+
+export function getDownloadRoutes(value) {
+  const routes = [{
+    id: 'official',
+    label: 'GitHub 官方线路',
+    url: value
+  }]
+  if (isPublicGitHubReleaseAssetUrl(value)) {
+    routes.push({
+      id: 'gh-proxy',
+      label: 'GH-Proxy 加速线路',
+      url: `${GH_PROXY_BASE_URL}${value}`
+    })
+    routes.push({
+      id: 'ghproxy-net',
+      label: '备用 GitHub 加速线路',
+      url: `${GH_PROXY_BACKUP_BASE_URL}${value}`
+    })
+  }
+  return routes
+}
+
+export function measureSlowDownloadWindow({
+  bytes,
+  elapsedMs,
+  slowWindows,
+  transferredBytes,
+  expectedSize
+}) {
+  const speed = Math.max(0, bytes) * 1000 / Math.max(1, elapsedMs)
+  if (transferredBytes < UPDATE_DOWNLOAD_SLOW_MIN_BYTES ||
+      (expectedSize > 0 && expectedSize < UPDATE_DOWNLOAD_SLOW_MIN_BYTES)) {
+    return { speed, slowWindows: 0, shouldSwitch: false }
+  }
+  const nextSlowWindows = speed < UPDATE_DOWNLOAD_SLOW_THRESHOLD_BYTES_PER_SECOND
+    ? slowWindows + 1
+    : 0
+  return {
+    speed,
+    slowWindows: nextSlowWindows,
+    shouldSwitch: nextSlowWindows >= UPDATE_DOWNLOAD_SLOW_WINDOWS
+  }
+}
+
+export function scoreDownloadRouteProbe({ bytes, elapsedMs }) {
+  if (!Number.isFinite(bytes) || bytes <= 0 || !Number.isFinite(elapsedMs) || elapsedMs < 0) {
+    return 0
+  }
+  return bytes * 1000 / (elapsedMs + UPDATE_ROUTE_PROBE_LATENCY_WEIGHT_MS)
+}
+
+export function orderDownloadRoutesByProbeScore(routes, scores) {
+  return routes
+    .map((route, index) => ({ route, index, score: scores.get(route.id) }))
+    .sort((left, right) => {
+      const leftMeasured = Number.isFinite(left.score)
+      const rightMeasured = Number.isFinite(right.score)
+      if (leftMeasured !== rightMeasured) return leftMeasured ? -1 : 1
+      if (leftMeasured && left.score !== right.score) return right.score - left.score
+      return left.index - right.index
+    })
+    .map(({ route }) => route)
+}
+
 export function assertSecureUpdateUrl(value, label = '更新地址') {
   if (!isHttpUrl(value)) return true
   const protocol = new URL(value).protocol
   if (protocol === 'http:' && app.isPackaged) {
     throw new Error(`${label}必须使用 HTTPS；仅允许在开发环境显式开启 HTTP 更新源`)
+  }
+  return true
+}
+
+function isGitHubDownloadHost(hostname) {
+  const host = String(hostname || '').toLowerCase()
+  return host === 'github.com' ||
+    host === 'githubusercontent.com' ||
+    host.endsWith('.githubusercontent.com')
+}
+
+/**
+ * Followed update redirects must stay within the expected publisher/service
+ * boundary. GitHub release assets commonly redirect to a githubusercontent.com
+ * CDN; GH-Proxy may redirect to either its own host or the same GitHub CDN.
+ * Custom feeds are restricted to their original host.
+ */
+export function assertAllowedUpdateRedirect(value, expected, label = '更新重定向地址') {
+  if (!isHttpUrl(value) || !isHttpUrl(expected)) {
+    throw new Error(`${label}无效`)
+  }
+  assertSecureUpdateUrl(value, label)
+  const target = new URL(value)
+  const source = new URL(expected)
+  const sourceHost = source.hostname.toLowerCase()
+  const targetHost = target.hostname.toLowerCase()
+  if (target.username || target.password || target.port !== source.port) {
+    throw new Error(`${label}包含不允许的凭据或端口`)
+  }
+  const allowed = ALLOWED_PUBLIC_PROXY_HOSTS.has(sourceHost)
+    ? targetHost === sourceHost || isGitHubDownloadHost(targetHost)
+    : sourceHost === 'github.com' || sourceHost.endsWith('.github.com')
+      ? isGitHubDownloadHost(targetHost)
+      : targetHost === sourceHost
+  if (!allowed) {
+    throw new Error(`${label}不在允许的主机范围内`)
   }
   return true
 }
@@ -170,8 +521,13 @@ async function readManifest(feed, expectedSha256) {
       if (!manifestUrl.pathname.endsWith('/')) manifestUrl.pathname += '/'
       manifestUrl.pathname += 'version.json'
     }
-    const res = await httpFetch(manifestUrl.href, { cache: 'no-store', signal: AbortSignal.timeout(15_000) })
-    if (res.url) assertSecureUpdateUrl(res.url, '更新源重定向地址')
+    const res = await httpFetch(manifestUrl.href, {
+      cache: 'no-store',
+      credentials: 'omit',
+      redirect: 'follow',
+      signal: AbortSignal.timeout(15_000)
+    })
+    if (res.url) assertAllowedUpdateRedirect(res.url, manifestUrl.href, '更新源重定向地址')
     if (!res.ok) throw new Error(`更新源返回 HTTP ${res.status}`)
     const chunks = []
     let size = 0
@@ -272,7 +628,131 @@ function assertDownloadSize(size) {
   }
 }
 
-async function downloadHttpTo(url, dest, expectedSize, onProgress, attempts = 3, signal) {
+function createDownloadSlowError(speed) {
+  const error = new Error(`下载速度持续过低（约 ${Math.max(0, Math.floor(speed))} 字节/秒）`)
+  error.code = UPDATE_DOWNLOAD_SLOW
+  error.speed = speed
+  return error
+}
+
+function parseContentRange(value) {
+  const match = /^bytes\s+(\d+)-(\d+)\/(\d+|\*)$/i.exec(String(value || '').trim())
+  if (!match) return null
+  const start = Number(match[1])
+  const end = Number(match[2])
+  const total = match[3] === '*' ? 0 : Number(match[3])
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || end < start ||
+      (total && (!Number.isSafeInteger(total) || end >= total))) return null
+  return { start, end, total }
+}
+
+function createRangeMismatchError(contentRange, expectedStart, expectedTotal) {
+  const error = new Error(`下载续传响应范围无效（期望 bytes=${expectedStart}-，实际 ${contentRange || '缺失 Content-Range'}）`)
+  error.code = UPDATE_DOWNLOAD_RANGE_MISMATCH
+  error.expectedStart = expectedStart
+  error.expectedTotal = expectedTotal
+  return error
+}
+
+async function probeDownloadRoute(route, expectedSize, signal) {
+  const sampleBytes = Math.min(UPDATE_ROUTE_PROBE_BYTES, expectedSize)
+  const controller = new AbortController()
+  let timeoutId
+  let abortFromCaller
+  let reader
+  const startedAt = performance.now()
+
+  try {
+    abortFromCaller = () => controller.abort(signal?.reason)
+    signal?.addEventListener('abort', abortFromCaller, { once: true })
+    if (signal?.aborted) abortFromCaller()
+    timeoutId = setTimeout(() => controller.abort(new Error('代理线路探测超时')), UPDATE_ROUTE_PROBE_TIMEOUT_MS)
+
+    const response = await httpFetch(route.url, {
+      cache: 'no-store',
+      credentials: 'omit',
+      redirect: 'follow',
+      headers: { Range: `bytes=0-${sampleBytes - 1}` },
+      signal: controller.signal
+    })
+    if (response?.url) assertAllowedUpdateRedirect(response.url, route.url, '代理探测重定向地址')
+    const range = parseContentRange(response.headers?.get?.('content-range'))
+    if (!response.ok || response.status !== 206 || !response.body ||
+        !range || range.start !== 0 || range.end !== sampleBytes - 1 ||
+        range.total !== expectedSize) {
+      await response.body?.cancel().catch(() => {})
+      throw new Error(`${route.label}未返回匹配的 Range 探测响应`)
+    }
+
+    const contentLengthHeader = response.headers?.get?.('content-length')
+    const contentLength = contentLengthHeader === null ? null : Number(contentLengthHeader)
+    if (contentLength !== null && contentLength !== sampleBytes) {
+      await response.body.cancel().catch(() => {})
+      throw new Error(`${route.label}探测响应大小不匹配`)
+    }
+
+    reader = response.body.getReader()
+    let received = 0
+    for (;;) {
+      assertDownloadNotCancelled(signal)
+      const { done, value } = await reader.read()
+      if (done) break
+      if (!(value instanceof Uint8Array)) throw new Error(`${route.label}探测内容无效`)
+      received += value.byteLength
+      if (received > sampleBytes) throw new Error(`${route.label}探测响应超过请求范围`)
+    }
+    if (received !== sampleBytes) throw new Error(`${route.label}探测响应不完整`)
+    const elapsedMs = performance.now() - startedAt
+    return {
+      route,
+      bytes: received,
+      elapsedMs,
+      score: scoreDownloadRouteProbe({ bytes: received, elapsedMs })
+    }
+  } catch (error) {
+    if (signal?.aborted) throw createDownloadCancelledError()
+    if (controller.signal.aborted) throw new Error(`${route.label}线路探测超时`, { cause: error })
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
+    if (signal && abortFromCaller) signal.removeEventListener('abort', abortFromCaller)
+    if (reader) {
+      await reader.cancel().catch(() => {})
+      reader.releaseLock()
+    }
+  }
+}
+
+async function probeAndRankProxyRoutes(routes, expectedSize, signal, onRoute) {
+  const proxies = routes.filter(route => route.id !== 'official')
+  if (!Number.isSafeInteger(expectedSize) ||
+      proxies.length === 0 ||
+      expectedSize < UPDATE_ROUTE_PROBE_MIN_PACKAGE_BYTES) return proxies
+
+  onRoute?.({ id: 'probe', label: '代理线路' })
+  const results = await Promise.all(proxies.map(async route => {
+    try {
+      return await probeDownloadRoute(route, expectedSize, signal)
+    } catch (error) {
+      if (signal?.aborted) throw error
+      return { route, score: null }
+    }
+  }))
+  const scores = new Map(results
+    .filter(result => Number.isFinite(result.score) && result.score > 0)
+    .map(result => [result.route.id, result.score]))
+  return orderDownloadRoutesByProbeScore(proxies, scores)
+}
+
+async function downloadHttpTo(
+  url,
+  dest,
+  expectedSize,
+  onProgress,
+  attempts = 3,
+  signal,
+  { allowResume = true } = {}
+) {
   const declaredSize = Number(expectedSize)
   assertDownloadSize(declaredSize)
   let lastError
@@ -289,7 +769,8 @@ async function downloadHttpTo(url, dest, expectedSize, onProgress, attempts = 3,
     }
     try {
       const existing = await fs.stat(dest).catch(() => null)
-      if (existing?.isFile() && existing.size > 0 && (!declaredSize || existing.size < declaredSize)) {
+      const canResume = allowResume || attempt > 1
+      if (canResume && existing?.isFile() && existing.size > 0 && (!declaredSize || existing.size < declaredSize)) {
         start = existing.size
       }
       assertDownloadSize(start)
@@ -298,22 +779,39 @@ async function downloadHttpTo(url, dest, expectedSize, onProgress, attempts = 3,
       externalAbort = () => requestController.abort()
       signal?.addEventListener('abort', externalAbort, { once: true })
       armTimeout()
-      const res = await httpFetch(url, { cache: 'no-store', headers, signal: requestController.signal })
-      if (res?.url) assertSecureUpdateUrl(res.url, '更新包重定向地址')
+      const res = await httpFetch(url, {
+        cache: 'no-store',
+        credentials: 'omit',
+        redirect: 'follow',
+        headers,
+        signal: requestController.signal
+      })
+      if (res?.url) assertAllowedUpdateRedirect(res.url, url, '更新包重定向地址')
       if (!res?.ok) throw new Error(`下载更新包失败：HTTP ${res?.status ?? '未知状态'}`)
       if (!res.body || typeof res.body.getReader !== 'function') {
         throw new Error('下载更新包失败：HTTP 响应缺少内容流')
       }
 
+      const contentRange = res.headers?.get?.('content-range') || ''
+      const parsedRange = parseContentRange(contentRange)
       const resumed = start > 0 && res.status === 206
+      if (start > 0 && resumed && (!parsedRange || parsedRange.start !== start ||
+          parsedRange.total <= 0 || (declaredSize > 0 && parsedRange.total !== declaredSize))) {
+        await res.body.cancel().catch(() => {})
+        await fs.truncate(dest, 0)
+        throw createRangeMismatchError(contentRange, start, declaredSize)
+      }
+      if (start === 0 && res.status === 206) {
+        await res.body.cancel().catch(() => {})
+        throw createRangeMismatchError(contentRange, 0, declaredSize)
+      }
       if (start > 0 && !resumed) {
         start = 0
         await fs.truncate(dest, 0)
       }
 
       const contentLength = Number(res.headers?.get?.('content-length'))
-      const contentRange = res.headers?.get?.('content-range') || ''
-      const rangeTotal = Number(contentRange.match(/\/([0-9]+)$/)?.[1] || 0)
+      const rangeTotal = parsedRange?.total || 0
       assertDownloadSize(contentLength)
       assertDownloadSize(rangeTotal)
       const total = rangeTotal || (Number.isFinite(declaredSize) && declaredSize > 0
@@ -326,6 +824,9 @@ async function downloadHttpTo(url, dest, expectedSize, onProgress, attempts = 3,
       const reader = res.body.getReader()
       let received = start
       let lastReport = 0
+      let speedWindowStartedAt = Date.now()
+      let speedWindowBytes = 0
+      let slowWindows = 0
       try {
         for (;;) {
           assertDownloadNotCancelled(signal)
@@ -336,10 +837,37 @@ async function downloadHttpTo(url, dest, expectedSize, onProgress, attempts = 3,
           await writeAll(handle, value, received)
           received += value.byteLength
           assertDownloadSize(received)
+          speedWindowBytes += value.byteLength
           const now = Date.now()
           if (now - lastReport > 120) {
             lastReport = now
-            onProgress(total ? received / total : 0)
+            onProgress(
+              total ? received / total : 0,
+              speedWindowBytes * 1000 / Math.max(1, now - speedWindowStartedAt)
+            )
+          }
+          const windowElapsed = now - speedWindowStartedAt
+          const measuredBytes = received - start
+          if (windowElapsed >= UPDATE_DOWNLOAD_SLOW_WINDOW_MS &&
+              measuredBytes >= UPDATE_DOWNLOAD_SLOW_MIN_BYTES &&
+              (declaredSize <= 0 || declaredSize >= UPDATE_DOWNLOAD_SLOW_MIN_BYTES)) {
+            const window = measureSlowDownloadWindow({
+              bytes: speedWindowBytes,
+              elapsedMs: windowElapsed,
+              slowWindows,
+              transferredBytes: measuredBytes,
+              expectedSize: declaredSize
+            })
+            slowWindows = window.slowWindows
+            speedWindowStartedAt = now
+            speedWindowBytes = 0
+            const reachedExpectedEnd =
+              (declaredSize > 0 && received >= declaredSize) ||
+              (total > 0 && received >= total)
+            if (window.shouldSwitch && !reachedExpectedEnd) {
+              await reader.cancel().catch(() => {})
+              throw createDownloadSlowError(window.speed)
+            }
           }
         }
       } finally {
@@ -348,6 +876,9 @@ async function downloadHttpTo(url, dest, expectedSize, onProgress, attempts = 3,
       }
 
       if (received === 0) throw new Error('下载更新包失败：响应内容为空')
+      if (resumed && received - start !== parsedRange.end - parsedRange.start + 1) {
+        throw createRangeMismatchError(contentRange, start, declaredSize)
+      }
       if (declaredSize > 0 && received !== declaredSize) {
         throw new Error(`下载更新包大小不匹配（期望 ${declaredSize} 字节，实际 ${received} 字节）`)
       }
@@ -355,6 +886,10 @@ async function downloadHttpTo(url, dest, expectedSize, onProgress, attempts = 3,
       return received
     } catch (error) {
       if (signal?.aborted) throw createDownloadCancelledError()
+      if (error?.code === UPDATE_DOWNLOAD_SLOW) throw error
+      if (error?.code === UPDATE_DOWNLOAD_RANGE_MISMATCH) {
+        await fs.truncate(dest, 0).catch(() => {})
+      }
       if (requestController.signal.aborted) {
         lastError = new Error(`下载更新包超时（${UPDATE_DOWNLOAD_IDLE_TIMEOUT_MS} 毫秒无响应）`)
       } else {
@@ -372,11 +907,51 @@ async function downloadHttpTo(url, dest, expectedSize, onProgress, attempts = 3,
   throw new Error(`下载更新包失败（已重试 ${attempts} 次）：${lastError?.message || '未知错误'}`, { cause: lastError })
 }
 
-async function downloadTo(url, dest, expectedSize, onProgress, signal) {
+async function downloadRoutedTo(routes, dest, expectedSize, onProgress, signal, onRoute) {
+  const declaredSize = Number(expectedSize)
+  const orderedRoutes = routes.length ? [routes[0]] : []
+  let proxiesRanked = false
+  let lastError
+  for (let index = 0; index < orderedRoutes.length; index += 1) {
+    const route = orderedRoutes[index]
+    assertDownloadNotCancelled(signal)
+    if (index > 0) {
+      // Never resume bytes received from a different download service.
+      await fs.rm(dest, { force: true })
+    }
+    onRoute?.(route)
+    try {
+      return await downloadHttpTo(
+        route.url,
+        dest,
+        expectedSize,
+        onProgress,
+        3,
+        signal,
+        { allowResume: index === 0 }
+      )
+    } catch (error) {
+      if (signal?.aborted) throw createDownloadCancelledError()
+      lastError = error
+      if (index === 0 && !proxiesRanked && routes.length > 1) {
+        proxiesRanked = true
+        orderedRoutes.push(...await probeAndRankProxyRoutes(routes, declaredSize, signal, onRoute))
+      }
+      if (index + 1 < orderedRoutes.length) {
+        await new Promise((resolve) => setTimeout(resolve, 300))
+      }
+    }
+  }
+  throw lastError || new Error('下载更新包失败：没有可用的下载线路')
+}
+
+async function downloadTo(url, dest, expectedSize, onProgress, signal, options = {}) {
   await fs.mkdir(path.dirname(dest), { recursive: true })
   const declaredSize = Number(expectedSize)
   assertDownloadSize(declaredSize)
-  if (isHttpUrl(url)) return downloadHttpTo(url, dest, expectedSize, onProgress, 3, signal)
+  if (isHttpUrl(url)) {
+    return downloadRoutedTo(getDownloadRoutes(url), dest, expectedSize, onProgress, signal, options.onRoute)
+  }
 
   const handle = await fs.open(dest, 'w')
   try {
@@ -585,11 +1160,14 @@ export async function downloadUpdate() {
   state.downloading = true
   state.downloadController = new AbortController()
   let dest = ''
+  let partialDest = ''
   try {
     const baseDir = path.join(app.getPath('userData'), 'updates')
     dest = path.join(baseDir, installerFileName(pkg, state.latest.version))
+    partialDest = `${dest}.download`
     await fs.mkdir(baseDir, { recursive: true })
     await fs.rm(dest, { force: true })
+    await fs.rm(partialDest, { force: true })
     state.installerFile = ''
     if (Number.isSafeInteger(pkg.size) && pkg.size > 0) {
       const { bavail, bsize } = await fs.statfs(baseDir)
@@ -598,20 +1176,42 @@ export async function downloadUpdate() {
 
     sendProgress(1, '正在下载安装包…')
     const started = Date.now()
-    const received = await downloadTo(pkg.url, dest, pkg.size, (ratio) => {
-      const bytesPerSecond = Math.floor((pkg.size || 0) * ratio * 1000 / Math.max(1000, Date.now() - started))
-      sendProgress(2 + ratio * 86, `正在下载安装包… ${Math.round(ratio * 100)}%`, bytesPerSecond)
-    }, state.downloadController.signal)
+    let activeRoute = pkg.kind === 'http'
+      ? getDownloadRoutes(pkg.url)[0]
+      : { label: '本地更新源' }
+    const received = await downloadTo(pkg.url, partialDest, pkg.size, (ratio, measuredSpeed) => {
+      const bytesPerSecond = measuredSpeed > 0
+        ? Math.floor(measuredSpeed)
+        : Math.floor((pkg.size || 0) * ratio * 1000 / Math.max(1000, Date.now() - started))
+      sendProgress(
+        2 + ratio * 86,
+        `正在通过${activeRoute.label}下载安装包… ${Math.round(ratio * 100)}%`,
+        bytesPerSecond
+      )
+    }, state.downloadController.signal, {
+      onRoute: (route) => {
+        activeRoute = route
+        const message = route.id === 'probe'
+          ? '官方线路不稳定，正在探测备用线路速度…'
+          : route.id === 'official'
+          ? `正在通过${route.label}下载安装包…`
+          : route.id === 'gh-proxy'
+            ? `官方线路不稳定，正在切换至${route.label}…`
+            : `GH-Proxy 不可用，正在尝试${route.label}…`
+        sendProgress(2, message)
+      }
+    })
 
     sendProgress(90, '正在校验安装包…')
-    const actual = await hashFile(dest)
+    const actual = await hashFile(partialDest)
     if (actual.toLowerCase() !== pkg.sha256.toLowerCase()) {
       throw new Error(`安装包校验失败（期望 ${pkg.sha256.slice(0, 12)}…，实际 ${actual.slice(0, 12)}…）`)
     }
 
-    state.signature = await verifyAuthenticodeSignature(dest, pkg.signature)
+    state.signature = await verifyAuthenticodeSignature(partialDest, pkg.signature)
     assertDownloadNotCancelled(state.downloadController.signal)
 
+    await fs.rename(partialDest, dest)
     state.installerFile = dest
     sendProgress(96, state.signature.signed ? 'SHA-256 与数字签名校验通过' : 'SHA-256 校验通过（清单未提供数字签名）')
     return { ok: true, size: received, installer: dest, signature: state.signature }
@@ -622,6 +1222,7 @@ export async function downloadUpdate() {
         console.warn('[updater] 清理未完成的安装包失败:', cleanupError.message)
       })
     }
+    if (partialDest) await fs.rm(partialDest, { force: true }).catch(() => {})
     throw error
   } finally {
     state.downloading = false
