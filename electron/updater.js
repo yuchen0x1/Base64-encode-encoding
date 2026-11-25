@@ -296,7 +296,12 @@ function electronRequestFetch(url, options = {}) {
         status: incoming.statusCode || 0,
         ok: (incoming.statusCode || 0) >= 200 && (incoming.statusCode || 0) < 300,
         headers: responseHeaders,
-        body
+        body,
+        async json() {
+          const chunks = []
+          for await (const chunk of body) chunks.push(Buffer.from(chunk))
+          return JSON.parse(new TextDecoder().decode(Buffer.concat(chunks)))
+        }
       })
     })
 

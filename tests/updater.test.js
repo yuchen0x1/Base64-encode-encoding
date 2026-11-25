@@ -232,6 +232,66 @@ describe('Electron updater package enforcement', () => {
     })
   })
 
+  windowsIt('parses GitHub API JSON through Electron net.request for packaged update checks', async () => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'toolbox-electron-net-update-'))
+    const oldPackaged = electronMock.app.isPackaged
+    const version = '0.1.3'
+    const installerUrl = `${RELEASES_URL}/download/v${version}/GeekToolbox-Setup-${version}.exe`
+    const installerSha256 = 'c'.repeat(64)
+    const manifestBytes = Buffer.from(JSON.stringify({
+      version,
+      kind: 'nsis',
+      package: { kind: 'http', url: installerUrl, sha256: installerSha256, size: 123 }
+    }))
+    const manifestUrl = `${RELEASES_URL}/download/v${version}/version.json`
+    const manifestSha256 = crypto.createHash('sha256').update(manifestBytes).digest('hex')
+    const responses = new Map([
+      [LATEST_RELEASE_API, JSON.stringify({
+        tag_name: `v${version}`,
+        draft: false,
+        prerelease: false,
+        assets: [
+          { name: 'version.json', browser_download_url: manifestUrl, digest: `sha256:${manifestSha256}`, size: manifestBytes.length },
+          { name: `GeekToolbox-Setup-${version}.exe`, browser_download_url: installerUrl, digest: `sha256:${installerSha256}`, size: 123 }
+        ]
+      })],
+      [manifestUrl, manifestBytes.toString('utf8')]
+    ])
+    const requests = vi.fn(({ url }) => {
+      const request = new EventEmitter()
+      request.followRedirect = vi.fn()
+      request.abort = vi.fn()
+      request.end = () => {
+        const body = responses.get(url)
+        if (!body) throw new Error(`unexpected Electron net.request URL: ${url}`)
+        const incoming = Readable.from([Buffer.from(body)])
+        incoming.statusCode = 200
+        incoming.headers = { 'content-type': 'application/json' }
+        queueMicrotask(() => request.emit('response', incoming))
+      }
+      return request
+    })
+    electronMock.app.isPackaged = true
+    electronMock.app.getVersion.mockReturnValue('0.1.2')
+    electronMock.app.getPath.mockImplementation((name) => path.join(root, name === 'userData' ? '' : 'GeekToolbox.exe'))
+    electronMock.net.request = requests
+
+    try {
+      await expect(checkForUpdates()).resolves.toMatchObject({
+        supported: true,
+        hasUpdate: true,
+        currentVersion: '0.1.2',
+        latest: { version, size: 123 }
+      })
+      expect(requests.mock.calls.map(([options]) => options.url)).toEqual([LATEST_RELEASE_API, manifestUrl])
+    } finally {
+      delete electronMock.net.request
+      electronMock.app.isPackaged = oldPackaged
+      electronMock.app.getVersion.mockReturnValue('1.0.0')
+      await fs.promises.rm(root, { recursive: true, force: true })
+    }
+  })
+
   windowsIt.each([true, false])('checks the packaged manifest against the release API (authentic: %s)', async authentic => {
     const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'toolbox-official-feed-'))
     const oldPackaged = electronMock.app.isPackaged

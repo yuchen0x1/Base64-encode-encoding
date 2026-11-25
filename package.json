@@ -1,7 +1,7 @@
 {
   "name": "geek-toolbox",
   "productName": "极客工具箱",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "极客工具箱 - Windows 本地开发者工具箱",
   "main": "electron/main.js",
   "type": "module",
