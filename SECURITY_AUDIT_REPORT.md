@@ -1,7 +1,7 @@
 # 安全审计报告
 
 审计日期：2026-11-25（Asia/Shanghai）
-版本：`v0.1.2` 候选（未发布；继承 v0.1.1 / v0.1.0 安全基线）
+版本：`v0.1.2`（2026-11-25 正式发布；继承 v0.1.1 / v0.1.0 安全基线）
 范围：Electron 主进程 / preload / 更新器、Worker 生命周期、localStorage 迁移保护、渲染界面 CSP、命令与工具依赖、发布健康工作流。
 边界：本报告记录代码与自动化证据；不等同于第三方渗透测试、模糊测试或完整应用内自动更新端到端测试。Windows 安装生命周期和发布资产验证结果见下方 Actions 记录。
 
@@ -43,5 +43,7 @@
 - Windows x64 NSIS：独立临时输出目录完成候选包构建，111,918,875 bytes，ProductVersion `0.1.2`，SHA-256 `9C3874F0A116F020EC27D6F78C28F89A6391543273D39732BD0B028D8EE62D28`；本地候选产物，非正式 Release 资产。
 - `npm run test:updater`：使用最终构建的 unpacked app EXE，真实助手运行时、EXE-only 失败保护和独立 Node runtime 探针通过。
 - 代理线路探测：本地模拟测试验证 Range 响应边界、速度评分和动态选择；无中国大陆真实网络测速证据。
-- 既有 [Release run 45391803298](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45391803298) 与 [PR run 45393215151](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45393215151) 已实际验证 v0.1.0→v0.1.1 覆盖升级、配置保留、故障恢复、启动和卸载；这属于 v0.1.1 生命周期证据，不替代本候选自己的 PR / Release run。
-- 候选 PR #21 仍为 Draft；既有 [Quality Gate run 45439749550](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45439749550) 与 [Windows installer run 45439749767](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45439749767) 只覆盖更新前 PR head，不能替代本轮代码推送后的远程门禁。尚无正式 Release、Tag 或发布资产证明。
+- 既有 [Release run 45391803298](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45391803298) 与 [PR run 45393215151](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45393215151) 已实际验证 v0.1.0→v0.1.1 覆盖升级、配置保留、故障恢复、启动和卸载；该项是 v0.1.1 生命周期历史证据，v0.1.2 的独立门禁见下方。
+- PR #21 已合并；最终 PR 门禁 [Quality Gate run 45553413008](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45553413008) 与 [Windows installer run 45553413306](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45553413306) 均通过。正式 [Release run 45554455532](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45554455532) 的 Windows 安装、更新助手、资产下载和 cryptographic attestation 校验均通过。Tag 与 `main` 指向 `7baa33643b7c93def298d1dbb1218b3c06535f65`；官方安装包 `GeekToolbox-Setup-0.1.2.exe` 的 SHA-256 为 `4769ec3e27c4e0a39df68f646fa6579f6dd64f8fb895e89f2271c8063a28c9f9`，官方清单和 manifest 相符。此前本地候选包摘要不是正式资产摘要。
+- v0.1.1 到 v0.1.2 的旧客户端提示有 mock GitHub Releases API 测试，且发布后的 `latest` endpoint 已返回 v0.1.2；本次生命周期 job 验证 NSIS 覆盖安装，不是旧客户端真实联网启动并显示更新 UI 的端到端测试，该行为仍未实际观测。
+- 当前 GitHub Issues 与 Dependabot alerts 均无开放项；仓库 Security Advisories 状态不能由当前 API 查询确认。
