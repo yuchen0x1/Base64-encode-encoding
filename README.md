@@ -14,9 +14,9 @@
 
 <!-- github-release:start -->
 
-**[v0.1.2 候选](https://github.com/yuchen0x1/Base64-encode-encoding/tree/codex/upgrade-v0.1.2)** · 2026-11-24 · 尚未发布
+**[v0.1.2 已发布](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.2)** · 2026-11-25 · Windows x64 / CLI
 
-本版将二维码识别和大 JSON 处理移入按需 Worker，保护界面响应；增加任务取消、存储迁移保护和统一搜索/复制体验。
+本版将二维码识别和大 JSON 处理移入按需 Worker，保护界面响应；增加任务取消、存储迁移保护、统一搜索/复制体验和 Windows 更新下载智能选线。
 
 [全部发行记录](https://github.com/yuchen0x1/Base64-encode-encoding/releases)
 

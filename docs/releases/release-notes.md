@@ -6,7 +6,7 @@
 
 旧编号 v1.1.0 / v1.2.0 / v1.2.1 已退役，不重新创建下载入口。v0.0.2 的发布后资产替换单独记载，避免与原始标签混为一谈。
 
-## v0.1.2（2026-11-25，候选）
+## v0.1.2（2026-11-25，已发布）
 
 ### 性能与可靠性
 
@@ -21,12 +21,14 @@
 - 侧栏搜索和命令面板共享 NFKC、别名和多词匹配规则。
 - Windows 更新下载对公开 GitHub Release 安装包使用官方优先；失败或持续低速后探测 GH-Proxy 与经 Range 核验的备用线路，按实测吞吐和延迟评分选线。重定向主机、无凭据请求、Range 响应、大小和 SHA-256 均有边界校验。
 
-### 候选验证
+### 发布验证
 
 - 本地本轮：328 项 Vitest、ESLint、Vite 构建、Electron `file://` 烟测、CLI、更新助手、官方 npm audit（直连执行）和打包资源检查通过。
 - 本轮 JSON-only 烟测确认 5.25 MiB 单行数字数组的美化被 100,000 行预算拒绝且输入不变；该阶段 peak working set 514.1 MiB，仍保留 5 MiB 单行输入校验 503.5 MiB 的观测，不将其外推为跨机器基准。
 - 独立临时输出目录中的 Windows x64 NSIS 候选包已构建并核对版本、体积和 SHA-256；这是本地候选产物，不是正式 Release 资产。
-- Draft PR #21 更新前 head `fdc64b9` 的 Quality Gate / Windows installer 运行记录通过，但不覆盖本轮新提交；新 head 仍需远程门禁验证。
+- PR #21 已合并，最终 Quality Gate run 45553413008 和 Windows installer run 45553413306 通过；正式 [Release workflow run 45554455532](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45554455532) 的 CLI、Windows 构建、NSIS 覆盖安装、资产上传/下载校验与 cryptographic attestation 均通过。
+- GitHub Release 于 2026-11-25 05:39:52 UTC 发布，Tag `v0.1.2` 与 `main` 指向 `7baa33643b7c93def298d1dbb1218b3c06535f65`。官方 Windows 安装包为 111,921,518 bytes，SHA-256 `4769ec3e27c4e0a39df68f646fa6579f6dd64f8fb895e89f2271c8063a28c9f9`；官方 `version.json`、`SHA256SUMS.txt`、GitHub asset digest 和 cryptographic attestation 已相互核验。官方 CLI 摘要为 `a9589e848c69bffd2886c9b907dd0e743ee53678df74763737695130f57bd0bf`。
+- v0.1.1 更新提示由 mock GitHub API 测试验证，发布后的 `latest` API 返回 v0.1.2；CI 覆盖安装验证不等同于旧版真实联网提示 UI 端到端测试。中国大陆真实下载吞吐未测量。
 
 ## v0.1.1（2026-11-24，已发布）
 

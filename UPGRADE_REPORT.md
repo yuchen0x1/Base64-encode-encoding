@@ -1,13 +1,13 @@
 # 极客工具箱升级交付报告
 
-## v0.1.2 候选报告（更新于 2026-11-25）
+## v0.1.2 正式发布报告（更新于 2026-11-25）
 
 ### A. 基线与项目盘点
 
 - 起始 `main` / `origin/main`：`9dbf979dfbc4fc7105e4f6e438ce56e5bfa0c9d3`；起始正式版 `v0.1.1`，Tag 指向 `d62116b684eddaa87d9171e24bc692bf6ffc0bb5`。
-- 候选分支：`codex/upgrade-v0.1.2`；Draft PR #21。既有 CI 基准 head 为 `1840a85fac8d86148ba48676b073922f10e73587`，本轮继续修改候选代码并补充本地证据；应用与锁文件版本统一到 `0.1.2`，正式合并、Tag 和 Release 仍待远程门禁。
+- PR #21 已于 2026-11-25 合并；`main` 与 `v0.1.2` Tag 均指向 `7baa33643b7c93def298d1dbb1218b3c06535f65`。正式 Release 于 2026-11-25 05:39:52 UTC 发布，Release workflow run 45554455532 成功。
 - 全部 21 款工具已与组件注册表和现有测试核对；本版不增加重复工具，改进现有二维码、JSON、工作区、搜索和复制流程。
-- 远端 `main` 最新 Release 仍是 `v0.1.1`；无 `v0.1.2` Tag / Release 冲突。
+- GitHub `latest` 稳定 Release API 当前返回 `v0.1.2`；该版本非 Draft、非 prerelease。
 
 ### B. 修复与实际效果
 
@@ -17,7 +17,7 @@
 - 资源与剪贴板：统一延迟回收导出 Blob URL；复制统一处理空内容、权限异常和旧环境降级。
 - CSP 与搜索：构建产物移除 Vite localhost WebSocket 来源；侧栏与命令面板共用 NFKC、英文别名与多词匹配。
 - 更新器：公开 GitHub Release 安装包官方优先；官方失败或持续低速时并发探测 GH-Proxy 与 Range 已核验的备用线路，按探测吞吐和延迟评分排序后下载。请求省略凭据，重定向主机、Range、包体大小和 SHA-256 均经过校验，跨线路不复用临时分片。
-- 文档：路线图 EV-010/018/028/039/057 已完成；候选 PR #21 的旧 Windows Actions 已验证 EV-043/052 生命周期，历史证据仍保留独立日期和范围。
+- 文档：路线图 EV-010/018/028/039/057 已完成；PR #21 与正式 Release run 已验证 EV-043/052 的 Windows 生命周期门禁，旧版在线更新提示的实际 UI 端到端验证仍未完成。
 
 ### C. 竞品与许可证
 
@@ -35,7 +35,9 @@
 | `npm audit`（官方 registry，含开发依赖） | 0 vulnerabilities |
 | 打包资源、文档链接与版本门禁 | 通过；47 个本地链接/图片 |
 | Windows x64 NSIS 安装包 | 独立临时输出目录完成最终 0.1.2 安装包构建，111,918,875 bytes，ProductVersion `0.1.2`，SHA-256 `9C3874F0A116F020EC27D6F78C28F89A6391543273D39732BD0B028D8EE62D28`；本地候选产物，非正式 Release 资产 |
-| Windows installer / PR CI | 更新前 PR head `fdc64b9` 的 Quality Gate run 45439749550 与 Windows installer run 45439749767 通过；本轮改动需推送后重新运行 |
+| 官方 Release Windows x64 NSIS | `GeekToolbox-Setup-0.1.2.exe`，111,921,518 bytes；SHA-256 `4769ec3e27c4e0a39df68f646fa6579f6dd64f8fb895e89f2271c8063a28c9f9`；GitHub asset digest、`version.json` 与 `SHA256SUMS.txt` 一致，Release attestation 验证通过 |
+| Windows installer / PR CI | PR #21 Quality Gate run 45553413008、Windows installer run 45553413306 通过；正式 Release run 45554455532 全部 job 通过，包括 Windows NSIS、更新助手、更新清单、上一正式版覆盖安装、资产下载和 cryptographic attestation 校验 |
+| 官方 CLI 资产 | `GeekToolbox-CLI-0.1.2.mjs`；SHA-256 `a9589e848c69bffd2886c9b907dd0e743ee53678df74763737695130f57bd0bf`；Release attestation 验证通过 |
 
 ### E. 性能实测
 
@@ -66,12 +68,13 @@
 
 - 本地安全测试覆盖损坏/未来版本状态保护、生产 CSP、Worker 故障与取消、Blob 下载 URL 和既有 IPC 信任边界。
 - npm 官方 registry 全依赖审计无已知漏洞；不等同于第三方渗透或模糊测试。
-- 候选 PR #21 仍为 Draft。更新前 head `fdc64b9` 的 [Quality Gate run 45439749550](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45439749550) 中 Windows quality、三系统 CLI 和 dependency review 全部通过；Windows runner 完成 NSIS 构建和安装生命周期（[Windows installer run 45439749767](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45439749767)）。这些记录不覆盖本轮新提交，且不是正式 Release 资产；尚无 v0.1.2 Tag、Release、SHA-256 清单或 Attestation。
+- PR #21 已合并；最终 PR 门禁为 [Quality Gate run 45553413008](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45553413008) 与 [Windows installer run 45553413306](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45553413306)。正式 [Release run 45554455532](https://github.com/yuchen0x1/Base64-encode-encoding/actions/runs/45554455532) 已通过，GitHub Release 提供 Windows 安装包、CLI、`version.json` 和 `SHA256SUMS.txt`；下载校验与 cryptographic attestation 均通过。Windows runner 日志确认实际安装 v0.1.1、升级至 v0.1.2、故意触发版本不匹配后恢复 v0.1.1、启动两个版本、保留 profile 并卸载。官方安装包哈希见上表；本地候选包哈希不同，不作为 Release 资产摘要。
 - 5 MiB 级多行 JSON Worker 流程通过；独立 JSON-only 单行压力烟测现在会拒绝超出 100,000 行预算的美化并保留输入。单行校验的约 503.5 MiB 观测仍需后续多机基准，不称为泄漏或通用上限。
-- 新增代理线路探测集成测试：模拟 Range 探测显示备用线路更快时，更新器优先使用该线路；这不替代中国大陆真实网络测速。
+- 新增代理线路探测集成测试：模拟 Range 探测显示备用线路更快时，更新器优先使用该线路；这不替代中国大陆真实网络测速，实际大陆下载速度尚未测量。
+- v0.1.1 更新提示兼容测试以 mock GitHub Releases API 验证旧客户端可识别 v0.1.2；发布后的 `latest` API 已指向稳定版 v0.1.2。Release lifecycle job 验证旧版安装后的 NSIS 覆盖升级，但没有实机联网启动 v0.1.1 并观察应用内提示，因此该 UI 端到端结果仍未确认。
 - macOS/iOS 不在当前 Windows 产品交付范围；第三方安全测试与多机 CPU/内存基准未执行。
 
-候选 PR #21 当前保持 Draft；本轮改动推送后需重新运行 PR 门禁和 Windows NSIS 生命周期，再按正式 Release workflow 生成并核验资产，确认旧版升级提示后补录最终 Commit、Tag、SHA-256、Attestation 与 `main` 一致性证据。尚未运行的发布步骤不标记为通过。
+发布核验结论：PR #21 已合并；`main`、`origin/main` 与 `v0.1.2` Tag 指向 `7baa33643b7c93def298d1dbb1218b3c06535f65`。正式 Release、SHA-256 清单和 cryptographic attestation 均已通过 Release run 45554455532 核验；真实中国大陆线路吞吐与 v0.1.1 应用内更新提示端到端行为仍未实测。
 
 ## v0.1.1 正式发布与生命周期核验（2026-11-24）
 

@@ -1,10 +1,10 @@
 # 项目升级路线图
 
-路线基线：2026-11-16；v0.1.0 进展更新：2026-11-24；v0.1.1 发布与生命周期验收：2026-11-24；v0.1.2 候选实现与证据复核：2026-11-25
+路线基线：2026-11-16；v0.1.0 进展更新：2026-11-24；v0.1.1 发布与生命周期验收：2026-11-24；v0.1.2 发布与证据复核：2026-11-25
 范围：当前 Windows 本地优先版本；不把已删除的平台工程重新纳入产品范围。  
 状态含义：`COMPLETED` 已有代码和验证；`PARTIAL` 有部分代码但验收不完整；`PLANNED` 尚未实施；`BLOCKED` 当前无法验证且有明确外部阻碍。
 
-v0.1.1 正式发布包含 Electron 跨来源重定向拦截和二维码多码结果去重边界修复。发布工作流与 PR CI 已在隔离的 GitHub-hosted Windows runner 上验证真实安装、覆盖升级、配置保留、故障回滚、启动和卸载。v0.1.2 候选已完成大 JSON / 二维码 Worker、长行格式化保护、存储保护、剪贴板、Blob URL、搜索一致性和智能下载线路改进；本地验证完成，远程 PR 门禁与该候选的安装生命周期待实际运行。
+v0.1.1 正式发布包含 Electron 跨来源重定向拦截和二维码多码结果去重边界修复。v0.1.2 已于 2026-11-25 正式发布，包含大 JSON / 二维码 Worker、长行格式化保护、存储保护、剪贴板、Blob URL、搜索一致性和智能下载线路改进；PR 门禁和正式 Release workflow 均通过。Windows runner 验证了 NSIS 覆盖安装生命周期；旧版在线更新提示已由 mock API 测试覆盖，真实联网启动旧版并观察 UI 提示仍未实测。
 
 每一项都包含：编号、名称与模块、现状和证据、参考项目与实现方式、改进方案和效果、文件范围、难度、优先级、验收标准和当前状态。
 
@@ -56,10 +56,10 @@ v0.1.1 正式发布包含 Electron 跨来源重定向拦截和二维码多码结
 | EV-038 结果 LRU 缓存（性能） | JSON/哈希/SQL 重复计算没有有界缓存 | CyberChef 操作缓存思路 | 输入+选项作为 key，按字节和条目双上限 | 工具 helper、新 `lru.js` | 中 | P2 | 重复计算命中；达到上限自动淘汰 | PLANNED |
 | EV-039 Blob/DataURL 生命周期（稳定性） | 多个导出入口曾在点击瞬间回收 URL | 浏览器工具最佳实践 | 工作区、批处理、JSON 和二维码下载共用延迟回收；图片预览沿用文件大小限制和替换语义 | `objectUrl.js`、`App.vue`、`ToolBatch.vue`、`ToolJson.vue`、`ToolQrcode.vue` | 中 | P1 | 下载 URL 点击后保留 1 秒再释放；对象 URL helper 测试通过 | COMPLETED |
 | EV-040 更新状态机契约（稳定性） | 状态散落在 `useUpdater` 与 Electron 事件中 | 桌面更新器状态机 | 明确定义合法迁移并用表驱动测试 | `useUpdater.js`、`updater.js`、测试 | 中 | P1 | 非法迁移被拒绝；每个状态有 UI 文案和恢复路径 | PLANNED |
-| EV-041 自动化回归矩阵（测试） | browser/Electron smoke 存在，但 CI 未调用全部入口 | DevToys/桌面项目 CI | 新增专项测试并扩充既有覆盖；接入单测、lint、桌面、更新、CLI、依赖审查和 Windows 生命周期 | `.github/workflows`、`tests/` | 中 | 本地 328 项单测和分层烟测通过；PR #21 更新前 head 的 Quality Gate run 45439749550 和 Windows installer run 45439749767 通过；本轮提交仍待 CI | COMPLETED |
+| EV-041 自动化回归矩阵（测试） | browser/Electron smoke 存在，但 CI 未调用全部入口 | DevToys/桌面项目 CI | 新增专项测试并扩充既有覆盖；接入单测、lint、桌面、更新、CLI、依赖审查和 Windows 生命周期 | `.github/workflows`、`tests/` | 中 | 本地 328 项单测和分层烟测通过；PR #21 Quality Gate run 45553413008、Windows installer run 45553413306 与 Release run 45554455532 全部通过 | COMPLETED |
 | EV-042 性能基准脚本（测试） | 当前只记录构建结果，没有稳定启动/批处理基线 | CyberChef/ut 性能意识 | 记录启动、构建、吞吐、峰值内存，禁止编造对比 | `scripts/perf`、CI artifact | 中 | P2 | 每次基准带环境和原始数据；无数据时标记缺失 | PLANNED |
 | EV-057 超长 JSON 行渲染资源预算（JSON 工具） | 5 MiB 多行 JSON 可处理；5.25 MiB 单行数组美化曾造成 textarea 数 GB 级内存峰值 | CodeMirror 等虚拟化编辑器的 viewport 思路；针对当前 textarea 先建立输出预算和回归烟测 | 美化结果最多 100,000 行，超限在 Worker 内拒绝并保留原输入；压缩仍可用，JSON-only smoke 断言错误提示、输入不变和峰值记录。单行输入校验的约 500 MiB 观测继续作为后续性能跟踪项 | `ToolJson.vue`、`jsonText.js`、JSON Worker、Electron smoke | 高 | 5 MiB 多行与单行样本分别记录 UI 响应、private memory、working set；超长美化不得写入 textarea；有回归门禁 | COMPLETED |
-| EV-043 Windows 安装回滚演练（发布） | 曾待隔离 runner 验证；现已有真实生命周期日志 | PowerToys/Files 安装更新 | 隔离目录安装旧版、覆盖新版、注入 payload/version mismatch 并核验恢复 | `electron/apply-installer.js`、`tests/windows/`、CI | 高 | P1 | v0.1.1 历史 runs 45391803298 / 45393215151 及候选 PR #21 run 45429273392 均通过；候选 run 安装 v0.1.1、升级 v0.1.2，并在故障后恢复 v0.1.1 | COMPLETED |
+| EV-043 Windows 安装回滚演练（发布） | 曾待隔离 runner 验证；现已有真实生命周期日志 | PowerToys/Files 安装更新 | 隔离目录安装旧版、覆盖新版、注入 payload/version mismatch 并核验恢复 | `electron/apply-installer.js`、`tests/windows/`、CI | 高 | P1 | v0.1.1 历史 runs 45391803298 / 45393215151 与正式 Release run 45554455532 均通过；日志确认 v0.1.1→v0.1.2、故意版本不匹配后恢复 v0.1.1、启动、profile 保留和卸载 | COMPLETED |
 | EV-044 lint/安全质量门禁（CI） | 默认镜像安全接口异常、发布健康缺乏资产校验 | Vue lint + 供应链门禁 | lint 归零；官方 npm audit 0 vulnerabilities；maintenance 拆分并加强依赖/发布/文档检查 | `.github/workflows/maintenance.yml`、`scripts/` | 中 | P1 | 本地门禁通过；远程工作流结果以 PR/CI 为准 | PARTIAL |
 
 ## P2/P3：新增能力、发布和文档
@@ -73,7 +73,7 @@ v0.1.1 正式发布包含 Electron 跨来源重定向拦截和二维码多码结
 | EV-049 帮助与快捷键面板（App） | 原快捷键只在占位文案中出现 | PowerToys 快捷键入口 | 展示 Ctrl/Cmd+K、主题、标签和关闭焦点行为 | `App.vue` | 低 | P3 | 已完成命令面板入口和快捷键弹窗 | COMPLETED |
 | EV-050 零遥测声明（隐私） | 当前没有遥测，但 README 需要持续明确 | Bruno 本地优先边界 | 增加网络请求审计和默认关闭声明，不新增上传 | `README.md`、`docs/`、CI | 低 | P2 | 自动化检查默认无业务网络请求；文档与实现一致 | PARTIAL |
 | EV-051 SBOM/校验归档（发布） | 发布脚本有 SHA/清单，缺少 SBOM 和依赖许可证归档 | PowerToys 发布工程 | 归档安装包、manifest、SHA、SBOM、NOTICE | `scripts/release.mjs`、CI | 中 | P2 | 离线可核验版本、哈希、依赖和许可证 | PLANNED |
-| EV-052 真实安装验收（发布） | 曾仅有本机打包证据；现有隔离 Windows runner 验收 | PowerToys/Files | Windows runner 实际安装、覆盖升级、启动、配置保留和卸载 | `tests/windows/install-smoke.ps1`、CI | 高 | P1 | v0.1.1 历史 runs 45391803298 / 45393215151 及候选 PR #21 run 45429273392 均通过；候选覆盖安装、profile 保留、回滚、启动和卸载均有日志 | COMPLETED |
+| EV-052 真实安装验收（发布） | 曾仅有本机打包证据；现有隔离 Windows runner 验收 | PowerToys/Files | Windows runner 实际安装、覆盖升级、启动、配置保留和卸载 | `tests/windows/install-smoke.ps1`、CI | 高 | P1 | v0.1.1 历史 runs 45391803298 / 45393215151、PR #21 Windows installer run 45553413306 与正式 Release run 45554455532 均通过；NSIS 覆盖安装门禁通过 | COMPLETED |
 | EV-053 CHANGELOG/版本门禁（工程） | 版本、tag、CHANGELOG、EV 状态可能漂移 | GitHub Release 项目 | `verify-version` 校验 package/lock/notes/CHANGELOG/release history；发布前执行 | `scripts/verify-version.mjs`、发布文档 | 中 | P2 | 已完成本地版本一致性门禁 | COMPLETED |
 | EV-054 文档链接/截图校验（文档） | 文档数量多，链接和截图容易失效 | DevToys/开源项目文档门禁 | 本地链接/截图/CLI 硬编码检查纳入 maintenance 工作流 | `scripts/check-docs.mjs`、CI | 低 | P2 | 已完成：47 个本地链接/图片和 README 版本链接通过 | COMPLETED |
 | EV-055 社区反馈模板（仓库） | 反馈入口存在，GitHub issue 字段仍可结构化 | PowerToys issue 模板 | Bug/安全/功能模板要求复现、环境和隐私提醒 | `.github/ISSUE_TEMPLATE` | 低 | P3 | 新 issue 有明确字段；不鼓励粘贴密钥/工具输入 | PLANNED |
