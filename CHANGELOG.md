@@ -2,6 +2,12 @@
 
 详细内容、升级方式及历史资产说明见 [完整发布历史](docs/releases/release-notes.md)。本文件提供正式版本与当前候选的简要变更。日期使用北京时间。
 
+## 0.1.3 — 2026-11-25
+
+- 修复 Windows v0.1.2 安装版检查更新时的 `response.json is not a function`：Electron `net.request` 响应现在支持 JSON 读取，并保留流式响应与手动重定向校验。
+- 新增通过 Electron `net.request` 检查 GitHub Release API 和版本清单的回归测试。
+- 升级说明：v0.1.2 自身无法发现此修复，必须从 GitHub Releases 手动下载 v0.1.3 并覆盖安装一次；之后应用内更新可继续使用。
+
 ## 0.1.2 候选 — 2026-11-25
 
 - 二维码识别改为首次扫描时创建 Worker，生成模式不加载识别 WASM；清空、替换图片或关闭工具会取消未完成的读取和扫描。

@@ -14,13 +14,13 @@
 
 <!-- github-release:start -->
 
-**[v0.1.2 已发布](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.2)** · 2026-11-25 · Windows x64 / CLI
+**[v0.1.3 已发布](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.3)** · 2026-11-25 · Windows x64 / CLI
 
-本版将二维码识别和大 JSON 处理移入按需 Worker，保护界面响应；增加任务取消、存储迁移保护、统一搜索/复制体验和 Windows 更新下载智能选线。
+本版修复 Windows v0.1.2 安装版无法检查更新的问题。v0.1.2 用户需手动下载并覆盖安装一次，之后可继续使用应用内更新。
 
 [全部发行记录](https://github.com/yuchen0x1/Base64-encode-encoding/releases)
 
-前一正式版：[v0.1.1](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.1)
+前一正式版：[v0.1.2](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.2)
 
 <!-- github-release:end -->
 
@@ -40,7 +40,7 @@
 | Base64、URL、哈希和 JSON 的配方 | 多行文本、多文件、后台运行和结果导出 | 单个文件或标准输入，结果写入标准输出 |
 | 版本检查 | 应用内检查、下载和覆盖安装 | `--check-update` 查询版本和摘要，手动替换文件 |
 
-正式发布后，可用 `gh release verify-asset v0.1.2 <文件>` 验证 GitHub 的发布证明，或用 `SHA256SUMS.txt` 核对文件摘要。[命令行使用说明](docs/CLI.md) · [平台兼容性与路线图](docs/PLATFORMS.md)
+正式发布后，可用 `gh release verify-asset v0.1.3 <文件>` 验证 GitHub 的发布证明，或用 `SHA256SUMS.txt` 核对文件摘要。[命令行使用说明](docs/CLI.md) · [平台兼容性与路线图](docs/PLATFORMS.md)
 
 ## 功能
 
