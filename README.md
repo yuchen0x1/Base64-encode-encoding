@@ -14,13 +14,13 @@
 
 <!-- github-release:start -->
 
-**[v0.1.1](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.1)** · 2026-11-24
+**[v0.1.2 候选](https://github.com/yuchen0x1/Base64-encode-encoding/tree/codex/upgrade-v0.1.2)** · 2026-11-24 · 尚未发布
 
-本版拦截 Electron 跨来源重定向，并修复二维码多码识别在缺少位置元数据时误去重的问题。
+本版将二维码识别和大 JSON 处理移入按需 Worker，保护界面响应；增加任务取消、存储迁移保护和统一搜索/复制体验。
 
 [全部发行记录](https://github.com/yuchen0x1/Base64-encode-encoding/releases)
 
-前一正式版：[v0.1.0](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.0)
+前一正式版：[v0.1.1](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.1)
 
 <!-- github-release:end -->
 
@@ -40,7 +40,7 @@
 | Base64、URL、哈希和 JSON 的配方 | 多行文本、多文件、后台运行和结果导出 | 单个文件或标准输入，结果写入标准输出 |
 | 版本检查 | 应用内检查、下载和覆盖安装 | `--check-update` 查询版本和摘要，手动替换文件 |
 
-在发布页下载后，可用 `gh release verify-asset v0.1.1 <文件>` 验证 GitHub 的发布证明，或用 `SHA256SUMS.txt` 核对文件摘要。[命令行使用说明](docs/CLI.md) · [平台兼容性与路线图](docs/PLATFORMS.md)
+正式发布后，可用 `gh release verify-asset v0.1.2 <文件>` 验证 GitHub 的发布证明，或用 `SHA256SUMS.txt` 核对文件摘要。[命令行使用说明](docs/CLI.md) · [平台兼容性与路线图](docs/PLATFORMS.md)
 
 ## 功能
 
@@ -57,14 +57,14 @@
 | 5 | 全系 Base 族与黑客密码 | `cipher-toolbox` | 编码 | Hex、Base32、摩斯电码、ROT13 互转 | 已实现 |
 | 6 | 图片与 Base64 互转 | `image-base64` | 媒体 | 本地图片转 DataURL，Base64 还原预览与下载 | 已实现 |
 | 7 | URL 编解码 | `url-codec` | 编码 | `encodeURI` / `encodeURIComponent` 两种模式 | 已实现 |
-| 8 | JSON 格式化 & 校验 | `json-format` | JSON | 高亮、美化、压缩、转义与错误定位 | 已实现 |
+| 8 | JSON 格式化 & 校验 | `json-format` | JSON | Worker 后台校验、美化、压缩、结构操作；树/路径视图限制为 5 MiB | 已实现 |
 | 9 | 摘要哈希计算 | `hash-crypto` | 加密 | MD5、SHA-1、SHA-256、SHA-512、HMAC | 已实现（基于 `crypto-js`） |
 | 10 | AES 对称加解密 | `aes-crypto` | 加密 | CBC / ECB 模式、多种填充与密钥 IV | 已实现（开发调试用途） |
 | 11 | Unix 时间戳转换 | `timestamp` | 时间 | 秒 / 毫秒时间戳与北京时间互转 | 已实现 |
 | 12 | 正则表达式测试器 | `regex-tester` | 文本 | 常用正则、匹配测试、捕获组提取与高亮 | 已实现（Worker 隔离，超时终止） |
 | 13 | 文本代码对比 | `text-diff` | 文本 | 逐行差异高亮（基于 `diff`） | 已实现 |
 | 14 | 多进制转换 | `radix-convert` | 进制 | 二 / 八 / 十 / 十六进制实时互转 | 已实现 |
-| 15 | 二维码生成与识别 | `qrcode-generator` | 媒体 | 生成二维码、离线本地图片识别、容错率调整、PNG 导出与结果导出 | 已实现（识别使用内联 ZXing WASM） |
+| 15 | 二维码生成与识别 | `qrcode-generator` | 媒体 | 生成二维码、首次扫描时加载本地 ZXing Worker、多图识别、取消和结果导出 | 已实现（离线处理） |
 | 16 | 随机密码 & UUID | `random-password` | 加密 | 强密码、随机串、UUID v4、批量生成 | 已实现 |
 | 17 | 文本去重 & 统计 | `text-toolbox` | 文本 | 行去重、转小写、字数 / 行数统计、空行清除 | 已实现 |
 | 18 | JWT 生成器 | `jwt-generator` | 编码 | 自定义 Header / Payload，注入 `iat` / `exp`，HS256 签名 | 已实现 |
@@ -92,7 +92,7 @@
 
 应用启动约 4 秒后检查更新，也可点击侧边栏版本号手动检查。下载完成后，点击「立即安装并重启」。`version.json` 是自动更新清单，无需普通用户手动下载。
 
-历史版本 v0.0.7 的安装包未签名。最新包的签名状态见[当版发行说明](https://github.com/yuchen0x1/Base64-encode-encoding/releases/latest)。关于安装更新故障和已有验收边界，见[故障复盘](docs/UPDATER_INCIDENT_2026-11-13.md)。
+关于历史安装更新故障和已有验收边界，见[故障复盘](docs/UPDATER_INCIDENT_2026-11-13.md)。
 
 ## 开发与构建
 
@@ -145,7 +145,7 @@ npm run release -- --skip-build --installer "release/GeekToolbox-Setup-0.0.7.exe
 
 Windows 更新以官方 GitHub Releases 为准。可通过 `TOOLBOX_UPDATE_FEED` 或安装目录的 `update-config.json` 配置匹配官方摘要的备用源。开发环境默认读取 `updates/desktop/`。
 
-下载必须通过 SHA-256 与大小校验；清单配置 Authenticode 指纹时还会验证安装包签名。SHA-256 本身不提供发布者身份认证。独立助手确认就绪后应用才退出，安装后核验目标版本并重新启动。完整配置及证书 Secrets 见[自动更新说明](docs/AUTO_UPDATE.md)。
+下载必须通过 SHA-256 与大小校验；GitHub Release Attestation 可独立验证发布来源。独立助手确认就绪后应用才退出，安装后核验目标版本并重新启动。更新配置见[自动更新说明](docs/AUTO_UPDATE.md)。
 
 ## 目录与架构
 
@@ -168,7 +168,7 @@ docs/                使用指南、发布历史和历史审计记录
 
 ## 验证与已知边界
 
-修改后按[贡献指南](CONTRIBUTING.md)执行适当检查。自动化构建不等于真实安装、代码签名或客户端完整自动升级验收；每次交付应分别记录结果。
+修改后按[贡献指南](CONTRIBUTING.md)执行适当检查。自动化构建不等于真实安装或客户端完整自动升级验收；每次交付应分别记录结果。
 
 [维护与发布](docs/MAINTENANCE.md) · [竞品研究](docs/ECOSYSTEM_RESEARCH.md) · [安全问题私密报告](SECURITY.md)
 

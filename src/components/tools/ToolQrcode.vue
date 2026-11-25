@@ -73,13 +73,13 @@
   </div>
 </template>
 <script setup>
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onDeactivated, onUnmounted, ref, watch } from 'vue'
 import QRCode from 'qrcode'
-import base64Wasm from 'virtual:zxing-wasm-reader-base64'
-import { prepareZXingModule, readBarcodes } from 'zxing-wasm/reader'
 import { createQrDataUrl } from '../../utils/toolHelpers.js'
-import { QR_FILE_LIMITS, createQrReader, qrResultsToCsv, qrResultsToJson, qrResultsToText } from '../../utils/qrDecoder.js'
+import { QR_FILE_LIMITS, qrResultsToCsv, qrResultsToJson, qrResultsToText } from '../../utils/qrDecoder.js'
+import { createQrWorkerClient } from '../../utils/qrWorkerClient.js'
 import { copyText } from '../../utils/clipboard.js'
+import { revokeObjectURLAfter } from '../../utils/objectUrl.js'
 import { globalToast } from '../../composables/useToast.js'
 
 const mode = ref('generate')
@@ -98,7 +98,7 @@ const isScanning = ref(false)
 const isDragging = ref(false)
 let generation = 0
 let scanToken = 0
-let qrReader = null
+let qrWorkerClient = null
 const allowedTypes = computed(() => QR_FILE_LIMITS.allowedTypes)
 
 async function generateQr() {
@@ -128,23 +128,25 @@ function validateAndMapFiles(files) {
   return { files: accepted, error: rejected.join('；') }
 }
 async function decodeFiles(files) {
+  const currentToken = ++scanToken
+  qrWorkerClient?.cancel()
+  qrWorkerClient = null
   const { files: mapped, error } = validateAndMapFiles(files)
   scanError.value = error
   if (!mapped.length) { scanFiles.value = []; scanResults.value = []; scanStatus.value = ''; isScanning.value = false; return }
-  const currentToken = ++scanToken
   scanFiles.value = mapped
   scanResults.value = []
   isScanning.value = true
   scanStatus.value = '正在初始化本地二维码引擎…'
+  let stoppedAfterWorkerFailure = false
   try {
-    if (!qrReader) qrReader = createQrReader({ base64Wasm, prepareZXingModule, readBarcodes })
     for (const item of mapped) {
       if (currentToken !== scanToken) return
       item.status = 'scanning'
       item.statusText = '识别中'
       scanStatus.value = `正在识别 ${item.name}…`
       try {
-        const results = await qrReader(item.file)
+        const results = await decodeQrFile(item.file, currentToken)
         if (currentToken !== scanToken) return
         if (!results.length) { item.status = 'not-found'; item.statusText = '未识别到二维码'; continue }
         item.status = 'success'
@@ -152,17 +154,44 @@ async function decodeFiles(files) {
         for (const result of results) scanResults.value.push(appendSource(result, item.name))
       } catch (decodeError) {
         if (currentToken !== scanToken) return
+        if (decodeError.name === 'AbortError') return
         item.status = 'error'
         item.statusText = '识别失败'
         scanError.value = decodeError.message || '二维码识别失败'
+        if (decodeError.kind === 'setup' || !decodeError.kind) {
+          qrWorkerClient?.cancel()
+          qrWorkerClient = null
+          for (const pendingItem of mapped.slice(mapped.indexOf(item) + 1)) {
+            pendingItem.status = 'skipped'
+            pendingItem.statusText = '未处理：识别模块不可用'
+          }
+          scanStatus.value = '识别模块不可用，已停止剩余任务'
+          stoppedAfterWorkerFailure = true
+          break
+        }
       }
     }
-    if (currentToken === scanToken) scanStatus.value = scanResults.value.length ? `识别完成，共 ${scanResults.value.length} 条结果` : '识别完成，未发现二维码'
+    if (currentToken === scanToken && !stoppedAfterWorkerFailure) {
+      scanStatus.value = scanResults.value.length ? `识别完成，共 ${scanResults.value.length} 条结果` : '识别完成，未发现二维码'
+    }
   } catch (setupError) {
     if (currentToken === scanToken) { scanError.value = setupError.message || '二维码识别模块初始化失败'; scanStatus.value = '' }
   } finally {
     if (currentToken === scanToken) isScanning.value = false
   }
+}
+async function decodeQrFile(file, currentToken) {
+  let buffer
+  try {
+    buffer = await file.arrayBuffer()
+  } catch (error) {
+    const fileError = error instanceof Error ? error : new Error(String(error || '无法读取二维码图片'))
+    fileError.kind ||= 'file'
+    throw fileError
+  }
+  if (currentToken !== scanToken) return null
+  qrWorkerClient ||= createQrWorkerClient()
+  return qrWorkerClient.decode(buffer)
 }
 function appendSource(result, sourceName) {
   const points = [result.position?.topLeft, result.position?.topRight, result.position?.bottomLeft, result.position?.bottomRight].filter(Boolean)
@@ -180,12 +209,31 @@ function handleDrop(event) {
 }
 function clearScan() {
   scanToken += 1
+  qrWorkerClient?.cancel()
+  qrWorkerClient = null
   scanFiles.value = []
   scanResults.value = []
   scanError.value = ''
   scanStatus.value = ''
   isScanning.value = false
   isDragging.value = false
+}
+function cancelActiveScan(statusText) {
+  if (!isScanning.value && !qrWorkerClient) return
+  scanToken += 1
+  qrWorkerClient?.dispose()
+  qrWorkerClient = null
+  for (const item of scanFiles.value) {
+    if (item.status === 'scanning') {
+      item.status = 'cancelled'
+      item.statusText = '已取消'
+    } else if (item.status === 'pending') {
+      item.status = 'skipped'
+      item.statusText = '未处理：扫描已取消'
+    }
+  }
+  isScanning.value = false
+  scanStatus.value = statusText
 }
 async function copyResults() {
   const text = qrResultsToText(scanResults.value)
@@ -198,7 +246,7 @@ function downloadResults(kind) {
   const blob = new Blob([text], { type: mime })
   const url = URL.createObjectURL(blob)
   downloadBlob(url, `qrcode-results_${Date.now()}.${kind}`)
-  URL.revokeObjectURL(url)
+  revokeObjectURLAfter(url)
 }
 function downloadBlob(href, filename) {
   const anchor = document.createElement('a')
@@ -206,8 +254,17 @@ function downloadBlob(href, filename) {
   anchor.download = filename
   anchor.click()
 }
+watch(mode, activeMode => {
+  if (activeMode !== 'decode') cancelActiveScan('已切换到二维码生成，未完成的扫描已取消')
+})
 watch([qrInput, size, errorCorrectionLevel], generateQr, { immediate: true })
-onUnmounted(() => { generation += 1; scanToken += 1 })
+onDeactivated(() => cancelActiveScan('工具已切换，未完成的扫描已取消'))
+onUnmounted(() => {
+  generation += 1
+  scanToken += 1
+  qrWorkerClient?.dispose()
+  qrWorkerClient = null
+})
 </script>
 <style scoped>
 .tool-content { display: flex; flex-direction: column; gap: 1rem; }
@@ -237,6 +294,8 @@ onUnmounted(() => { generation += 1; scanToken += 1 })
 .file-list li { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .5rem .65rem; border: 1px solid var(--border-color); border-radius: .4rem; font-size: .8rem; }
 .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-status.pending { color: var(--text-muted); }
+.file-status.skipped { color: var(--text-muted); }
+.file-status.cancelled { color: var(--text-muted); }
 .file-status.scanning { color: var(--accent-cyan); }
 .file-status.success { color: var(--accent-green, #22c55e); }
 .file-status.not-found, .file-status.error { color: var(--accent-red); }

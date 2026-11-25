@@ -35,6 +35,12 @@
         <span role="alert">JSON 处理错误：{{ error }}</span>
       </div>
     </div>
+    <div v-else-if="validationPending" class="cyber-status-bar" role="status">
+      <div class="status-left">
+        <span class="status-dot success-dot"></span>
+        <span>正在后台校验 JSON…</span>
+      </div>
+    </div>
     <div v-else-if="isValid" class="cyber-status-bar success">
       <div class="status-left">
         <span class="status-dot success-dot"></span>
@@ -53,6 +59,10 @@
       </div>
     </div>
 
+    <div v-if="workerBusy || advancedLoading" class="large-document-note" role="status">
+      <span>{{ workerStatus || '正在后台处理 JSON…' }}</span>
+      <button class="btn btn-secondary btn-sm" type="button" @click="cancelWorkerTasks">取消</button>
+    </div>
     <div v-if="isLargeDocument" class="large-document-note" role="status">
       当前文档 {{ largeSizeText }}。树视图和 JSONPath 已停用，差异比较限制为 5000 项；超大结构请优先使用编辑器文本模式。
     </div>
@@ -65,13 +75,13 @@
             <span class="editor-mode code-font">JSON · UTF-8 · LOCAL</span>
           </div>
           <div class="editor-actions">
-            <button class="btn btn-primary btn-sm" @click="formatJson">✨ 美化</button>
-            <button class="btn btn-secondary btn-sm" @click="minifyJson">📦 压缩</button>
-            <button class="btn btn-secondary btn-sm" @click="escapeJson">🔤 转义</button>
-            <button class="btn btn-secondary btn-sm" @click="unescapeJson">↩️ 反转义</button>
-            <button class="btn btn-secondary btn-sm" @click="sortJsonKeys">↕️ 排序键</button>
-            <button class="btn btn-secondary btn-sm" @click="removeEmptyValues">🧹 清理空值</button>
-            <button class="btn btn-secondary btn-sm" @click="generateTypeScript">TS 类型</button>
+            <button class="btn btn-primary btn-sm" :disabled="isActionBusy" @click="formatJson">✨ 美化</button>
+            <button class="btn btn-secondary btn-sm" :disabled="isActionBusy" @click="minifyJson">📦 压缩</button>
+            <button class="btn btn-secondary btn-sm" :disabled="isActionBusy" @click="escapeJson">🔤 转义</button>
+            <button class="btn btn-secondary btn-sm" :disabled="isActionBusy" @click="unescapeJson">↩️ 反转义</button>
+            <button class="btn btn-secondary btn-sm" :disabled="isActionBusy" @click="sortJsonKeys">↕️ 排序键</button>
+            <button class="btn btn-secondary btn-sm" :disabled="isActionBusy" @click="removeEmptyValues">🧹 清理空值</button>
+            <button class="btn btn-secondary btn-sm" :disabled="isActionBusy" @click="generateTypeScript">TS 类型</button>
             <button class="btn btn-primary btn-sm" :disabled="!input" @click="copyCode">
               {{ copied ? '已复制 ✔' : '📋 复制' }}
             </button>
@@ -80,6 +90,7 @@
         <textarea
           v-model="input"
           class="textarea-control code-font main-editor"
+          wrap="off"
           placeholder="在此粘贴或输入 JSON 数据，如: { &quot;system&quot;: &quot;Toolbox Pro&quot;, &quot;status&quot;: &quot;ONLINE&quot; }..."
           spellcheck="false"
         ></textarea>
@@ -99,6 +110,7 @@
           v-model="generatedTypeScript"
           readonly
           class="textarea-control code-font main-editor generated-output"
+          wrap="off"
           spellcheck="false"
         ></textarea>
       </div>
@@ -114,6 +126,9 @@
       </div>
       <div v-if="isLargeDocument" class="empty-state" role="status">
         文档超过 5 MiB，已关闭树渲染以保护界面响应；请使用编辑器文本模式。
+      </div>
+      <div v-else-if="advancedLoading" class="empty-state" role="status">
+        正在后台准备 JSON 结构…
       </div>
       <div v-else-if="!advancedDocument.ok" class="empty-state" role="alert">
         {{ advancedDocument.error }}
@@ -139,17 +154,21 @@
           placeholder="例如 $.items[*].name"
           @keydown.enter="runJsonPath"
         />
-        <button class="btn btn-primary btn-sm" @click="runJsonPath">查询</button>
+        <button class="btn btn-primary btn-sm" :disabled="isActionBusy || advancedLoading || isLargeDocument" @click="runJsonPath">查询</button>
         <button class="btn btn-secondary btn-sm" :disabled="!pathResult?.ok" @click="copyPathResults">复制结果</button>
       </div>
       <div v-if="isLargeDocument" class="empty-state" role="status">
         文档超过 5 MiB，已停止 JSONPath 结构化遍历；请先在编辑器中缩小数据。
+      </div>
+      <div v-else-if="advancedLoading" class="empty-state" role="status">
+        正在后台准备 JSON 结构…
       </div>
       <div class="path-examples" aria-label="JSONPath 示例">
         <button
           v-for="example in pathExamples"
           :key="example"
           class="example-chip code-font"
+          :disabled="isActionBusy || advancedLoading || isLargeDocument"
           @click="jsonPathExpression = example; runJsonPath()"
         >
           {{ example }}
@@ -189,7 +208,7 @@
         <div class="actions">
           <button class="btn btn-secondary btn-sm" @click="compareFileInput?.click()">📂 导入对比文件</button>
           <button class="btn btn-secondary btn-sm" :disabled="!diffResult?.ok" @click="copyDiffReport">复制报告</button>
-          <button class="btn btn-primary btn-sm" @click="runDiff">开始对比</button>
+          <button class="btn btn-primary btn-sm" :disabled="isActionBusy || advancedLoading" @click="runDiff">开始对比</button>
           <input
             ref="compareFileInput"
             class="hidden-file-input"
@@ -245,28 +264,26 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onActivated, onDeactivated, onUnmounted, ref, watch } from 'vue'
 import { copyText } from '../../utils/clipboard.js'
 import { globalToast } from '../../composables/useToast.js'
+import { createJsonWorkerClient } from '../../utils/jsonWorkerClient.js'
+import { runJsonWorkerTask } from '../../utils/jsonWorkerTasks.js'
+import { revokeObjectURLAfter } from '../../utils/objectUrl.js'
 import JsonTree from './JsonTree.vue'
 import {
   JSON_ADVANCED_MAX_BYTES,
   JSON_LARGE_DOCUMENT_BYTES,
-  formatJson as formatJsonInput,
+  JSON_MAX_DOCUMENT_BYTES,
+  JSON_WORKER_THRESHOLD_BYTES,
+  countJsonKeys,
   formatJsonError,
   formatJsonValuePreview,
-  generateTypeScript as inferJsonTypeScript,
   jsonByteLength,
-  minifyJson as minifyJsonInput,
   parseJson,
   parseJsonForMutation,
-  parseJsonForStructure,
-  removeEmptyJsonValues,
-  sortJsonObjectKeys,
   unescapeJsonString
 } from './jsonTool.js'
-import { diffJson } from '../../utils/jsonDiff.js'
-import { queryJsonPath } from '../../utils/jsonPath.js'
 
 const tabs = [
   { id: 'editor', label: '编辑器' },
@@ -307,79 +324,283 @@ const pathResult = ref(null)
 const diffResult = ref(null)
 const pathExamples = ['$', '$.architecture.*', '$.modules.totalTools', '$..desktop']
 
-const validation = computed(() => parseJson(input.value))
+function analyzeJsonText(text) {
+  const parsed = parseJson(text)
+  return parsed.ok
+    ? { ok: true, keys: countJsonKeys(parsed.value) }
+    : { ok: false, error: parsed.error }
+}
+
+const initialAnalysis = analyzeJsonText(input.value)
+const validation = ref(initialAnalysis)
+const validationPending = ref(false)
+const jsonOperationBusy = ref(false)
 const isValid = computed(() => input.value.trim().length > 0 && validation.value.ok)
 const byteSize = computed(() => jsonByteLength(input.value))
 const isLargeDocument = computed(() => byteSize.value > JSON_LARGE_DOCUMENT_BYTES)
 const largeSizeText = computed(() => `${(byteSize.value / 1024 / 1024).toFixed(2)} MiB`)
+const jsonStats = ref({
+  keys: initialAnalysis.ok ? initialAnalysis.keys : 0,
+  size: (jsonByteLength(input.value) / 1024).toFixed(2)
+})
+const advancedDocument = ref({ ok: false, error: '选择树视图或 JSONPath 后解析文档' })
+const advancedLoading = ref(false)
+const workerBusy = ref(false)
+const isActionBusy = computed(() => workerBusy.value || jsonOperationBusy.value)
+const workerStatus = ref('')
+const jsonWorkerClient = createJsonWorkerClient()
+let validationTimer = null
+let validationRevision = 0
+let advancedRevision = 0
+let workerGeneration = 0
+let activeWorkerTasks = 0
+let retryValidationOnActivate = false
+let retryAdvancedOnActivate = false
 
-const jsonStats = computed(() => {
-  if (!isValid.value) return { keys: 0, size: 0 }
-  let keys = 0
-  const pending = [validation.value.value]
-  while (pending.length) {
-    const target = pending.pop()
-    if (target && typeof target === 'object') {
-      keys += Object.keys(target).length
-      for (const value of Object.values(target)) pending.push(value)
+function stopWorkerTasks() {
+  workerGeneration += 1
+  if (validationTimer) clearTimeout(validationTimer)
+  validationTimer = null
+  jsonWorkerClient.cancel()
+  activeWorkerTasks = 0
+  workerBusy.value = false
+  workerStatus.value = ''
+  advancedLoading.value = false
+}
+
+async function runWorkerTask(type, payload, fallback, status) {
+  const generation = workerGeneration
+  activeWorkerTasks += 1
+  workerBusy.value = true
+  workerStatus.value = status
+  try {
+    const result = await jsonWorkerClient.request(type, payload)
+    return generation === workerGeneration ? result : null
+  } catch (workerError) {
+    if (generation !== workerGeneration || workerError.name === 'AbortError') return null
+    const fallbackSize = jsonByteLength(
+      typeof payload.text === 'string'
+        ? payload.text
+        : `${payload.leftText || ''}${payload.rightText || ''}`
+    )
+    if (fallbackSize <= JSON_WORKER_THRESHOLD_BYTES) return fallback()
+    workerStatus.value = '后台处理模块不可用，请重试或缩小文档。'
+    return { ok: false, error: workerStatus.value }
+  } finally {
+    if (generation === workerGeneration) {
+      activeWorkerTasks = Math.max(0, activeWorkerTasks - 1)
+      workerBusy.value = activeWorkerTasks > 0
+      if (!workerBusy.value && !advancedLoading.value && !validationPending.value) workerStatus.value = ''
     }
   }
-  return { keys, size: (byteSize.value / 1024).toFixed(2) }
-})
+}
 
-const advancedDocument = computed(() => {
-  if (byteSize.value > JSON_ADVANCED_MAX_BYTES) {
-    return { ok: false, error: `文档超过 ${(JSON_ADVANCED_MAX_BYTES / 1024 / 1024).toFixed(0)} MiB 结构化操作上限` }
+function applyAnalysis(text, result) {
+  validation.value = result.ok
+    ? { ok: true }
+    : { ok: false, error: result.error instanceof Error ? result.error : new Error(result.error) }
+  jsonStats.value = {
+    keys: result.ok ? result.keys : 0,
+    size: (jsonByteLength(text) / 1024).toFixed(2)
   }
-  const result = parseJsonForMutation(input.value)
-  if (!result.ok) {
-    return { ok: false, error: formatJsonError(input.value, result.error) }
-  }
-  return result
-})
+}
 
-watch(input, () => {
+function scheduleValidation(text) {
+  validationRevision += 1
+  const revision = validationRevision
+  const size = jsonByteLength(text)
+  jsonStats.value = { keys: 0, size: (size / 1024).toFixed(2) }
+
+  if (!text.trim()) {
+    validation.value = { ok: false, error: new Error('JSON 内容为空') }
+    validationPending.value = false
+    return
+  }
+  if (size > JSON_MAX_DOCUMENT_BYTES) {
+    validation.value = { ok: false, error: new Error('JSON 文档超过 32 MiB 处理上限') }
+    validationPending.value = false
+    return
+  }
+  if (size <= JSON_WORKER_THRESHOLD_BYTES) {
+    const result = analyzeJsonText(text)
+    applyAnalysis(text, result)
+    validationPending.value = false
+    return
+  }
+
+  validationPending.value = true
+  validationTimer = setTimeout(async () => {
+    validationTimer = null
+    const result = await runWorkerTask(
+      'analyze',
+      { text },
+      () => analyzeJsonText(text),
+      '正在后台校验 JSON…'
+    )
+    if (revision !== validationRevision || !result) return
+    applyAnalysis(text, result)
+    validationPending.value = false
+    if (!workerBusy.value && !advancedLoading.value) workerStatus.value = ''
+  }, 120)
+}
+
+function prepareAdvancedDocument(text, tab) {
+  advancedRevision += 1
+  const revision = advancedRevision
+  if (tab !== 'tree') {
+    advancedDocument.value = { ok: false, error: '选择树视图后解析文档' }
+    advancedLoading.value = false
+    return
+  }
+  const size = jsonByteLength(text)
+  if (size > JSON_LARGE_DOCUMENT_BYTES) {
+    advancedDocument.value = { ok: false, error: '文档超过 5 MiB，已停止结构化遍历' }
+    advancedLoading.value = false
+    return
+  }
+  if (size > JSON_ADVANCED_MAX_BYTES) {
+    advancedDocument.value = { ok: false, error: `文档超过 ${(JSON_ADVANCED_MAX_BYTES / 1024 / 1024).toFixed(0)} MiB 结构化操作上限` }
+    advancedLoading.value = false
+    return
+  }
+
+  if (size <= JSON_WORKER_THRESHOLD_BYTES) {
+    const parsed = parseJsonForMutation(text)
+    advancedDocument.value = parsed.ok
+      ? parsed
+      : { ok: false, error: formatJsonError(text, parsed.error) }
+    advancedLoading.value = false
+    return
+  }
+
+  advancedLoading.value = true
+  runWorkerTask(
+    'structure',
+    { text },
+    () => {
+      const parsed = parseJsonForMutation(text)
+      return parsed.ok ? parsed : { ok: false, error: parsed.error.message || 'JSON 结构无效' }
+    },
+    '正在后台准备 JSON 结构…'
+  ).then(result => {
+    if (revision !== advancedRevision || !result) return
+    advancedDocument.value = result.ok
+      ? result
+      : { ok: false, error: formatJsonError(text, result.error) }
+    advancedLoading.value = false
+    if (!workerBusy.value && !validationPending.value) workerStatus.value = ''
+  })
+}
+
+watch(input, text => {
+  stopWorkerTasks()
   error.value = ''
   generatedTypeScript.value = ''
   copied.value = false
   typeCopied.value = false
   pathResult.value = null
   diffResult.value = null
+  advancedDocument.value = { ok: false, error: 'JSON 已更改，正在准备结构' }
+  scheduleValidation(text)
+})
+watch([input, currentTab], ([text, tab]) => prepareAdvancedDocument(text, tab))
+
+function cancelWorkerTasks() {
+  const wasValidating = validationPending.value
+  validationRevision += 1
+  advancedRevision += 1
+  stopWorkerTasks()
+  validationPending.value = false
+  if (wasValidating) validation.value = { ok: false, error: new Error('JSON 校验已取消') }
+  error.value = '后台处理已取消'
+}
+
+function deactivateWorkerTasks() {
+  retryValidationOnActivate = validationPending.value
+  retryAdvancedOnActivate = currentTab.value === 'tree' &&
+    (advancedLoading.value || advancedDocument.value.ok)
+  const explicitTaskWasRunning = workerBusy.value && !retryValidationOnActivate && !retryAdvancedOnActivate
+
+  validationRevision += 1
+  advancedRevision += 1
+  stopWorkerTasks()
+  validationPending.value = false
+  if (retryValidationOnActivate) {
+    validation.value = { ok: false, error: new Error('后台校验已取消，重新打开工具后会自动重试') }
+  }
+  if (retryAdvancedOnActivate) {
+    advancedDocument.value = { ok: false, error: '结构准备已取消，重新打开工具后会自动重试' }
+  } else {
+    advancedDocument.value = { ok: false, error: '选择树视图后解析文档' }
+  }
+  if (explicitTaskWasRunning) {
+    error.value = '后台操作因切换工具而取消；输入和已有结果已保留'
+  }
+}
+
+function reactivateWorkerTasks() {
+  if (retryValidationOnActivate) {
+    retryValidationOnActivate = false
+    scheduleValidation(input.value)
+  }
+  if (retryAdvancedOnActivate) {
+    retryAdvancedOnActivate = false
+    prepareAdvancedDocument(input.value, currentTab.value)
+  }
+}
+
+onActivated(reactivateWorkerTasks)
+onDeactivated(deactivateWorkerTasks)
+
+onUnmounted(() => {
+  retryValidationOnActivate = false
+  retryAdvancedOnActivate = false
+  validationRevision += 1
+  advancedRevision += 1
+  stopWorkerTasks()
 })
 
 function setErrorDetail(errorObject) {
   error.value = formatJsonError(input.value, errorObject)
 }
 
-function parseInput(forMutation = false) {
-  const result = forMutation ? parseJsonForMutation(input.value) : parseJsonForStructure(input.value)
-  if (!result.ok) setErrorDetail(result.error)
-  return result
+async function executeJsonTask(type, payload) {
+  const size = type === 'diff'
+    ? Math.max(jsonByteLength(payload.leftText), jsonByteLength(payload.rightText))
+    : jsonByteLength(payload.text)
+  if (size > JSON_MAX_DOCUMENT_BYTES) return { ok: false, error: 'JSON 文档超过 32 MiB 处理上限' }
+  if (type === 'diff' && size > JSON_ADVANCED_MAX_BYTES) {
+    return { ok: false, error: '参与对比的每份 JSON 都不能超过 16 MiB' }
+  }
+
+  const fallback = () => runJsonWorkerTask(type, payload)
+  if (size <= JSON_WORKER_THRESHOLD_BYTES) return fallback()
+  return runWorkerTask(type, payload, fallback, `正在后台${type === 'diff' ? '比较' : '处理'} JSON…`)
 }
 
-function formatJson() {
+async function applyJsonTextTask(type, successMessage) {
+  if (jsonOperationBusy.value) return
+  jsonOperationBusy.value = true
   error.value = ''
-  const result = formatJsonInput(input.value)
-  if (!result.ok) {
-    setErrorDetail(result.error)
-    return
+  const source = input.value
+  try {
+    const result = await executeJsonTask(type, { text: source })
+    if (!result || input.value !== source) return
+    if (!result.ok) {
+      setErrorDetail(result.error)
+      return
+    }
+    input.value = result.value
+    generatedTypeScript.value = ''
+    globalToast(successMessage)
+  } finally {
+    jsonOperationBusy.value = false
   }
-  input.value = result.value
-  generatedTypeScript.value = ''
-  globalToast('JSON 已格式化')
 }
 
-function minifyJson() {
-  error.value = ''
-  const result = minifyJsonInput(input.value)
-  if (!result.ok) {
-    setErrorDetail(result.error)
-    return
-  }
-  input.value = result.value
-  generatedTypeScript.value = ''
-  globalToast('JSON 已压缩')
-}
+function formatJson() { return applyJsonTextTask('format', 'JSON 已格式化') }
+
+function minifyJson() { return applyJsonTextTask('minify', 'JSON 已压缩') }
 
 function escapeJson() {
   input.value = JSON.stringify(input.value)
@@ -397,28 +618,27 @@ function unescapeJson() {
   generatedTypeScript.value = ''
 }
 
-function sortJsonKeys() {
-  error.value = ''
-  const result = parseInput(true)
-  if (!result.ok) return
-  input.value = JSON.stringify(sortJsonObjectKeys(result.value), null, 2)
-  globalToast('JSON 键名已排序')
-}
+function sortJsonKeys() { return applyJsonTextTask('sort', 'JSON 键名已排序') }
 
-function removeEmptyValues() {
-  error.value = ''
-  const result = parseInput(true)
-  if (!result.ok) return
-  input.value = JSON.stringify(removeEmptyJsonValues(result.value), null, 2)
-  globalToast('空值已清理')
-}
+function removeEmptyValues() { return applyJsonTextTask('remove-empty', '空值已清理') }
 
-function generateTypeScript() {
+async function generateTypeScript() {
+  if (jsonOperationBusy.value) return
+  jsonOperationBusy.value = true
   error.value = ''
-  const result = parseInput()
-  if (!result.ok) return
-  generatedTypeScript.value = inferJsonTypeScript(result.value)
-  globalToast('TypeScript 类型已生成')
+  const source = input.value
+  try {
+    const result = await executeJsonTask('typescript', { text: source })
+    if (!result || input.value !== source) return
+    if (!result.ok) {
+      setErrorDetail(result.error)
+      return
+    }
+    generatedTypeScript.value = result.value
+    globalToast('TypeScript 类型已生成')
+  } finally {
+    jsonOperationBusy.value = false
+  }
 }
 
 function loadSample() {
@@ -514,38 +734,48 @@ function exportJson() {
   link.href = url
   link.download = `geek-toolbox-json-${Date.now()}.json`
   link.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  revokeObjectURLAfter(url)
   globalToast('JSON 文件已导出')
 }
 
-function runJsonPath() {
+async function runJsonPath() {
+  if (isActionBusy.value || advancedLoading.value) return
   if (isLargeDocument.value) {
     pathResult.value = { ok: false, error: '文档超过 5 MiB，已停止 JSONPath 结构化遍历' }
     return
   }
-  if (!advancedDocument.value.ok) {
-    pathResult.value = { ok: false, error: advancedDocument.value.error }
-    return
+  const source = input.value
+  const expression = jsonPathExpression.value
+  jsonOperationBusy.value = true
+  try {
+    const result = await executeJsonTask('path', { text: source, expression })
+    if (!result || input.value !== source || jsonPathExpression.value !== expression) return
+    pathResult.value = result.ok
+      ? result.value
+      : { ok: false, error: formatJsonError(source, result.error) }
+  } finally {
+    jsonOperationBusy.value = false
   }
-  pathResult.value = queryJsonPath(advancedDocument.value.value, jsonPathExpression.value)
 }
 
-function runDiff() {
-  if (jsonByteLength(input.value) > JSON_ADVANCED_MAX_BYTES || jsonByteLength(compareInput.value) > JSON_ADVANCED_MAX_BYTES) {
-    diffResult.value = { ok: false, error: '参与对比的每份 JSON 都不能超过 16 MiB' }
-    return
+async function runDiff() {
+  if (isActionBusy.value || advancedLoading.value) return
+  const leftText = input.value
+  const rightText = compareInput.value
+  jsonOperationBusy.value = true
+  try {
+    const result = await executeJsonTask('diff', { leftText, rightText })
+    if (!result || input.value !== leftText || compareInput.value !== rightText) return
+    if (!result.ok) {
+      const source = result.side === 'right' ? rightText : leftText
+      const label = result.side === 'right' ? '对比 JSON' : '原始 JSON'
+      diffResult.value = { ok: false, error: `${label}：${formatJsonError(source, result.error)}` }
+      return
+    }
+    diffResult.value = result.value
+  } finally {
+    jsonOperationBusy.value = false
   }
-  const left = parseJsonForMutation(input.value)
-  if (!left.ok) {
-    diffResult.value = { ok: false, error: `原始 JSON：${formatJsonError(input.value, left.error)}` }
-    return
-  }
-  const right = parseJsonForMutation(compareInput.value)
-  if (!right.ok) {
-    diffResult.value = { ok: false, error: `对比 JSON：${formatJsonError(compareInput.value, right.error)}` }
-    return
-  }
-  diffResult.value = diffJson(left.value, right.value)
 }
 
 function stringifyValue(value) {
@@ -681,6 +911,11 @@ function changeKindLabel(type) {
   opacity: 0.4;
 }
 .large-document-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
   padding: 0.6rem 0.85rem;
   border-left: 2px solid var(--accent-amber);
   background: rgba(var(--rgb-amber), 0.08);

@@ -11,6 +11,9 @@ vi.mock('../src/config/registry.js', () => ({
 
 const {
   normalizeAppState,
+  APP_STATE_SCHEMA_VERSION,
+  migratePersistedAppState,
+  readPersistedAppState,
   filterCommonTools,
   getCommonToolsCount,
   MAX_WORKSPACE_BACKUP_BYTES,
@@ -31,6 +34,66 @@ const registeredToolIds = ['base64', 'json-format', 'aes-crypto']
 const registeredTools = tools.filter(tool => registeredToolIds.includes(tool.id))
 
 describe('App state restoration', () => {
+  it('migrates legacy preferences without discarding fields', () => {
+    const migrated = migratePersistedAppState({
+      isDark: false,
+      favorites: ['base64'],
+      openTabs: ['json-format'],
+      currentToolId: 'json-format',
+      locale: 'en-US'
+    })
+
+    expect(migrated).toMatchObject({
+      schemaVersion: APP_STATE_SCHEMA_VERSION,
+      isDark: false,
+      favorites: ['base64'],
+      openTabs: ['json-format'],
+      currentToolId: 'json-format',
+      recentToolIds: [],
+      locale: 'en-US'
+    })
+  })
+
+  it('accepts schema version zero and rejects invalid explicit versions', () => {
+    expect(migratePersistedAppState({ schemaVersion: 0, favorites: ['base64'] })).toMatchObject({
+      schemaVersion: APP_STATE_SCHEMA_VERSION,
+      favorites: ['base64'],
+      recentToolIds: []
+    })
+
+    for (const schemaVersion of [null, '1', true, 1.5, -1, Number.MAX_SAFE_INTEGER, 99]) {
+      const raw = JSON.stringify({ schemaVersion, favorites: ['base64'] })
+      const result = readPersistedAppState({ getItem: () => raw }, 'state')
+      expect(result, `schemaVersion=${String(schemaVersion)}`).toMatchObject({
+        state: null,
+        canSave: false
+      })
+    }
+  })
+
+  it('protects malformed and future-version data from overwrite', () => {
+    for (const raw of [
+      '{bad json',
+      JSON.stringify({ schemaVersion: null, favorites: ['base64'] }),
+      JSON.stringify({ schemaVersion: 99, favorites: ['base64'] })
+    ]) {
+      const storage = { getItem: () => raw }
+      expect(readPersistedAppState(storage, 'state')).toMatchObject({
+        state: null,
+        canSave: false
+      })
+    }
+    expect(() => migratePersistedAppState([])).toThrow('格式无效')
+  })
+
+  it('treats absent stored data as writable defaults', () => {
+    expect(readPersistedAppState({ getItem: () => null }, 'state')).toEqual({
+      state: null,
+      canSave: true,
+      error: null
+    })
+  })
+
   it('preserves an explicitly empty favorites list', () => {
     const state = normalizeAppState({ favorites: [], openTabs: ['base64'], currentToolId: 'base64' }, tools, registeredToolIds)
 
@@ -113,6 +176,21 @@ describe('common tools', () => {
 
   it('applies search to the same common-tools result set', () => {
     expect(filterCommonTools(tools, ['aes-crypto'], 'crypto').map(tool => tool.id)).toEqual(['aes-crypto'])
+  })
+
+  it('uses the command search aliases, normalization, and tokens', () => {
+    const qrTool = {
+      id: 'qrcode-generator',
+      name: '二维码生成与识别',
+      description: '离线二维码处理',
+      tags: ['二维码'],
+      isCommon: true
+    }
+
+    expect(filterCommonTools([qrTool], [], 'QR SCAN')).toEqual([qrTool])
+    expect(filterCommonTools([qrTool], [], 'ＱＲ')).toEqual([qrTool])
+    expect(getCommonToolsCount([qrTool], [], 'qr scan')).toBe(1)
+    expect(filterCommonTools([qrTool], [], 'qr missing')).toEqual([])
   })
 
   it('pins favorites, then recent tools, without mutating the source list', () => {

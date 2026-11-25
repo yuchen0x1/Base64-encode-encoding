@@ -79,6 +79,7 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import { globalToast } from '../../composables/useToast.js'
+import { copyText } from '../../utils/clipboard.js'
 import { generateSecurePassword, generateUuidV4 } from '../../utils/randomTools.js'
 
 const passwordLength = ref(20)
@@ -132,10 +133,8 @@ watch([passwordLength, includeUpper, includeLower, includeNumbers, includeSymbol
 
 async function copy(text) {
   if (!text) return
-  try {
-    await navigator.clipboard.writeText(text)
-    globalToast('已复制到剪贴板')
-  } catch { globalToast('复制失败，请手动选择并复制', 'error') }
+  if (await copyText(text, { reportFailure: false })) globalToast('已复制到剪贴板')
+  else globalToast('复制失败，请手动选择并复制', 'error')
 }
 
 onMounted(() => {

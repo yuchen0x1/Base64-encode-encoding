@@ -4,6 +4,7 @@ import path from 'node:path'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { createRequire } from 'node:module'
+import { stripDevelopmentWebSockets } from './src/utils/rendererCsp.js'
 
 const pkgPath = fileURLToPath(new URL('./package.json', import.meta.url))
 const notesPath = fileURLToPath(new URL('./release-notes.json', import.meta.url))
@@ -85,11 +86,24 @@ function versionManifestPlugin() {
   }
 }
 
-export default defineConfig({
+function rendererCspPlugin(isBuild) {
+  return {
+    name: 'toolbox-renderer-csp',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        return isBuild ? stripDevelopmentWebSockets(html) : html
+      }
+    }
+  }
+}
+
+export default defineConfig(({ command }) => ({
   base: './', // 确保在 Electron 和本地文件协议 (file://) 中资源路径正确
-  plugins: [vue(), versionManifestPlugin(), zxingWasmPlugin()],
+  plugins: [vue(), versionManifestPlugin(), zxingWasmPlugin(), rendererCspPlugin(command === 'build')],
   worker: {
-    format: 'es'
+    format: 'es',
+    plugins: () => [zxingWasmPlugin()]
   },
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
@@ -106,4 +120,4 @@ export default defineConfig({
       ignored: ['**/.tmp-verify/**']
     }
   }
-})
+}))

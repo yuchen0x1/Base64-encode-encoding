@@ -51,6 +51,13 @@ function toolCommand(tool, overrides = {}) {
   }
 }
 
+export function matchesToolSearch(tool, query) {
+  const normalizedQuery = normalizeSearchText(query)
+  if (!normalizedQuery) return true
+  const keywords = normalizeSearchText(toolCommand(tool).keywords)
+  return normalizedQuery.split(/\s+/).every(token => keywords.includes(token))
+}
+
 /**
  * 生成工具箱命令目录：收藏置顶 → 最近使用 → 快捷操作 → 其余工具。
  * 不改变原始 tools 数组或标签页顺序。

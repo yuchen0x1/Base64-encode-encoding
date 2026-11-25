@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatJsonText, assertJsonNumbersRoundTrip } from '../src/utils/jsonText.js'
+import { formatJsonText, assertJsonNumbersRoundTrip, JSON_FORMAT_MAX_LINES } from '../src/utils/jsonText.js'
 import { formatJson, minifyJson, parseJsonForMutation } from '../src/components/tools/jsonTool.js'
 import { createBatchRecipe, executeBatchRecipe } from '../src/utils/batchProcessing.js'
 
@@ -55,6 +55,26 @@ describe('lossless JSON text operations', () => {
     expect(() => formatJsonText(deep)).toThrow('256')
     expect(parseJsonForMutation(deep).ok).toBe(false)
   })
+
+  it('formats and minifies a 5 MiB token-heavy document with bounded scanning', () => {
+    const source = `[${'0,'.repeat(2_800_000)}0]`
+    expect(Buffer.byteLength(source)).toBeGreaterThan(5 * 1024 * 1024)
+
+    const startedAt = performance.now()
+    const pretty = formatJsonText(source)
+    expect(pretty.startsWith('[\n  0,\n  0,\n  0,\n')).toBe(true)
+    expect(pretty.length).toBeGreaterThan(source.length)
+    expect(formatJsonText(pretty, false)).toBe(source)
+    expect(performance.now() - startedAt).toBeLessThan(20_000)
+  }, 30_000)
+
+  it('can stop pretty-printing before a line-heavy result is materialized', () => {
+    const source = `[${'0,'.repeat(JSON_FORMAT_MAX_LINES)}0]`
+    expect(() => formatJsonText(source, true, { maxLines: JSON_FORMAT_MAX_LINES })).toThrow(/超过 100,000 行/)
+    expect(formatJsonText('{"payload":"' + 'x'.repeat(5 * 1024 * 1024) + '"}', true, {
+      maxLines: JSON_FORMAT_MAX_LINES
+    })).toContain('"payload":')
+  }, 30_000)
 
   it('blocks duplicate keys, including escaped aliases, before destructive transformations', () => {
     for (const text of ['{"a":1,"a":2}', String.raw`{"a":1,"\u0061":2}`]) {

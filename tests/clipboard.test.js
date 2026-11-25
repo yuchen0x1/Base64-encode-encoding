@@ -31,4 +31,35 @@ describe('clipboard confirmation', () => {
     vi.stubGlobal('navigator', {})
     await expect(copyText('hello')).resolves.toBe(false)
   })
+
+  it('uses the legacy user-gesture fallback when the Clipboard API is unavailable', async () => {
+    const input = {
+      style: {},
+      setAttribute: vi.fn(),
+      select: vi.fn(),
+      remove: vi.fn()
+    }
+    const body = { appendChild: vi.fn() }
+    vi.stubGlobal('navigator', {})
+    vi.stubGlobal('document', {
+      body,
+      createElement: vi.fn(() => input),
+      execCommand: vi.fn(() => true)
+    })
+
+    await expect(copyText('legacy')).resolves.toBe(true)
+    expect(input.value).toBe('legacy')
+    expect(body.appendChild).toHaveBeenCalledWith(input)
+    expect(input.remove).toHaveBeenCalled()
+  })
+
+  it('rejects empty content instead of reporting a successful blank copy', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('navigator', {})
+    await expect(copyText('')).resolves.toBe(false)
+    expect(useToast().toasts.value.at(-1)).toMatchObject({
+      type: 'error',
+      message: '没有可复制的内容'
+    })
+  })
 })

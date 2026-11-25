@@ -1,10 +1,52 @@
+import { matchesToolSearch } from './commandPalette.js'
+
 export const WORKSPACE_BACKUP_APP = 'geek-toolbox'
 export const WORKSPACE_BACKUP_SCHEMA = 1
+export const APP_STATE_SCHEMA_VERSION = 1
 export const MAX_WORKSPACE_BACKUP_BYTES = 1 * 1024 * 1024
 export const MAX_RECENT_TOOLS = 8
 
 export const DEFAULT_FAVORITE_IDS = ['base64', 'json-format', 'timestamp', 'url-codec', 'radix-convert']
 export const DEFAULT_OPEN_TAB_IDS = ['base64', 'json-format', 'timestamp', 'radix-convert']
+
+export function migratePersistedAppState(savedState) {
+  if (!savedState || typeof savedState !== 'object' || Array.isArray(savedState)) {
+    throw new Error('本地工作区数据格式无效')
+  }
+  const version = savedState.schemaVersion === undefined ? 0 : savedState.schemaVersion
+  if (!Number.isSafeInteger(version) || version < 0 || version > APP_STATE_SCHEMA_VERSION) {
+    throw new Error('本地工作区数据版本不受支持')
+  }
+
+  if (version === 0) {
+    return {
+      ...savedState,
+      recentToolIds: Array.isArray(savedState.recentToolIds) ? savedState.recentToolIds : [],
+      schemaVersion: APP_STATE_SCHEMA_VERSION
+    }
+  }
+  return { ...savedState }
+}
+
+export function readPersistedAppState(storage, key) {
+  let raw
+  try {
+    raw = storage.getItem(key)
+  } catch (error) {
+    return { state: null, canSave: false, error }
+  }
+  if (raw === null) return { state: null, canSave: true, error: null }
+
+  try {
+    return {
+      state: migratePersistedAppState(JSON.parse(raw)),
+      canSave: true,
+      error: null
+    }
+  } catch (error) {
+    return { state: null, canSave: false, error }
+  }
+}
 
 /** 将持久化数据规范化为有效且互相一致的应用状态。 */
 export function normalizeAppState(savedState, tools, registeredToolIds) {
@@ -78,13 +120,9 @@ export function sortToolsByPreference(tools, favoriteIds = [], recentToolIds = [
 /** 常用工具 = 内置常用 ∪ 用户收藏，搜索与展示使用同一结果集。 */
 export function filterCommonTools(tools, favoriteIds, searchQuery = '') {
   const favorites = new Set(Array.isArray(favoriteIds) ? favoriteIds : [])
-  const query = typeof searchQuery === 'string' ? searchQuery.trim().toLowerCase() : ''
   return tools.filter(tool => {
     if (!tool.isCommon && !favorites.has(tool.id)) return false
-    if (!query) return true
-    return tool.name.toLowerCase().includes(query) ||
-      tool.description.toLowerCase().includes(query) ||
-      tool.tags.some(tag => tag.toLowerCase().includes(query))
+    return matchesToolSearch(tool, searchQuery)
   })
 }
 
