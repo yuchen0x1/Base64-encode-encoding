@@ -16,8 +16,8 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-/** 构建产物：每次 build / package 都会重新生成 */
-const BUILD_OUTPUT = ['dist', 'dist-win', 'out', 'release', '.tmp-verify', '.tmp-release']
+/** 构建产物和本地验证文件：可重新生成 */
+const BUILD_OUTPUT = ['dist', 'dist-cli', 'dist-win', 'out', 'release', 'release-candidate', '.tmp-verify', '.tmp-release', 'install.log']
 /** 工具缓存：可选删除，删掉只影响下次构建速度 */
 const CACHES = ['coverage', '.vite', '.eslintcache', 'node_modules/.vite']
 /** 仅在 --all 时清理 */
