@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 const [portText, expectedVersion, timeoutText = '45000'] = process.argv.slice(2)
 const port = Number(portText)
 const timeoutMs = Number(timeoutText)
+const startupOnly = expectedVersion === '--startup'
 
 assert.ok(Number.isInteger(port) && port > 0 && port < 65536, 'A valid CDP port is required.')
-assert.match(expectedVersion || '', /^\d+\.\d+\.\d+$/, 'A stable target version is required.')
+if (!startupOnly) assert.match(expectedVersion || '', /^\d+\.\d+\.\d+$/, 'A stable target version is required.')
 assert.ok(Number.isFinite(timeoutMs) && timeoutMs > 0, 'A positive timeout is required.')
 
 const endpoint = `http://127.0.0.1:${port}/json/list`
@@ -53,6 +54,7 @@ function createCdpClient(socket) {
     const request = pending.get(message.id)
     if (!request) return
     pending.delete(message.id)
+    clearTimeout(request.timer)
     if (message.error) request.reject(new Error(message.error.message || 'CDP command failed'))
     else request.resolve(message.result)
   }
@@ -61,14 +63,21 @@ function createCdpClient(socket) {
   function send(method, params = {}) {
     const id = ++nextId
     return new Promise((resolve, reject) => {
-      pending.set(id, { resolve, reject })
+      const timer = setTimeout(() => {
+        pending.delete(id)
+        reject(new Error(`Timed out waiting for ${method}.`))
+      }, 5000)
+      pending.set(id, { resolve, reject, timer })
       socket.send(JSON.stringify({ id, method, params }))
     })
   }
 
   function close() {
     socket.removeEventListener('message', onMessage)
-    for (const request of pending.values()) request.reject(new Error('CDP socket closed'))
+    for (const request of pending.values()) {
+      clearTimeout(request.timer)
+      request.reject(new Error('CDP socket closed'))
+    }
     pending.clear()
     socket.close()
   }
@@ -83,6 +92,7 @@ async function readUpdateUi(client) {
       const status = document.querySelector('.upd-status')
       const version = document.querySelector('.upd-version-row')
       return {
+        ready: document.readyState === 'complete' && Boolean(document.querySelector('.brand-title')) && Boolean(document.querySelector('.locale-picker select')),
         open: Boolean(backdrop),
         status: status?.textContent?.trim() || '',
         version: version?.textContent?.trim() || '',
@@ -107,13 +117,18 @@ try {
       client = createCdpClient(socket)
       await client.send('Runtime.enable')
       const ui = await readUpdateUi(client)
+      if (startupOnly && ui?.ready) {
+        console.log('PASS: actual installed application rendered its workspace.')
+        process.exitCode = 0
+        break
+      }
       const expectedText = `v${expectedVersion}`
-      if (ui?.open && ui.status.includes(`发现新版本 ${expectedText}`) && ui.version.includes(expectedText)) {
+      if (!startupOnly && ui?.ready && ui.open && ui.status.includes(`发现新版本 ${expectedText}`) && ui.version.includes(expectedText)) {
         console.log(`PASS: real installed renderer displayed update prompt for ${expectedText}.`)
         process.exitCode = 0
         break
       }
-      lastError = new Error(`Update prompt not ready (open=${ui?.open}, status=${JSON.stringify(ui?.status)}, version=${JSON.stringify(ui?.version)}).`)
+      lastError = new Error(`Installed renderer not ready (workspace=${ui?.ready}, open=${ui?.open}, status=${JSON.stringify(ui?.status)}, version=${JSON.stringify(ui?.version)}).`)
     } catch (error) {
       lastError = error
     } finally {
@@ -123,7 +138,8 @@ try {
     await delay(250)
   }
   if (process.exitCode !== 0) {
-    throw new Error(`Timed out waiting for the real update prompt for v${expectedVersion}. ${lastError?.message || ''}`.trim())
+    const target = startupOnly ? 'the installed workspace' : `the real update prompt for v${expectedVersion}`
+    throw new Error(`Timed out waiting for ${target}. ${lastError?.message || ''}`.trim())
   }
 } catch (error) {
   console.error(`FAIL: ${error.message}`)

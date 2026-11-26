@@ -60,7 +60,8 @@ function Invoke-WithUpdateFeed([string]$Feed, [scriptblock]$Action) {
   $hadFeed = Test-Path -LiteralPath 'Env:TOOLBOX_UPDATE_FEED'
   $previousFeed = $env:TOOLBOX_UPDATE_FEED
   try {
-    $env:TOOLBOX_UPDATE_FEED = $Feed
+    if ($Feed) { $env:TOOLBOX_UPDATE_FEED = $Feed }
+    else { Remove-Item -LiteralPath 'Env:TOOLBOX_UPDATE_FEED' -ErrorAction SilentlyContinue }
     & $Action
   } finally {
     if ($hadFeed) { $env:TOOLBOX_UPDATE_FEED = $previousFeed }
@@ -73,22 +74,19 @@ function Test-Startup {
     [int]$RemoteDebuggingPort = 0,
     [string]$ExpectedUpdateVersion = ''
   )
-  $arguments = @("--user-data-dir=`"$profile`"")
-  if ($RemoteDebuggingPort -gt 0) {
-    $arguments += "--remote-debugging-address=127.0.0.1"
-    $arguments += "--remote-debugging-port=$RemoteDebuggingPort"
+  if ($RemoteDebuggingPort -eq 0) {
+    $RemoteDebuggingPort = Get-Random -Minimum 35000 -Maximum 45000
   }
+  $arguments = @("--user-data-dir=`"$profile`"")
+  $arguments += "--remote-debugging-address=127.0.0.1"
+  $arguments += "--remote-debugging-port=$RemoteDebuggingPort"
   $process = Start-Process -FilePath $exe -ArgumentList $arguments -PassThru -WindowStyle Hidden
   try {
-    $opened = $false
-    for ($attempt = 0; $attempt -lt 120; $attempt++) {
-      $process.Refresh()
-      if ($process.HasExited) { throw "Application exited before opening its window ($($process.ExitCode))." }
-      if ($process.MainWindowHandle -ne 0) { $opened = $true; break }
-      Start-Sleep -Milliseconds 250
-    }
-    if (!$opened) { throw 'NSIS-installed application did not open a window within 30 seconds.' }
-    if ($RemoteDebuggingPort -gt 0) {
+    # Hidden startup does not reliably expose MainWindowHandle. Inspect the real
+    # renderer instead, so an empty or failed window cannot pass this smoke.
+    node tests/windows/update-discovery.mjs $RemoteDebuggingPort --startup
+    if ($LASTEXITCODE -ne 0) { throw 'The installed application did not render its workspace.' }
+    if ($ExpectedUpdateVersion) {
       node tests/windows/update-discovery.mjs $RemoteDebuggingPort $ExpectedUpdateVersion
       if ($LASTEXITCODE -ne 0) { throw 'The installed previous version did not display the candidate update prompt.' }
     }
@@ -105,10 +103,11 @@ function Test-Startup {
 
 Install-Toolbox $oldInstaller
 Assert-InstalledVersion $oldVersion
-$updateFeed = (Resolve-Path -LiteralPath 'updates/desktop').Path
 if ($CheckUpdatePrompt) {
   $debugPort = Get-Random -Minimum 35000 -Maximum 45000
-  Invoke-WithUpdateFeed $updateFeed {
+  # The published-client gate must use the real default HTTPS release source,
+  # without a local feed that could conceal a production discovery failure.
+  Invoke-WithUpdateFeed '' {
     Test-Startup -RemoteDebuggingPort $debugPort -ExpectedUpdateVersion $Version
   }
 } else {

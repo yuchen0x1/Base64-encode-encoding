@@ -42,10 +42,12 @@ function readAsarPackageJson(asarPath) {
 
     let packageBuffer
     if (entry.unpacked) {
-      // The unpacked companion is always the fixed sibling of resources/app.asar.
-      // Keep the variable path component limited to the already-open archive's
-      // parent directory; the metadata filename itself is never caller supplied.
-      const packageFd = fs.openSync(path.join(path.dirname(asarPath), 'app.asar.unpacked', 'package.json'), 'r')
+      const resourcesPath = fs.realpathSync(path.dirname(asarPath))
+      const metadataPath = fs.realpathSync(path.join(resourcesPath, 'app.asar.unpacked', 'package.json'))
+      if (!metadataPath.startsWith(`${resourcesPath}${path.sep}`)) {
+        throw new Error('package.json 路径超出应用资源目录')
+      }
+      const packageFd = fs.openSync(metadataPath, 'r')
       try {
         const packageStat = fs.fstatSync(packageFd)
         if (!packageStat.isFile() || packageStat.size !== entry.size) throw new Error('package.json 文件大小与归档索引不一致')

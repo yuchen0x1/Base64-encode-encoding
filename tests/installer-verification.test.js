@@ -65,6 +65,50 @@ describe('installer payload verification', () => {
     }
   })
 
+  it('rejects unpacked metadata linked outside the application resources', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'toolbox-installer-check-'))
+    try {
+      const resources = path.join(root, 'resources')
+      const outside = path.join(root, 'outside')
+      fs.mkdirSync(resources)
+      fs.mkdirSync(outside)
+      fs.writeFileSync(path.join(root, 'GeekToolbox.exe'), Buffer.alloc(1024 * 1024))
+      const packageJson = Buffer.from(JSON.stringify({ version: '1.2.3' }))
+      fs.writeFileSync(path.join(outside, 'package.json'), packageJson)
+      fs.writeFileSync(path.join(resources, 'app.asar'), archiveBuffer(packageJson, { unpacked: true }))
+      fs.symlinkSync(outside, path.join(resources, 'app.asar.unpacked'), 'junction')
+
+      const result = verifyPayload(root, 'GeekToolbox.exe', '1.2.3')
+      expect(result.ok).toBe(false)
+      expect(result.problems.join(' ')).toContain('路径超出应用资源目录')
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects oversized unpacked metadata before reading its contents', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'toolbox-installer-check-'))
+    let spy
+    try {
+      const resources = path.join(root, 'resources')
+      const unpacked = path.join(resources, 'app.asar.unpacked')
+      fs.mkdirSync(unpacked, { recursive: true })
+      fs.writeFileSync(path.join(root, 'GeekToolbox.exe'), Buffer.alloc(1024 * 1024))
+      const packageJson = Buffer.from(JSON.stringify({ version: '1.2.3' }))
+      fs.writeFileSync(path.join(resources, 'app.asar'), archiveBuffer(packageJson, { unpacked: true }))
+      fs.writeFileSync(path.join(unpacked, 'package.json'), Buffer.alloc(2 * 1024 * 1024))
+      spy = vi.spyOn(fs, 'readSync')
+
+      const result = verifyPayload(root, 'GeekToolbox.exe', '1.2.3')
+      expect(result.ok).toBe(false)
+      expect(result.problems.join(' ')).toContain('文件大小与归档索引不一致')
+      expect(spy).toHaveBeenCalledTimes(2)
+    } finally {
+      spy?.mockRestore()
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   it('accepts an app.asar package.json declaring the exact expected version', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'toolbox-installer-check-'))
     try {
