@@ -116,4 +116,39 @@ describe('Windows renderer update flow', () => {
     await pending
     expect(updater.state.status).toBe('ready')
   })
+
+  it('keeps a background download cancellable when the command palette checks for updates', async () => {
+    const bridge = desktopBridge()
+    let resolveDownload
+    bridge.download.mockImplementation(() => new Promise((resolve) => { resolveDownload = resolve }))
+    const { useUpdater } = await import('../src/composables/useUpdater.js')
+    const updater = useUpdater()
+    await updater.checkForUpdates({ manual: true })
+    const pending = updater.downloadUpdate()
+    updater.closeUpdatePanel()
+    bridge.check.mockRejectedValueOnce(new Error('更新任务正在进行'))
+
+    const result = await updater.checkForUpdates({ manual: true })
+
+    expect(result.busy).toBe(true)
+    expect(bridge.check).toHaveBeenCalledOnce()
+    expect(updater.state.status).toBe('downloading')
+    expect(updater.state.open).toBe(true)
+    await expect(updater.cancelDownloadUpdate()).resolves.toMatchObject({ cancelled: true })
+    resolveDownload({ ok: true })
+    await pending
+  })
+
+  it('preserves the installation state when checking through the command palette', async () => {
+    const bridge = desktopBridge()
+    const { useUpdater } = await import('../src/composables/useUpdater.js')
+    const updater = useUpdater()
+    await updater.checkForUpdates({ manual: true })
+    await updater.downloadUpdate()
+    await updater.installUpdate()
+
+    await expect(updater.checkForUpdates({ manual: true })).resolves.toMatchObject({ busy: true })
+    expect(updater.state.status).toBe('restarting')
+    expect(bridge.check).toHaveBeenCalledOnce()
+  })
 })

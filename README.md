@@ -14,9 +14,9 @@
 
 <!-- github-release:start -->
 
-**[v0.1.4 已发布](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.4)** · 2026-11-26 · Windows x64 / CLI
+**[v0.1.4](https://github.com/yuchen0x1/Base64-encode-encoding/releases/tag/v0.1.4)** · 2026-11-27 · Windows x64 / CLI
 
-本版改进开发仓库的本地清理，不更改桌面应用功能。v0.1.2 用户仍需先手动覆盖安装 v0.1.3，之后可继续使用应用内更新。
+修复编码往返、SQL 注释与字符串、JSONPath 边界、批处理暂停继续和差异行数统计；加固图片格式识别、更新与安装校验，并改进安全清理。v0.1.3 用户可使用应用内更新；v0.1.2 用户需手动覆盖安装本版一次。
 
 [全部发行记录](https://github.com/yuchen0x1/Base64-encode-encoding/releases)
 

@@ -90,6 +90,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: desktop-release
+          retention-days: 7
           path: |
             updates/desktop/version.json
             updates/desktop/GeekToolbox-Setup-*.exe
@@ -121,6 +122,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         with:
           name: cli-release
+          retention-days: 7
           path: dist-cli/GeekToolbox-CLI-*.mjs
           if-no-files-found: error
 
@@ -196,3 +198,35 @@ jobs:
             done
           done
           gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name | grep -Fx "$TAG"
+
+  verify-previous-client-update:
+    name: Previous Windows client discovers the published update
+    needs: [prepare, publish]
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: refs/tags/${{ needs.prepare.outputs.tag }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Download the published installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          gh release download $env:TAG --pattern "GeekToolbox-Setup-$env:VERSION.exe" --dir release
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot download the published installer.' }
+          gh release download $env:TAG --pattern version.json --dir updates/desktop
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot download the published update manifest.' }
+          $asset = "GeekToolbox-Setup-$env:VERSION.exe"
+          gh release download $env:TAG --pattern $asset --dir updates/desktop
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot stage the published update package.' }
+      - name: Verify actual previous installed client displays this release
+        shell: pwsh
+        run: ./tests/windows/install-smoke.ps1 -Version $env:VERSION -CheckUpdatePrompt

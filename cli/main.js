@@ -82,12 +82,16 @@ async function main(args) {
   }
 }
 
+function reportCliError(error) {
+  // Parser errors and file paths may contain terminal control sequences.
+  const message = JSON.stringify(String(error?.message ?? error)).slice(1, -1)
+    .replace(/[\u007f-\u009f]/g, character => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`)
+  console.error('Geek Toolbox: %s', message)
+  process.exitCode = 1
+}
+
 process.stdout.on('error', error => {
   if (error.code === 'EPIPE') return
-  console.error(error.message)
-  process.exitCode = 1
+  reportCliError(error)
 })
-main(process.argv.slice(2)).catch(error => {
-  console.error(`Geek Toolbox: ${error.message}`)
-  process.exitCode = 1
-})
+main(process.argv.slice(2)).catch(reportCliError)

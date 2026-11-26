@@ -56,3 +56,19 @@ test('mixed recipe sources are rejected before reading input', () => {
   assert.equal(result.stdout, '')
   assert.match(result.stderr, /Choose either/)
 })
+
+test('argument errors escape terminal and log control characters', () => {
+  const controls = '\x1b[31m\x07\r\n\x9b31m'
+  const result = run(['run', `--unknown-${controls}`])
+  assert.equal(result.status, 1)
+  assert.equal(result.stdout, '')
+  assert.ok(Array.from(result.stderr.trimEnd()).every(character => {
+    const code = character.charCodeAt(0)
+    return code > 0x1f && (code < 0x7f || code > 0x9f)
+  }))
+  assert.match(result.stderr, /\\u001b/)
+  assert.match(result.stderr, /\\u0007/)
+  assert.match(result.stderr, /\\r\\n/)
+  assert.match(result.stderr, /\\u009b/)
+  assert.equal(result.stderr.split(/\r?\n/).filter(Boolean).length, 1)
+})

@@ -1,5 +1,6 @@
 param(
-  [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version
+  [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version,
+  [switch]$CheckUpdatePrompt
 )
 $ErrorActionPreference = 'Stop'
 if (!$IsWindows -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:GITHUB_ACTIONS -ne 'true') {
@@ -55,16 +56,42 @@ function Assert-InstalledVersion([string]$Expected) {
 
 # Chromium uses the same profile before and after upgrade.
 $profile = Join-Path $root 'profile'
-function Test-Startup {
-  $process = Start-Process -FilePath $exe -ArgumentList "--user-data-dir=`"$profile`"" -PassThru
+function Invoke-WithUpdateFeed([string]$Feed, [scriptblock]$Action) {
+  $hadFeed = Test-Path -LiteralPath 'Env:TOOLBOX_UPDATE_FEED'
+  $previousFeed = $env:TOOLBOX_UPDATE_FEED
   try {
+    $env:TOOLBOX_UPDATE_FEED = $Feed
+    & $Action
+  } finally {
+    if ($hadFeed) { $env:TOOLBOX_UPDATE_FEED = $previousFeed }
+    else { Remove-Item -LiteralPath 'Env:TOOLBOX_UPDATE_FEED' -ErrorAction SilentlyContinue }
+  }
+}
+
+function Test-Startup {
+  param(
+    [int]$RemoteDebuggingPort = 0,
+    [string]$ExpectedUpdateVersion = ''
+  )
+  $arguments = @("--user-data-dir=`"$profile`"")
+  if ($RemoteDebuggingPort -gt 0) {
+    $arguments += "--remote-debugging-address=127.0.0.1"
+    $arguments += "--remote-debugging-port=$RemoteDebuggingPort"
+  }
+  $process = Start-Process -FilePath $exe -ArgumentList $arguments -PassThru -WindowStyle Hidden
+  try {
+    $opened = $false
     for ($attempt = 0; $attempt -lt 120; $attempt++) {
       $process.Refresh()
       if ($process.HasExited) { throw "Application exited before opening its window ($($process.ExitCode))." }
-      if ($process.MainWindowHandle -ne 0) { return }
+      if ($process.MainWindowHandle -ne 0) { $opened = $true; break }
       Start-Sleep -Milliseconds 250
     }
-    throw 'NSIS-installed application did not open a window within 30 seconds.'
+    if (!$opened) { throw 'NSIS-installed application did not open a window within 30 seconds.' }
+    if ($RemoteDebuggingPort -gt 0) {
+      node tests/windows/update-discovery.mjs $RemoteDebuggingPort $ExpectedUpdateVersion
+      if ($LASTEXITCODE -ne 0) { throw 'The installed previous version did not display the candidate update prompt.' }
+    }
   } finally {
     if (!$process.HasExited) {
       [void]$process.CloseMainWindow()
@@ -78,7 +105,15 @@ function Test-Startup {
 
 Install-Toolbox $oldInstaller
 Assert-InstalledVersion $oldVersion
-Test-Startup
+$updateFeed = (Resolve-Path -LiteralPath 'updates/desktop').Path
+if ($CheckUpdatePrompt) {
+  $debugPort = Get-Random -Minimum 35000 -Maximum 45000
+  Invoke-WithUpdateFeed $updateFeed {
+    Test-Startup -RemoteDebuggingPort $debugPort -ExpectedUpdateVersion $Version
+  }
+} else {
+  Test-Startup
+}
 $oldPreferences = Join-Path $profile 'Preferences'
 if (!(Test-Path -LiteralPath $oldPreferences)) { throw 'Electron test profile was not created.' }
 $marker = Join-Path $profile 'lifecycle-marker.txt'

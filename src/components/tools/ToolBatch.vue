@@ -289,6 +289,7 @@ let cancelRequested = false
 let pauseRequested = false
 let runList = []
 let runner = null
+let processingPass = null
 let activeReader = null
 let seed = 0
 const nextId = () => ++seed
@@ -474,10 +475,14 @@ function pauseProcessing() {
 }
 async function resumeProcessing() {
   if (!processing.value || !paused.value) return
+  // The aborted pass must finish its cleanup before a replacement owns runner.
+  await processingPass
+  if (!processing.value || !paused.value) return
   paused.value = false
   pauseRequested = false
   runStatus.value = 'running'
-  await processPending()
+  processingPass = processPending()
+  await processingPass
 }
 function readFileAsBytes(file) {
   return new Promise((resolve, reject) => {
@@ -543,6 +548,10 @@ async function processPending() {
 }
 async function start() {
   if (processing.value) return
+  if (processingPass) {
+    await processingPass
+    if (processing.value) return
+  }
   const mode = sourceMode.value
   const list = mode === 'text' ? [...lines.value] : [...files.value]
   runError.value = ''
@@ -566,7 +575,8 @@ async function start() {
   search.value = ''
   progress.value = processedCount.value = 0
   totalCount.value = list.length
-  await processPending()
+  processingPass = processPending()
+  await processingPass
 }
 onUnmounted(cancel)
 </script>

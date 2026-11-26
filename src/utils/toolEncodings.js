@@ -1,4 +1,4 @@
-const utf8Decoder = () => new TextDecoder('utf-8', { fatal: true })
+const utf8Decoder = () => new TextDecoder('utf-8', { fatal: true, ignoreBOM: true })
 
 export function encodeUtf8ToBase64(text, urlSafe = false) {
   const bytes = new TextEncoder().encode(text)
@@ -18,7 +18,7 @@ export function encodeUtf8ToBase64(text, urlSafe = false) {
 }
 
 export function decodeBase64ToUtf8(text, urlSafe = false) {
-  let clean = text.trim()
+  let clean = text.trim().replace(/[\t\n\f\r ]/g, '')
   if (!clean) return ''
 
   try {
@@ -185,6 +185,6 @@ export function unescapeHex(text) {
   return text.replace(/(?:\\x[0-9a-fA-F]{2})+/g, escapedRun => {
     const tokens = escapedRun.match(/\\x[0-9a-fA-F]{2}/g) || []
     const bytes = Uint8Array.from(tokens, token => Number.parseInt(token.slice(2), 16))
-    return new TextDecoder().decode(bytes)
+    return new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes)
   })
 }

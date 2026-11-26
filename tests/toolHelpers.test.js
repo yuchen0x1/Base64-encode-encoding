@@ -60,6 +60,17 @@ describe('image DataURL helpers', () => {
     expect(parseImageDataUrl('not an image')).toBeNull()
   })
 
+  it('recognizes SVG after XML declarations, comments and a doctype', () => {
+    const svg = '<?xml version="1.0"?>\n<!-- first --><!-- second -->\n<!DOCTYPE svg>\n<svg xmlns="http://www.w3.org/2000/svg"></svg>'
+    expect(parseImageDataUrl(btoa(svg))).toMatchObject({ mimeType: 'image/svg+xml' })
+  })
+
+  it('rejects repeated malformed SVG comment prefixes without backtracking', () => {
+    const malformed = '<!--' + '--><!--'.repeat(500) + 'not-svg'
+    expect(parseImageDataUrl(btoa(malformed))).toBeNull()
+    expect(parseImageDataUrl(btoa('<svg-not-an-element>'))).toBeNull()
+  })
+
   it('enforces a caller-provided decoded image size limit', () => {
     const pngBytes = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
     const payload = bytesToBase64(pngBytes)

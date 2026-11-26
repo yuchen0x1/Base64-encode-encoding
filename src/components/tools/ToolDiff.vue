@@ -78,9 +78,8 @@ const diffStats = computed(() => {
   let added = 0
   let removed = 0
   diffParts.value.forEach(part => {
-    const lines = part.value.split('\n').filter(Boolean).length
-    if (part.added) added += lines
-    if (part.removed) removed += lines
+    if (part.added) added += part.count
+    if (part.removed) removed += part.count
   })
   return { added, removed }
 })

@@ -143,15 +143,24 @@ export function parseJsonPath(expression) {
         steps.push({ type: 'index', index: value })
       } else {
         const slice = /^(-?\d*):(-?\d*)(?::(-?\d*))?$/.exec(content)
-        if (!slice || slice[3] === '0') {
+        if (!slice) {
           throw new JsonPathError(`不支持的 JSONPath 方括号语法：[${content}]`)
         }
-        const toIndex = value => value === '' || value === undefined ? undefined : Number(value)
+        const toIndex = value => {
+          if (value === '' || value === undefined) return undefined
+          const number = Number(value)
+          if (!Number.isSafeInteger(number)) throw new JsonPathError('JSONPath 切片参数必须是安全整数')
+          return number
+        }
+        const start = toIndex(slice[1])
+        const end = toIndex(slice[2])
+        const step = toIndex(slice[3])
+        if (step === 0) throw new JsonPathError('JSONPath 切片步长不能为 0')
         steps.push({
           type: 'slice',
-          start: toIndex(slice[1]),
-          end: toIndex(slice[2]),
-          step: toIndex(slice[3])
+          start,
+          end,
+          step
         })
       }
       index = skipWhitespace(source, close + 1)
@@ -185,13 +194,19 @@ function collectRecursive(value, parts, key, results, state, depth = 0) {
   if (Array.isArray(value)) {
     for (let index = 0; index < value.length; index += 1) {
       const childParts = [...parts, { type: 'index', index }]
-      if (key === '*') results.push({ value: value[index], parts: childParts })
+      if (key === '*') {
+        if (results.length >= state.maxResults) throw new JsonPathError(`JSONPath 结果超过 ${state.maxResults} 条，请缩小查询范围`)
+        results.push({ value: value[index], parts: childParts })
+      }
       collectRecursive(value[index], childParts, key, results, state, depth + 1)
     }
   } else {
     for (const childKey of Object.keys(value)) {
       const childParts = [...parts, { key: childKey }]
-      if (key === '*') results.push({ value: value[childKey], parts: childParts })
+      if (key === '*') {
+        if (results.length >= state.maxResults) throw new JsonPathError(`JSONPath 结果超过 ${state.maxResults} 条，请缩小查询范围`)
+        results.push({ value: value[childKey], parts: childParts })
+      }
       collectRecursive(value[childKey], childParts, key, results, state, depth + 1)
     }
   }

@@ -88,6 +88,10 @@ function bindElectron() {
 export function checkForUpdates(options = {}) {
   const { manual = false } = options
   if (checkPromise) return checkPromise
+  if (['downloading', 'restarting'].includes(state.status)) {
+    if (manual) state.open = true
+    return Promise.resolve({ hasUpdate: Boolean(state.latest), latest: state.latest, busy: true })
+  }
 
   state.status = 'checking'
   state.error = ''

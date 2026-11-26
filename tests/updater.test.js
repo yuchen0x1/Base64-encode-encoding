@@ -548,6 +548,42 @@ describe('Electron updater package enforcement', () => {
     }
   })
 
+  windowsIt.each(['file:///C:/private/setup.exe', 'ftp://updates.example.test/setup.exe', 'C:\\private\\setup.exe'])(
+    'does not turn a remote manifest package URL into a local file read (%s)', async url => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({
+        version: '1.0.1', kind: 'nsis', package: { url, sha256: validSha256 }
+      }))
+      const oldFeed = process.env.TOOLBOX_UPDATE_FEED
+      process.env.TOOLBOX_UPDATE_FEED = 'https://updates.example.test'
+      try {
+        await expect(checkForUpdates()).rejects.toThrow(/下载类型|HTTP\(S\)/)
+        await expect(downloadUpdate()).rejects.toThrow(/没有可用的更新/)
+        expect(fetchSpy).toHaveBeenCalledOnce()
+      } finally {
+        if (oldFeed === undefined) delete process.env.TOOLBOX_UPDATE_FEED
+        else process.env.TOOLBOX_UPDATE_FEED = oldFeed
+        fetchSpy.mockRestore()
+      }
+    }
+  )
+
+  windowsIt('keeps malformed manifest errors on a single diagnostic log line', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      await withFeed({}, async (_root, feed) => {
+        await fs.promises.writeFile(path.join(feed, 'version.json'), 'untrusted\n[updater] forged-success')
+        scheduleStartupCheck(1)
+        await vi.waitFor(() => expect(warnSpy).toHaveBeenCalledOnce())
+        const loggedMessage = warnSpy.mock.calls[0][1]
+        expect(loggedMessage).not.toMatch(/[\r\n]/)
+        expect(loggedMessage).toContain('\\n')
+      })
+    } finally {
+      shutdownUpdater()
+      warnSpy.mockRestore()
+    }
+  })
+
   windowsIt('retries an interrupted HTTP download and resumes with Range when supported', async () => {
     await withPlatform('win32', async () => {
       const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'toolbox-updater-range-'))
@@ -1188,6 +1224,32 @@ describe('Electron updater package enforcement', () => {
         await fs.promises.rm(root, { recursive: true, force: true })
       }
     })
+  })
+
+  windowsIt('closes rejected HTTP response streams before leaving a download attempt', async () => {
+    const cancellations = []
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      const cancel = vi.fn()
+      cancellations.push(cancel)
+      return new Response(new ReadableStream({ cancel }), {
+        status: 200,
+        headers: { 'content-length': String(MAX_UPDATE_PACKAGE_BYTES + 1) }
+      })
+    })
+    try {
+      await withFeed({
+        version: '1.0.1',
+        kind: 'nsis',
+        package: { url: 'https://updates.example.test/installer.exe', sha256: validSha256, size: 16 }
+      }, async () => {
+        await checkForUpdates()
+        await expect(downloadUpdate()).rejects.toThrow(/大小上限/)
+        expect(cancellations).toHaveLength(3)
+        for (const cancel of cancellations) expect(cancel).toHaveBeenCalledOnce()
+      })
+    } finally {
+      fetchSpy.mockRestore()
+    }
   })
 
   windowsIt('cancels an in-flight HTTP download and removes the partial installer', async () => {

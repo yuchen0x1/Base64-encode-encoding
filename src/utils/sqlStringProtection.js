@@ -1,4 +1,4 @@
-const sqlTokens = /--[^\n]*|\/\*[\s\S]*?\*\/|'(?:''|[^'])*'|"(?:""|[^"])*"|`(?:``|[^`])*`/g
+const sqlTokens = /--[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:''|[^'])*'|"(?:""|[^"])*"|`(?:``|[^`])*`/g
 const clauseBreaks = /\s+(?=(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|OFFSET|UNION|VALUES|SET)\b)/gi
 
 function transformSqlOutsideStrings(sql, transform, removeComments = false) {
@@ -12,8 +12,14 @@ function transformSqlOutsideStrings(sql, transform, removeComments = false) {
     const isComment = token.startsWith('--') || token.startsWith('/*')
 
     if (isComment) {
-      if (!removeComments) plainText += token
-      else plainText += ' '
+      if (removeComments) plainText += ' '
+      else {
+        if (plainText) parts.push(transform(plainText))
+        plainText = ''
+        parts.push(token)
+        // A line comment must not consume the following SQL when whitespace is collapsed.
+        if (token.startsWith('--')) parts.push('\n')
+      }
     } else {
       if (plainText) parts.push(transform(plainText))
       plainText = ''
@@ -58,7 +64,7 @@ export function minifySqlText(sql) {
 
   return transformSqlOutsideStrings(source, text => text
     .replace(/\s+/g, ' ')
-    .replace(/\s*([(),;])\s*/g, '$1')
-    .trim(), true)
-    .replace(/,\s*/g, ', ')
+    .replace(/\s*([();])\s*/g, '$1')
+    .replace(/\s*,\s*/g, ', '), true)
+    .trim()
 }
