@@ -22,6 +22,7 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { normalizeVersion, compareVersions } from '../shared/version.js'
+import { runTool } from './run-tool.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -110,26 +111,9 @@ async function updatePackageVersion(version) {
   console.log(`[release] 版本号更新为 ${version}`)
 }
 
-function run(command, commandArgs, options = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, commandArgs, {
-      cwd: ROOT,
-      stdio: 'inherit',
-      shell: process.platform === 'win32',
-      ...options
-    })
-    child.on('error', reject)
-    child.on('exit', (code) => {
-      if (code === 0) resolve()
-      else reject(new Error(`${command} ${commandArgs.join(' ')} 退出码 ${code}`))
-    })
-  })
-}
-
 /**
- * 不经过 shell 的进程调用。
- * shell=true 时 Node 只是把 command + args 用空格拼接，路径里带空格（本项目路径就带）
- * 会被拆成多个参数，因此 7z 这类需要传绝对路径的调用必须走这条。
+ * 不经过 shell 的 7-Zip 调用。参数保持数组形式，避免路径中的空格或特殊字符
+ * 被命令解释器重新解析。
  */
 function runDirect(command, commandArgs) {
   return new Promise((resolve, reject) => {
@@ -308,8 +292,7 @@ async function buildDesktopInstaller(version) {
     console.log(`[release] 复用已构建的安装包：${installerPath}`)
   } else {
     console.log(`[release] 构建 Windows 安装包（NSIS）→ ${outDir}/ …`)
-    await run('npx', [
-      'electron-builder',
+    await runTool('electron-builder', [
       '--win',
       'nsis',
       '--x64',
@@ -317,6 +300,7 @@ async function buildDesktopInstaller(version) {
       'never',
       ...(args.out ? [`--config.directories.output=${args.out}`] : [])
     ], {
+      cwd: ROOT,
       // 兼容 WorkBuddy / Agent 运行环境：其 Node 安全删除垫片会把 electron-builder 的
       // fs.rm(win-unpacked) 改写成异步「回收站移动」，与随后的解压/压缩竞态。
       // 该变量只影响本子进程，不改变系统行为。
@@ -357,7 +341,7 @@ async function main() {
 
   if (!args.skipBuild) {
     console.log('[release] 构建前端（vite build）…')
-    await run('npm', ['run', 'build'])
+    await runTool('vite', ['build'], { cwd: ROOT })
   }
 
   await assertDist(nextVersion)

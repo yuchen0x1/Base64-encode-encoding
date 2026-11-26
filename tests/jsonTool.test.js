@@ -35,6 +35,23 @@ describe('JSON tool helpers', () => {
     expect(JSON.parse(JSON.stringify(cleaned))).toEqual(parsed)
   })
 
+  it('keeps nested prototype-like keys as JSON data rather than inherited properties', () => {
+    const parsed = JSON.parse('{"nested":[{"__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}},"hasOwnProperty":"value"}]}')
+    for (const transform of [sortJsonObjectKeys, removeEmptyJsonValues]) {
+      const result = transform(parsed)
+      const nested = result.nested[0]
+      expect(Object.getPrototypeOf(result)).toBeNull()
+      expect(Object.getPrototypeOf(nested)).toBeNull()
+      expect(Object.getPrototypeOf(nested.constructor)).toBeNull()
+      expect(Object.hasOwn(nested, '__proto__')).toBe(true)
+      expect(Object.hasOwn(nested, 'constructor')).toBe(true)
+      expect(nested.hasOwnProperty).toBe('value')
+      expect(JSON.parse(JSON.stringify(result))).toEqual(parsed)
+    }
+    expect({}.polluted).toBeUndefined()
+    expect(Object.prototype.polluted).toBeUndefined()
+  })
+
   it('rejects non-string JSON values when unescaping and leaves their input intact', () => {
     for (const text of ['{}', 'null', '0', 'true']) {
       const result = unescapeJsonString(text)

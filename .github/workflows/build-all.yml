@@ -48,4 +48,5 @@ jobs:
         with:
           name: Windows-Installer
           path: release/GeekToolbox-Setup-*.exe
+          retention-days: 7
           if-no-files-found: error

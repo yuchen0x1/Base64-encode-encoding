@@ -36,6 +36,33 @@ function asciiAt(bytes, offset, length) {
   return value
 }
 
+function isSvgMarkup(text) {
+  let offset = 0
+  const skipWhitespace = () => {
+    while (offset < text.length && /\s/.test(text[offset])) offset += 1
+  }
+  if (/^<\?xml\b/i.test(text)) {
+    const end = text.indexOf('?>', offset)
+    if (end < 0) return false
+    offset = end + 2
+    skipWhitespace()
+  }
+  // Scan one comment at a time instead of backtracking across comment endings.
+  while (text.startsWith('<!--', offset)) {
+    const end = text.indexOf('-->', offset + 4)
+    if (end < 0) return false
+    offset = end + 3
+    skipWhitespace()
+  }
+  if (/^<!doctype\s+svg\b/i.test(text.slice(offset))) {
+    const end = text.indexOf('>', offset)
+    if (end < 0) return false
+    offset = end + 1
+    skipWhitespace()
+  }
+  return /^<svg(?:\s|>)/i.test(text.slice(offset))
+}
+
 function detectImageMime(bytes) {
   if (bytes.length >= 8 && asciiAt(bytes, 0, 8) === '\x89PNG\r\n\x1a\n') return 'image/png'
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg'
@@ -52,7 +79,7 @@ function detectImageMime(bytes) {
   const text = new TextDecoder().decode(bytes.subarray(0, Math.min(bytes.length, 4096)))
     .replace(/^\uFEFF/, '')
     .trimStart()
-  if (/^(?:<\?xml\b[\s\S]*?\?>\s*)?(?:<!--[\s\S]*?-->\s*)*(?:<!doctype\s+svg\b[^>]*>\s*)?<svg(?:\s|>)/i.test(text)) {
+  if (isSvgMarkup(text)) {
     return 'image/svg+xml'
   }
 

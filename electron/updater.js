@@ -768,6 +768,7 @@ async function downloadHttpTo(
     const requestController = new AbortController()
     let timeoutId
     let externalAbort
+    let responseBody
     const armTimeout = () => {
       clearTimeout(timeoutId)
       timeoutId = setTimeout(() => requestController.abort(), UPDATE_DOWNLOAD_IDLE_TIMEOUT_MS)
@@ -791,6 +792,7 @@ async function downloadHttpTo(
         headers,
         signal: requestController.signal
       })
+      responseBody = res?.body
       if (res?.url) assertAllowedUpdateRedirect(res.url, url, '更新包重定向地址')
       if (!res?.ok) throw new Error(`下载更新包失败：HTTP ${res?.status ?? '未知状态'}`)
       if (!res.body || typeof res.body.getReader !== 'function') {
@@ -906,6 +908,8 @@ async function downloadHttpTo(
     } finally {
       clearTimeout(timeoutId)
       if (signal && externalAbort) signal.removeEventListener('abort', externalAbort)
+      // Validation can fail before a reader exists; release that HTTP response too.
+      await responseBody?.cancel().catch(() => {})
     }
   }
 
@@ -1264,7 +1268,7 @@ async function prepareRollback(workDir, version) {
     return ['--rollback-installer', installer, '--rollback-sha256', asset.sha256, '--previous-version', version]
   } catch (error) {
     await fs.rm(installer, { force: true }).catch(() => {})
-    console.warn('[updater] 未能准备旧版安装包，将使用交互式修复：', error.message)
+    console.warn('[updater] 未能准备旧版安装包，将使用交互式修复：', JSON.stringify(error.message))
     return []
   }
 }
@@ -1393,7 +1397,7 @@ export function scheduleStartupCheck(delay = 4000) {
       }
     } catch (error) {
       // 启动时更新源不可用（离线 / 未配置）不弹窗打扰，仅在控制台留痕
-      console.warn('[updater] 启动检查跳过:', error.message)
+      console.warn('[updater] 启动检查跳过:', JSON.stringify(error.message))
     }
   }, delay)
 }

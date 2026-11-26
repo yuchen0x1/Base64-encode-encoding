@@ -10,11 +10,10 @@ const MAX_PACKAGE_JSON_SIZE = 1024 * 1024
  * installer helper independent of app.asar modules and package resolution.
  */
 function readAsarPackageJson(asarPath) {
-  const stat = fs.statSync(asarPath)
-  if (!stat.isFile() || stat.size < 16) throw new Error('ASAR 文件无效或过短')
-
   const fd = fs.openSync(asarPath, 'r')
   try {
+    const stat = fs.fstatSync(fd)
+    if (!stat.isFile() || stat.size < 16) throw new Error('ASAR 文件无效或过短')
     const prefix = Buffer.alloc(8)
     if (fs.readSync(fd, prefix, 0, prefix.length, 0) !== prefix.length) {
       throw new Error('无法读取 ASAR 头部长度')
@@ -37,15 +36,28 @@ function readAsarPackageJson(asarPath) {
 
     const index = JSON.parse(header.toString('utf8', 8, 8 + headerStringLength))
     const entry = index?.files?.['package.json']
-    if (!entry || entry.files || typeof entry.size !== 'number' || entry.size < 2 || entry.size > MAX_PACKAGE_JSON_SIZE) {
+    if (!entry || entry.files || !Number.isSafeInteger(entry.size) || entry.size < 2 || entry.size > MAX_PACKAGE_JSON_SIZE) {
       throw new Error('ASAR 缺少有效的 package.json')
     }
 
     let packageBuffer
     if (entry.unpacked) {
-      const unpackedPath = `${asarPath}.unpacked`
-      packageBuffer = fs.readFileSync(path.join(unpackedPath, 'package.json'))
-      if (packageBuffer.length > MAX_PACKAGE_JSON_SIZE) throw new Error('package.json 文件过大')
+      const resourcesPath = fs.realpathSync(path.dirname(asarPath))
+      const metadataPath = fs.realpathSync(path.join(resourcesPath, 'app.asar.unpacked', 'package.json'))
+      if (!metadataPath.startsWith(`${resourcesPath}${path.sep}`)) {
+        throw new Error('package.json 路径超出应用资源目录')
+      }
+      const packageFd = fs.openSync(metadataPath, 'r')
+      try {
+        const packageStat = fs.fstatSync(packageFd)
+        if (!packageStat.isFile() || packageStat.size !== entry.size) throw new Error('package.json 文件大小与归档索引不一致')
+        packageBuffer = Buffer.alloc(entry.size)
+        if (fs.readSync(packageFd, packageBuffer, 0, packageBuffer.length, 0) !== packageBuffer.length) {
+          throw new Error('package.json 文件不完整')
+        }
+      } finally {
+        fs.closeSync(packageFd)
+      }
     } else {
       if (typeof entry.offset !== 'string' || !/^\d+$/.test(entry.offset)) {
         throw new Error('ASAR package.json 偏移无效')

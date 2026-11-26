@@ -64,6 +64,25 @@ describe('UTF-8 Base64', () => {
     expect(() => decodeBase64ToUtf8('%%%')).toThrow(/Base64/)
     expect(() => decodeBase64ToUtf8('/w==')).toThrow(/Base64/)
   })
+
+  it('accepts whitespace-separated Base64 consistently in standard and URL-safe modes', () => {
+    for (const urlSafe of [false, true]) {
+      expect(decodeBase64ToUtf8('5Lit\n5paH', urlSafe)).toBe('中文')
+      expect(decodeBase64ToUtf8('Z g', urlSafe)).toBe('f')
+    }
+  })
+
+  it('preserves a leading UTF-8 BOM through all text encoding round trips', () => {
+    const original = '\uFEFFhello 中文'
+    for (const [encode, decode] of [
+      [encodeUtf8ToBase64, decodeBase64ToUtf8],
+      [encodeHexText, decodeHexText],
+      [encodeBase32, decodeBase32],
+      [escapeHex, unescapeHex]
+    ]) {
+      expect(decode(encode(original)), encode.name).toBe(original)
+    }
+  })
 })
 
 describe('Unicode and Hex escapes', () => {

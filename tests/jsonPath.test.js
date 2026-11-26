@@ -59,4 +59,20 @@ describe('JSONPath subset', () => {
     expect(queryJsonPath(value, '$.constructor')).toMatchObject({ ok: true, count: 0 })
     expect({}.polluted).toBeUndefined()
   })
+
+  it('rejects malformed, unsafe and numerically zero slice parameters', () => {
+    for (const slice of ['[-:]', '[:-]', '[::-]', '[::00]', '[::-0]', '[::9007199254740992]', '[9007199254740992:]', '[:9007199254740992]']) {
+      expect(queryJsonPath(document, `$.items${slice}`), slice).toMatchObject({ ok: false })
+    }
+    expect(queryJsonPath(document, '$.items[::01].id').results.map(result => result.value)).toEqual([1, 2, 3])
+  })
+
+  it('stops recursive wildcard traversal at the result limit before reading extra leaves', () => {
+    const value = [1, 2]
+    Object.defineProperty(value, 2, { get() { throw new Error('read beyond result limit') } })
+    expect(queryJsonPath(value, '$..*', { maxResults: 2 })).toMatchObject({
+      ok: false,
+      error: 'JSONPath 结果超过 2 条，请缩小查询范围'
+    })
+  })
 })

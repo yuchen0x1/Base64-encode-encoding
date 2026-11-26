@@ -19,7 +19,27 @@ describe('SQL string protection', () => {
   it('does not treat comment markers inside string literals as comments', () => {
     const sql = "SELECT '-- keep this', '/* keep this */', value -- remove comment"
 
-    expect(minifySqlText(sql)).toBe("SELECT'-- keep this', '/* keep this */', value")
+    expect(minifySqlText(sql)).toBe("SELECT '-- keep this', '/* keep this */', value")
+  })
+
+  it('preserves commas and whitespace inside quoted strings and identifiers', () => {
+    const sql = `SELECT 'a,b', 'x,  y', "column,a", \`column,b\` FROM source`
+    expect(minifySqlText(sql)).toBe(sql)
+  })
+
+  it('retains statement separation after line comments while formatting', () => {
+    for (const newline of ['\n', '\r\n', '\r']) {
+      const sql = `SELECT a -- keep WHERE x, y${newline}FROM source WHERE a = 1`
+      const formatted = formatSqlText(sql)
+      expect(formatted).toMatch(/-- keep WHERE x, y\n\s*FROM source/)
+      expect(formatted).toContain('\nWHERE a = 1')
+      expect(minifySqlText(sql)).toBe('SELECT a FROM source WHERE a = 1')
+    }
+  })
+
+  it('does not format SQL keywords or punctuation inside block comments', () => {
+    const comment = '/* keep WHERE x,   y AND z */'
+    expect(formatSqlText(`SELECT a ${comment} FROM source`)).toContain(comment)
   })
 
   it('retains the existing empty-input behavior', () => {
